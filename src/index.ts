@@ -71,8 +71,11 @@ function injectModelsConfig(logger: { info: (msg: string) => void }): void {
       models: OPENCLAW_MODELS,
     };
 
+    // Set blockrun/auto as the default model for smart routing
+    config.models.default = "blockrun/auto";
+
     writeFileSync(configPath, JSON.stringify(config, null, 2));
-    logger.info("Injected BlockRun models into OpenClaw config");
+    logger.info("Injected BlockRun models into OpenClaw config (default: blockrun/auto)");
   } catch {
     // Silently fail — config injection is best-effort
   }
@@ -278,7 +281,10 @@ const plugin: OpenClawPluginDefinition = {
       models: OPENCLAW_MODELS,
     };
 
-    api.logger.info("BlockRun provider registered (30+ models via x402)");
+    // Set blockrun/auto as default for smart routing
+    api.config.models.default = "blockrun/auto";
+
+    api.logger.info("BlockRun provider registered (default: blockrun/auto)");
 
     // Start x402 proxy in background (fire-and-forget)
     // OpenClaw only calls register(), not activate() — so all init goes here.
