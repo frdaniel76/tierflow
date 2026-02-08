@@ -254,6 +254,42 @@ const config = DEFAULT_ROUTING_CONFIG;
     ruSimple.tier === "SIMPLE",
     `Russian "привет...что такое" → ${ruSimple.tier} (should be SIMPLE)`,
   );
+
+  // German reasoning - beweisen (prove) + schritt für schritt (step by step)
+  const deReasoning = classifyByRules(
+    "Beweisen Sie, dass die Quadratwurzel von 2 irrational ist, Schritt für Schritt",
+    undefined,
+    25,
+    config.scoring,
+  );
+  assert(
+    deReasoning.tier === "REASONING",
+    `German "beweisen...schritt für schritt" → ${deReasoning.tier} (should be REASONING)`,
+  );
+
+  // German simple - hallo (hello) + was ist (what is)
+  const deSimple = classifyByRules(
+    "Hallo, was ist maschinelles Lernen?",
+    undefined,
+    10,
+    config.scoring,
+  );
+  assert(
+    deSimple.tier === "SIMPLE",
+    `German "hallo...was ist" → ${deSimple.tier} (should be SIMPLE)`,
+  );
+
+  // German technical - algorithmus (algorithm) + optimieren (optimize)
+  const deTech = classifyByRules(
+    "Optimieren Sie den Sortieralgorithmus für eine verteilte Architektur",
+    undefined,
+    20,
+    config.scoring,
+  );
+  assert(
+    deTech.tier !== "SIMPLE",
+    `German "algorithmus...verteilt" → ${deTech.tier} (should NOT be SIMPLE)`,
+  );
 }
 
 // Override: large context

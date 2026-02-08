@@ -125,6 +125,7 @@ ClawRouter's keyword-based routing works with prompts in:
 | **Chinese (中文)**    | Han/CJK      | 证明, 定理, 你好, 什么是       |
 | **Japanese (日本語)** | Kanji + Kana | 証明, こんにちは, アルゴリズム |
 | **Russian (Русский)** | Cyrillic     | доказать, привет, алгоритм     |
+| **German (Deutsch)**  | Latin        | beweisen, hallo, algorithmus   |
 
 Mixed-language prompts are supported — keywords from all languages are checked simultaneously.
 

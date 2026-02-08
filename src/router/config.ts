@@ -23,7 +23,7 @@ export const DEFAULT_ROUTING_CONFIG: RoutingConfig = {
   scoring: {
     tokenCountThresholds: { simple: 50, complex: 500 },
 
-    // Multilingual keywords: English + Chinese (中文) + Japanese (日本語) + Russian (Русский)
+    // Multilingual keywords: English + Chinese (中文) + Japanese (日本語) + Russian (Русский) + German (Deutsch)
     codeKeywords: [
       // English
       "function",
@@ -67,6 +67,17 @@ export const DEFAULT_ROUTING_CONFIG: RoutingConfig = {
       "константа",
       "переменная",
       "вернуть",
+      // German
+      "funktion",
+      "klasse",
+      "importieren",
+      "definieren",
+      "abfrage",
+      "asynchron",
+      "erwarten",
+      "konstante",
+      "variable",
+      "zurückgeben",
     ],
     reasoningKeywords: [
       // English
@@ -108,6 +119,16 @@ export const DEFAULT_ROUTING_CONFIG: RoutingConfig = {
       "формально",
       "математически",
       "логически",
+      // German
+      "beweisen",
+      "beweis",
+      "theorem",
+      "ableiten",
+      "schritt für schritt",
+      "gedankenkette",
+      "formal",
+      "mathematisch",
+      "logisch",
     ],
     simpleKeywords: [
       // English
@@ -150,6 +171,17 @@ export const DEFAULT_ROUTING_CONFIG: RoutingConfig = {
       "кто такой",
       "когда",
       "объясни",
+      // German
+      "was ist",
+      "definiere",
+      "übersetze",
+      "hallo",
+      "ja oder nein",
+      "hauptstadt",
+      "wie alt",
+      "wer ist",
+      "wann",
+      "erkläre",
     ],
     technicalKeywords: [
       // English
@@ -186,6 +218,15 @@ export const DEFAULT_ROUTING_CONFIG: RoutingConfig = {
       "микросервис",
       "база данных",
       "инфраструктура",
+      // German
+      "algorithmus",
+      "optimieren",
+      "architektur",
+      "verteilt",
+      "kubernetes",
+      "mikroservice",
+      "datenbank",
+      "infrastruktur",
     ],
     creativeKeywords: [
       // English
@@ -222,6 +263,15 @@ export const DEFAULT_ROUTING_CONFIG: RoutingConfig = {
       "представить",
       "придумай",
       "напиши",
+      // German
+      "geschichte",
+      "gedicht",
+      "komponieren",
+      "brainstorming",
+      "kreativ",
+      "vorstellen",
+      "schreibe",
+      "erzählung",
     ],
 
     // New dimension keyword lists (multilingual)
@@ -273,6 +323,17 @@ export const DEFAULT_ROUTING_CONFIG: RoutingConfig = {
       "разверни",
       "настроить",
       "настрой",
+      // German
+      "erstellen",
+      "bauen",
+      "implementieren",
+      "entwerfen",
+      "entwickeln",
+      "konstruieren",
+      "generieren",
+      "bereitstellen",
+      "konfigurieren",
+      "einrichten",
     ],
     constraintIndicators: [
       // English
@@ -310,6 +371,15 @@ export const DEFAULT_ROUTING_CONFIG: RoutingConfig = {
       "минимум",
       "ограничение",
       "бюджет",
+      // German
+      "höchstens",
+      "mindestens",
+      "innerhalb",
+      "nicht mehr als",
+      "maximal",
+      "minimal",
+      "grenze",
+      "budget",
     ],
     outputFormatKeywords: [
       // English
@@ -334,6 +404,10 @@ export const DEFAULT_ROUTING_CONFIG: RoutingConfig = {
       "таблица",
       "форматировать как",
       "структурированный",
+      // German
+      "tabelle",
+      "formatieren als",
+      "strukturiert",
     ],
     referenceKeywords: [
       // English
@@ -370,6 +444,15 @@ export const DEFAULT_ROUTING_CONFIG: RoutingConfig = {
       "код",
       "ранее",
       "вложение",
+      // German
+      "oben",
+      "unten",
+      "vorherige",
+      "folgende",
+      "dokumentation",
+      "der code",
+      "früher",
+      "anhang",
     ],
     negationKeywords: [
       // English
@@ -404,6 +487,14 @@ export const DEFAULT_ROUTING_CONFIG: RoutingConfig = {
       "кроме",
       "исключить",
       "больше не",
+      // German
+      "nicht",
+      "vermeide",
+      "niemals",
+      "ohne",
+      "außer",
+      "ausschließen",
+      "nicht mehr",
     ],
     domainSpecificKeywords: [
       // English
@@ -442,6 +533,15 @@ export const DEFAULT_ROUTING_CONFIG: RoutingConfig = {
       "гомоморфный",
       "с нулевым разглашением",
       "на основе решёток",
+      // German
+      "quanten",
+      "photonik",
+      "genomik",
+      "proteomik",
+      "topologisch",
+      "homomorph",
+      "zero-knowledge",
+      "gitterbasiert",
     ],
 
     // Dimension weights (sum to 1.0)
