@@ -98,6 +98,12 @@ export type PluginLogger = {
   error: (message: string) => void;
 };
 
+export type OpenClawPluginService = {
+  id: string;
+  start: () => void | Promise<void>;
+  stop?: () => void | Promise<void>;
+};
+
 export type OpenClawPluginApi = {
   id: string;
   name: string;
@@ -114,7 +120,7 @@ export type OpenClawPluginApi = {
   registerTool: (tool: unknown, opts?: unknown) => void;
   registerHook: (events: string | string[], handler: unknown, opts?: unknown) => void;
   registerHttpRoute: (params: { path: string; handler: unknown }) => void;
-  registerService: (service: unknown) => void;
+  registerService: (service: OpenClawPluginService) => void;
   registerCommand: (command: unknown) => void;
   resolvePath: (input: string) => string;
   on: (hookName: string, handler: unknown, opts?: unknown) => void;

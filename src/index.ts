@@ -304,25 +304,31 @@ const plugin: OpenClawPluginDefinition = {
 
     api.logger.info("BlockRun provider registered (30+ models via x402)");
 
-    // Register cleanup hook for gateway hot restarts (prevents EADDRINUSE on port 8402)
-    api.on("gateway_stop", async () => {
-      if (activeProxyHandle) {
-        try {
-          await activeProxyHandle.close();
-          api.logger.info("BlockRun proxy closed for gateway restart");
-        } catch (err) {
-          api.logger.warn(
-            `Failed to close proxy: ${err instanceof Error ? err.message : String(err)}`,
-          );
+    // Register a service with stop() for cleanup on gateway shutdown
+    // This prevents EADDRINUSE when the gateway restarts
+    api.registerService({
+      id: "clawrouter-proxy",
+      start: () => {
+        // No-op: proxy is started in register() below for immediate availability
+      },
+      stop: async () => {
+        // Close proxy on gateway shutdown to release port 8402
+        if (activeProxyHandle) {
+          try {
+            await activeProxyHandle.close();
+            api.logger.info("BlockRun proxy closed");
+          } catch (err) {
+            api.logger.warn(
+              `Failed to close proxy: ${err instanceof Error ? err.message : String(err)}`,
+            );
+          }
+          activeProxyHandle = null;
         }
-        activeProxyHandle = null;
-      }
+      },
     });
 
     // Start x402 proxy in background (fire-and-forget)
-    // OpenClaw only calls register(), not activate() — so all init goes here.
-    // The loader ignores async returns, but the proxy starts in the background
-    // and setActiveProxy() makes it available to the provider once ready.
+    // Must happen in register() for CLI command support (services only start with gateway)
     startProxyInBackground(api).catch((err) => {
       api.logger.error(
         `Failed to start BlockRun proxy: ${err instanceof Error ? err.message : String(err)}`,
