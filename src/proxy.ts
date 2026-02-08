@@ -61,7 +61,8 @@ const KIMI_TOKEN_RE = /<[｜|][^<>]*[｜|]>/g;
 const THINKING_TAG_RE = /<\s*\/?\s*(?:think(?:ing)?|thought|antthinking)\b[^>]*>/gi;
 
 // Full thinking blocks: <think>content</think>
-const THINKING_BLOCK_RE = /<\s*(?:think(?:ing)?|thought|antthinking)\b[^>]*>[\s\S]*?<\s*\/\s*(?:think(?:ing)?|thought|antthinking)\s*>/gi;
+const THINKING_BLOCK_RE =
+  /<\s*(?:think(?:ing)?|thought|antthinking)\b[^>]*>[\s\S]*?<\s*\/\s*(?:think(?:ing)?|thought|antthinking)\s*>/gi;
 
 /**
  * Strip thinking tokens and blocks from model response content.

@@ -23,16 +23,18 @@ const TEST_CASES = [
       object: "chat.completion",
       created: Date.now(),
       model: "moonshot-v1-8k",
-      choices: [{
-        index: 0,
-        message: {
-          role: "assistant",
-          content: "sessions_list()<｜end▁of▁thinking｜>{\"sessions\": [{\"id\": 1}]}"
+      choices: [
+        {
+          index: 0,
+          message: {
+            role: "assistant",
+            content: 'sessions_list()<｜end▁of▁thinking｜>{"sessions": [{"id": 1}]}',
+          },
+          finish_reason: "stop",
         },
-        finish_reason: "stop"
-      }]
+      ],
     },
-    expectedContent: "sessions_list(){\"sessions\": [{\"id\": 1}]}"
+    expectedContent: 'sessions_list(){"sessions": [{"id": 1}]}',
   },
   {
     name: "Full Kimi thinking block",
@@ -41,16 +43,19 @@ const TEST_CASES = [
       object: "chat.completion",
       created: Date.now(),
       model: "moonshot-v1-8k",
-      choices: [{
-        index: 0,
-        message: {
-          role: "assistant",
-          content: "<｜begin▁of▁thinking｜>Let me think about this...<｜end▁of▁thinking｜>The answer is 42."
+      choices: [
+        {
+          index: 0,
+          message: {
+            role: "assistant",
+            content:
+              "<｜begin▁of▁thinking｜>Let me think about this...<｜end▁of▁thinking｜>The answer is 42.",
+          },
+          finish_reason: "stop",
         },
-        finish_reason: "stop"
-      }]
+      ],
     },
-    expectedContent: "The answer is 42."
+    expectedContent: "The answer is 42.",
   },
   {
     name: "Standard think tags",
@@ -59,16 +64,18 @@ const TEST_CASES = [
       object: "chat.completion",
       created: Date.now(),
       model: "gpt-4o",
-      choices: [{
-        index: 0,
-        message: {
-          role: "assistant",
-          content: "Hello <think>internal reasoning here</think> world!"
+      choices: [
+        {
+          index: 0,
+          message: {
+            role: "assistant",
+            content: "Hello <think>internal reasoning here</think> world!",
+          },
+          finish_reason: "stop",
         },
-        finish_reason: "stop"
-      }]
+      ],
     },
-    expectedContent: "Hello  world!"
+    expectedContent: "Hello  world!",
   },
   {
     name: "Clean response (no tokens)",
@@ -77,17 +84,19 @@ const TEST_CASES = [
       object: "chat.completion",
       created: Date.now(),
       model: "gpt-4o",
-      choices: [{
-        index: 0,
-        message: {
-          role: "assistant",
-          content: "This is a normal response without any thinking tokens."
+      choices: [
+        {
+          index: 0,
+          message: {
+            role: "assistant",
+            content: "This is a normal response without any thinking tokens.",
+          },
+          finish_reason: "stop",
         },
-        finish_reason: "stop"
-      }]
+      ],
     },
-    expectedContent: "This is a normal response without any thinking tokens."
-  }
+    expectedContent: "This is a normal response without any thinking tokens.",
+  },
 ];
 
 let currentTestIndex = 0;
@@ -139,8 +148,8 @@ async function runTests() {
         body: JSON.stringify({
           model: tc.mockResponse.model,
           messages: [{ role: "user", content: `test-${i}-${Date.now()}` }],
-          stream: true
-        })
+          stream: true,
+        }),
       });
 
       if (!response.ok) {
@@ -149,7 +158,7 @@ async function runTests() {
 
       // Read SSE response and extract content
       const text = await response.text();
-      const lines = text.split("\n").filter(l => l.startsWith("data: ") && !l.includes("[DONE]"));
+      const lines = text.split("\n").filter((l) => l.startsWith("data: ") && !l.includes("[DONE]"));
 
       let content = "";
       for (const line of lines) {
@@ -190,7 +199,7 @@ async function runTests() {
   process.exit(failed > 0 ? 1 : 0);
 }
 
-runTests().catch(err => {
+runTests().catch((err) => {
   console.error("Test failed:", err);
   process.exit(1);
 });
