@@ -453,7 +453,27 @@ export async function startProxy(options: ProxyOptions): Promise<ProxyHandle> {
 
   // Listen on configured port (already determined above)
   return new Promise<ProxyHandle>((resolve, reject) => {
-    server.on("error", reject);
+    server.on("error", (err: NodeJS.ErrnoException) => {
+      // Handle EADDRINUSE gracefully — proxy is already running
+      if (err.code === "EADDRINUSE") {
+        // Port is in use, which means a proxy is already running.
+        // This can happen when openclaw logs triggers plugin reload.
+        // Silently reuse the existing proxy instead of failing.
+        const baseUrl = `http://127.0.0.1:${listenPort}`;
+        options.onReady?.(listenPort);
+        resolve({
+          port: listenPort,
+          baseUrl,
+          walletAddress: account.address,
+          balanceMonitor,
+          close: async () => {
+            // No-op: we didn't start this proxy, so we shouldn't close it
+          },
+        });
+        return;
+      }
+      reject(err);
+    });
 
     server.listen(listenPort, "127.0.0.1", () => {
       const addr = server.address() as AddressInfo;
