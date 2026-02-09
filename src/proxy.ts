@@ -1165,11 +1165,13 @@ async function proxyRequest(
           };
 
           // Build base chunk structure (reused for all chunks)
+          // Match OpenAI's exact format including system_fingerprint
           const baseChunk = {
             id: rsp.id ?? `chatcmpl-${Date.now()}`,
             object: "chat.completion.chunk",
             created: rsp.created ?? Math.floor(Date.now() / 1000),
             model: rsp.model ?? "unknown",
+            system_fingerprint: null,
           };
 
           // Process each choice (usually just one)
@@ -1184,7 +1186,7 @@ async function proxyRequest(
               // Chunk 1: role only (mimics OpenAI's first chunk)
               const roleChunk = {
                 ...baseChunk,
-                choices: [{ index, delta: { role }, finish_reason: null }],
+                choices: [{ index, delta: { role }, logprobs: null, finish_reason: null }],
               };
               const roleData = `data: ${JSON.stringify(roleChunk)}\n\n`;
               res.write(roleData);
@@ -1194,7 +1196,7 @@ async function proxyRequest(
               if (content) {
                 const contentChunk = {
                   ...baseChunk,
-                  choices: [{ index, delta: { content }, finish_reason: null }],
+                  choices: [{ index, delta: { content }, logprobs: null, finish_reason: null }],
                 };
                 const contentData = `data: ${JSON.stringify(contentChunk)}\n\n`;
                 res.write(contentData);
@@ -1206,7 +1208,7 @@ async function proxyRequest(
               if (toolCalls && toolCalls.length > 0) {
                 const toolCallChunk = {
                   ...baseChunk,
-                  choices: [{ index, delta: { tool_calls: toolCalls }, finish_reason: null }],
+                  choices: [{ index, delta: { tool_calls: toolCalls }, logprobs: null, finish_reason: null }],
                 };
                 const toolCallData = `data: ${JSON.stringify(toolCallChunk)}\n\n`;
                 res.write(toolCallData);
@@ -1216,7 +1218,7 @@ async function proxyRequest(
               // Chunk 3: finish_reason (signals completion)
               const finishChunk = {
                 ...baseChunk,
-                choices: [{ index, delta: {}, finish_reason: choice.finish_reason ?? "stop" }],
+                choices: [{ index, delta: {}, logprobs: null, finish_reason: choice.finish_reason ?? "stop" }],
               };
               const finishData = `data: ${JSON.stringify(finishChunk)}\n\n`;
               res.write(finishData);
