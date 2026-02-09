@@ -303,8 +303,6 @@ async function createStatsCommand(): Promise<OpenClawPluginCommandDefinition> {
             "```",
             ascii,
             "```",
-            "",
-            `View detailed dashboard: http://127.0.0.1:${getProxyPort()}/dashboard`,
           ].join("\n"),
         };
       } catch (err) {

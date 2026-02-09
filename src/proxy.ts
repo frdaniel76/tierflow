@@ -1188,7 +1188,8 @@ async function proxyRequest(
       // Non-streaming: forward status and headers from upstream
       const responseHeaders: Record<string, string> = {};
       upstream.headers.forEach((value, key) => {
-        if (key === "transfer-encoding" || key === "connection") return;
+        // Skip hop-by-hop headers and content-encoding (fetch already decompresses)
+        if (key === "transfer-encoding" || key === "connection" || key === "content-encoding") return;
         responseHeaders[key] = value;
       });
 
