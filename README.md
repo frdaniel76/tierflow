@@ -627,6 +627,15 @@ Wallet needs funding.
 3. $1-5 is enough for hundreds of requests
 4. Restart OpenClaw
 
+### "WARNING: dangerous code patterns — possible credential harvesting"
+
+This is a **false positive**. ClawRouter legitimately:
+
+1. Reads `BLOCKRUN_WALLET_KEY` from environment (for authentication)
+2. Sends authenticated requests to BlockRun API (for x402 micropayments)
+
+This pattern triggers OpenClaw's security scanner, but it's the intended behavior — the wallet key is required to sign payment transactions. The code is fully open source and auditable.
+
 ### Security Scanner Warning: "env-harvesting"
 
 OpenClaw's security scanner may flag ClawRouter with:
