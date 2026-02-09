@@ -154,11 +154,52 @@ function isProviderError(status: number, body: string): boolean {
 }
 
 /**
+ * Valid message roles for OpenAI-compatible APIs.
+ * Some clients send non-standard roles (e.g., "developer" instead of "system").
+ */
+const VALID_ROLES = new Set(["system", "user", "assistant", "tool", "function"]);
+
+/**
+ * Role mappings for non-standard roles.
+ * Maps client-specific roles to standard OpenAI roles.
+ */
+const ROLE_MAPPINGS: Record<string, string> = {
+  developer: "system", // OpenAI's newer API uses "developer" for system messages
+  model: "assistant", // Some APIs use "model" instead of "assistant"
+};
+
+type ChatMessage = { role: string; content: string | unknown };
+
+/**
+ * Normalize message roles to standard OpenAI format.
+ * Converts non-standard roles (e.g., "developer") to valid ones.
+ */
+function normalizeMessageRoles(messages: ChatMessage[]): ChatMessage[] {
+  if (!messages || messages.length === 0) return messages;
+
+  let hasChanges = false;
+  const normalized = messages.map((msg) => {
+    if (VALID_ROLES.has(msg.role)) return msg;
+
+    const mappedRole = ROLE_MAPPINGS[msg.role];
+    if (mappedRole) {
+      hasChanges = true;
+      return { ...msg, role: mappedRole };
+    }
+
+    // Unknown role - default to "user" to avoid API errors
+    hasChanges = true;
+    return { ...msg, role: "user" };
+  });
+
+  return hasChanges ? normalized : messages;
+}
+
+/**
  * Normalize messages for Google models.
  * Google's Gemini API requires the first non-system message to be from "user".
  * If conversation starts with "assistant"/"model", prepend a placeholder user message.
  */
-type ChatMessage = { role: string; content: string | unknown };
 
 function normalizeMessagesForGoogle(messages: ChatMessage[]): ChatMessage[] {
   if (!messages || messages.length === 0) return messages;
@@ -574,11 +615,16 @@ async function tryModelRequest(
   balanceMonitor: BalanceMonitor,
   signal: AbortSignal,
 ): Promise<ModelRequestResult> {
-  // Update model in body and normalize messages for Google models
+  // Update model in body and normalize messages
   let requestBody = body;
   try {
     const parsed = JSON.parse(body.toString()) as Record<string, unknown>;
     parsed.model = modelId;
+
+    // Normalize message roles (e.g., "developer" -> "system")
+    if (Array.isArray(parsed.messages)) {
+      parsed.messages = normalizeMessageRoles(parsed.messages as ChatMessage[]);
+    }
 
     // Normalize messages for Google models (first non-system message must be "user")
     if (isGoogleModel(modelId) && Array.isArray(parsed.messages)) {
