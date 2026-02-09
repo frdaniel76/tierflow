@@ -15,10 +15,7 @@ import { homedir } from "node:os";
 export type UsageEntry = {
   timestamp: string;
   model: string;
-  tier: string;
   cost: number;
-  baselineCost: number;
-  savings: number; // 0-1 percentage
   latencyMs: number;
 };
 
