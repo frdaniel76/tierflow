@@ -56,6 +56,8 @@ Done! Smart routing (`blockrun/auto`) is now your default model.
 ### Tips
 
 - **Use `/model blockrun/auto`** in any conversation to switch on the fly
+- **Free tier?** Use `/model free` — routes to nvidia/gpt-oss-120b at $0
+- **Model aliases:** `/model sonnet`, `/model grok`, `/model deepseek`, `/model kimi`
 - **Want a specific model?** Use `blockrun/openai/gpt-4o` or `blockrun/anthropic/claude-sonnet-4`
 - **Already have a funded wallet?** `export BLOCKRUN_WALLET_KEY=0x...`
 
@@ -724,6 +726,8 @@ BLOCKRUN_WALLET_KEY=0x... npx tsx test-e2e.ts
 - [x] Context-aware routing — filter out models that can't handle context size
 - [x] Session persistence — pin model for multi-turn conversations
 - [x] Cost tracking — /stats command with savings dashboard
+- [x] Model aliases — `/model free`, `/model sonnet`, `/model grok`, etc.
+- [x] Free tier — nvidia/gpt-oss-120b for $0 when wallet is empty
 - [ ] Cascade routing — try cheap model first, escalate on low quality
 - [ ] Spend controls — daily/monthly budgets
 - [ ] Remote analytics — cost tracking at blockrun.ai

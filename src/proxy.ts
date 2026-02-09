@@ -1208,7 +1208,14 @@ async function proxyRequest(
               if (toolCalls && toolCalls.length > 0) {
                 const toolCallChunk = {
                   ...baseChunk,
-                  choices: [{ index, delta: { tool_calls: toolCalls }, logprobs: null, finish_reason: null }],
+                  choices: [
+                    {
+                      index,
+                      delta: { tool_calls: toolCalls },
+                      logprobs: null,
+                      finish_reason: null,
+                    },
+                  ],
                 };
                 const toolCallData = `data: ${JSON.stringify(toolCallChunk)}\n\n`;
                 res.write(toolCallData);
@@ -1218,7 +1225,14 @@ async function proxyRequest(
               // Chunk 3: finish_reason (signals completion)
               const finishChunk = {
                 ...baseChunk,
-                choices: [{ index, delta: {}, logprobs: null, finish_reason: choice.finish_reason ?? "stop" }],
+                choices: [
+                  {
+                    index,
+                    delta: {},
+                    logprobs: null,
+                    finish_reason: choice.finish_reason ?? "stop",
+                  },
+                ],
               };
               const finishData = `data: ${JSON.stringify(finishChunk)}\n\n`;
               res.write(finishData);
