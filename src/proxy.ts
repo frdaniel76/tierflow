@@ -41,6 +41,12 @@ import { RequestDeduplicator } from "./dedup.js";
 import { BalanceMonitor } from "./balance.js";
 import { InsufficientFundsError, EmptyWalletError } from "./errors.js";
 import { USER_AGENT } from "./version.js";
+import {
+  SessionStore,
+  getSessionId,
+  DEFAULT_SESSION_CONFIG,
+  type SessionConfig,
+} from "./session.js";
 
 const BLOCKRUN_API = "https://blockrun.ai/api";
 const AUTO_MODEL = "blockrun/auto";
@@ -254,6 +260,11 @@ export type ProxyOptions = {
   requestTimeoutMs?: number;
   /** Skip balance checks (for testing only). Default: false */
   skipBalanceCheck?: boolean;
+  /**
+   * Session persistence config. When enabled, maintains model selection
+   * across requests within a session to prevent mid-task model switching.
+   */
+  sessionConfig?: Partial<SessionConfig>;
   onReady?: (port: number) => void;
   onError?: (error: Error) => void;
   onPayment?: (info: { model: string; amount: string; network: string }) => void;
@@ -385,6 +396,9 @@ export async function startProxy(options: ProxyOptions): Promise<ProxyHandle> {
   // Request deduplicator (shared across all requests)
   const deduplicator = new RequestDeduplicator();
 
+  // Session store for model persistence (prevents mid-task model switching)
+  const sessionStore = new SessionStore(options.sessionConfig);
+
   const server = createServer(async (req: IncomingMessage, res: ServerResponse) => {
     // Health check with optional balance info
     if (req.url === "/health" || req.url?.startsWith("/health?")) {
@@ -476,6 +490,7 @@ export async function startProxy(options: ProxyOptions): Promise<ProxyHandle> {
         routerOpts,
         deduplicator,
         balanceMonitor,
+        sessionStore,
       );
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err));
@@ -537,6 +552,7 @@ export async function startProxy(options: ProxyOptions): Promise<ProxyHandle> {
         balanceMonitor,
         close: () =>
           new Promise<void>((res, rej) => {
+            sessionStore.close();
             server.close((err) => (err ? rej(err) : res()));
           }),
       });
@@ -653,6 +669,7 @@ async function proxyRequest(
   routerOpts: RouterOptions,
   deduplicator: RequestDeduplicator,
   balanceMonitor: BalanceMonitor,
+  sessionStore: SessionStore,
 ): Promise<void> {
   const startTime = Date.now();
 
@@ -713,30 +730,54 @@ async function proxyRequest(
       }
 
       if (isAutoModel) {
-        // Extract prompt from messages
-        type ChatMessage = { role: string; content: string };
-        const messages = parsed.messages as ChatMessage[] | undefined;
-        let lastUserMsg: ChatMessage | undefined;
-        if (messages) {
-          for (let i = messages.length - 1; i >= 0; i--) {
-            if (messages[i].role === "user") {
-              lastUserMsg = messages[i];
-              break;
+        // Check for session persistence - use pinned model if available
+        const sessionId = getSessionId(req.headers as Record<string, string | string[] | undefined>);
+        const existingSession = sessionId ? sessionStore.getSession(sessionId) : undefined;
+
+        if (existingSession) {
+          // Use the session's pinned model instead of re-routing
+          console.log(
+            `[ClawRouter] Session ${sessionId?.slice(0, 8)}... using pinned model: ${existingSession.model}`,
+          );
+          parsed.model = existingSession.model;
+          modelId = existingSession.model;
+          bodyModified = true;
+          sessionStore.touchSession(sessionId!);
+        } else {
+          // No session or expired - route normally
+          // Extract prompt from messages
+          type ChatMessage = { role: string; content: string };
+          const messages = parsed.messages as ChatMessage[] | undefined;
+          let lastUserMsg: ChatMessage | undefined;
+          if (messages) {
+            for (let i = messages.length - 1; i >= 0; i--) {
+              if (messages[i].role === "user") {
+                lastUserMsg = messages[i];
+                break;
+              }
             }
           }
+          const systemMsg = messages?.find((m: ChatMessage) => m.role === "system");
+          const prompt = typeof lastUserMsg?.content === "string" ? lastUserMsg.content : "";
+          const systemPrompt = typeof systemMsg?.content === "string" ? systemMsg.content : undefined;
+
+          routingDecision = route(prompt, systemPrompt, maxTokens, routerOpts);
+
+          // Replace model in body
+          parsed.model = routingDecision.model;
+          modelId = routingDecision.model;
+          bodyModified = true;
+
+          // Pin this model to the session for future requests
+          if (sessionId) {
+            sessionStore.setSession(sessionId, routingDecision.model, routingDecision.tier);
+            console.log(
+              `[ClawRouter] Session ${sessionId.slice(0, 8)}... pinned to model: ${routingDecision.model}`,
+            );
+          }
+
+          options.onRouted?.(routingDecision);
         }
-        const systemMsg = messages?.find((m: ChatMessage) => m.role === "system");
-        const prompt = typeof lastUserMsg?.content === "string" ? lastUserMsg.content : "";
-        const systemPrompt = typeof systemMsg?.content === "string" ? systemMsg.content : undefined;
-
-        routingDecision = route(prompt, systemPrompt, maxTokens, routerOpts);
-
-        // Replace model in body
-        parsed.model = routingDecision.model;
-        modelId = routingDecision.model;
-        bodyModified = true;
-
-        options.onRouted?.(routingDecision);
       }
 
       // Rebuild body if modified

@@ -560,3 +560,5 @@ export { fetchWithRetry, isRetryable, DEFAULT_RETRY_CONFIG } from "./retry.js";
 export type { RetryConfig } from "./retry.js";
 export { getStats, formatStatsAscii, generateDashboardHtml } from "./stats.js";
 export type { DailyStats, AggregatedStats } from "./stats.js";
+export { SessionStore, getSessionId, DEFAULT_SESSION_CONFIG } from "./session.js";
+export type { SessionEntry, SessionConfig } from "./session.js";
