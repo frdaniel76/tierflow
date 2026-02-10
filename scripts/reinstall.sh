@@ -52,11 +52,7 @@ lsof -ti :8402 | xargs kill -9 2>/dev/null || true
 echo "→ Cleaning models cache..."
 rm -f ~/.openclaw/agents/main/agent/models.json 2>/dev/null || true
 
-# 4. Reinstall
-echo "→ Installing ClawRouter..."
-openclaw plugins install @blockrun/clawrouter
-
-# 5. Inject auth profile (ensures blockrun provider is recognized)
+# 4. Inject auth profile (ensures blockrun provider is recognized)
 echo "→ Injecting auth profile..."
 node -e "
 const os = require('os');
@@ -100,7 +96,7 @@ if (!store.profiles[profileKey]) {
 }
 "
 
-# 6. Add plugin to allow list (required for OpenClaw to load it)
+# 5. Add plugin to allow list (required for OpenClaw to load it)
 echo "→ Adding to plugins allow list..."
 node -e "
 const os = require('os');
@@ -133,7 +129,7 @@ if (fs.existsSync(configPath)) {
 }
 "
 
-# 7. Ensure apiKey is present for /model picker (but DON'T override default model)
+# 6. Ensure apiKey is present for /model picker (but DON'T override default model)
 echo "→ Finalizing setup..."
 node -e "
 const os = require('os');
@@ -163,6 +159,10 @@ if (fs.existsSync(configPath)) {
   console.log('  No openclaw.json found, skipping');
 }
 "
+
+# 7. Install plugin (done last so it starts with correct config)
+echo "→ Installing ClawRouter..."
+openclaw plugins install @blockrun/clawrouter
 
 echo ""
 echo "✓ Done! Smart routing enabled by default."
