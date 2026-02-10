@@ -24,10 +24,7 @@ interface TestResult {
 
 const results: TestResult[] = [];
 
-async function runTest(
-  name: string,
-  testFn: () => Promise<void>
-): Promise<void> {
+async function runTest(name: string, testFn: () => Promise<void>): Promise<void> {
   try {
     await testFn();
     results.push({ name, passed: true });
@@ -104,19 +101,16 @@ async function main() {
           { role: "user", content: "Thanks, what was the result?" },
         ];
 
-        const response = await fetch(
-          `http://127.0.0.1:${TEST_PORT}/v1/chat/completions`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              model: "auto",
-              messages,
-              max_tokens: 20,
-              stream: false,
-            }),
-          }
-        );
+        const response = await fetch(`http://127.0.0.1:${TEST_PORT}/v1/chat/completions`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "auto",
+            messages,
+            max_tokens: 20,
+            stream: false,
+          }),
+        });
 
         const text = await response.text();
 
@@ -126,9 +120,7 @@ async function main() {
           text.includes("pattern") &&
           text.includes("should match")
         ) {
-          throw new Error(
-            `Tool ID pattern error not fixed! Response: ${text.slice(0, 200)}`
-          );
+          throw new Error(`Tool ID pattern error not fixed! Response: ${text.slice(0, 200)}`);
         }
 
         if (response.status !== 200) {
@@ -179,19 +171,16 @@ async function main() {
         { role: "user", content: "What happened?" },
       ];
 
-      const response = await fetch(
-        `http://127.0.0.1:${TEST_PORT}/v1/chat/completions`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            model: "auto",
-            messages,
-            max_tokens: 20,
-            stream: false,
-          }),
-        }
-      );
+      const response = await fetch(`http://127.0.0.1:${TEST_PORT}/v1/chat/completions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "auto",
+          messages,
+          max_tokens: 20,
+          stream: false,
+        }),
+      });
 
       const text = await response.text();
 
@@ -238,26 +227,22 @@ async function main() {
         { role: "user", content: "Result?" },
       ];
 
-      const response = await fetch(
-        `http://127.0.0.1:${TEST_PORT}/v1/chat/completions`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            model: "auto",
-            messages,
-            max_tokens: 20,
-            stream: false,
-          }),
-        }
-      );
+      const response = await fetch(`http://127.0.0.1:${TEST_PORT}/v1/chat/completions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "auto",
+          messages,
+          max_tokens: 20,
+          stream: false,
+        }),
+      });
 
       if (response.status !== 200) {
         const text = await response.text();
         throw new Error(`Expected 200, got ${response.status}: ${text.slice(0, 200)}`);
       }
     });
-
   } finally {
     if (proxy) {
       console.log("\nClosing proxy...");
@@ -276,9 +261,7 @@ async function main() {
 
   if (failed > 0) {
     console.log("Failed tests:");
-    results
-      .filter((r) => !r.passed)
-      .forEach((r) => console.log(`  - ${r.name}: ${r.error}`));
+    results.filter((r) => !r.passed).forEach((r) => console.log(`  - ${r.name}: ${r.error}`));
     process.exit(1);
   }
 }

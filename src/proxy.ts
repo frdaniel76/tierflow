@@ -340,7 +340,11 @@ function sanitizeToolIds(messages: ChatMessage[]): ChatMessage[] {
         }
 
         // tool_result blocks have "tool_use_id"
-        if (block.type === "tool_result" && block.tool_use_id && typeof block.tool_use_id === "string") {
+        if (
+          block.type === "tool_result" &&
+          block.tool_use_id &&
+          typeof block.tool_use_id === "string"
+        ) {
           const sanitized = sanitizeToolId(block.tool_use_id);
           if (sanitized !== block.tool_use_id) {
             blockChanged = true;
