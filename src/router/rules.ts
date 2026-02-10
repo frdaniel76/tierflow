@@ -74,9 +74,11 @@ function scoreQuestionComplexity(prompt: string): DimensionScore {
 /**
  * Score agentic task indicators.
  * Returns agenticScore (0-1) based on keyword matches:
- * - 3+ matches = 1.0 (high agentic)
- * - 2 matches = 0.6 (moderate agentic)
- * - 1 match = 0.3 (low agentic)
+ * - 4+ matches = 1.0 (high agentic)
+ * - 3 matches = 0.6 (moderate agentic, triggers auto-agentic mode)
+ * - 1-2 matches = 0.2 (low agentic)
+ *
+ * Thresholds raised because common keywords were pruned from the list.
  */
 function scoreAgenticTask(
   text: string,
@@ -94,8 +96,8 @@ function scoreAgenticTask(
     }
   }
 
-  // Threshold-based scoring
-  if (matchCount >= 3) {
+  // Threshold-based scoring (raised thresholds after keyword pruning)
+  if (matchCount >= 4) {
     return {
       dimensionScore: {
         name: "agenticTask",
@@ -104,7 +106,7 @@ function scoreAgenticTask(
       },
       agenticScore: 1.0,
     };
-  } else if (matchCount >= 2) {
+  } else if (matchCount >= 3) {
     return {
       dimensionScore: {
         name: "agenticTask",
@@ -117,10 +119,10 @@ function scoreAgenticTask(
     return {
       dimensionScore: {
         name: "agenticTask",
-        score: 0.3,
-        signal: `agentic (${signals.join(", ")})`,
+        score: 0.2,
+        signal: `agentic-light (${signals.join(", ")})`,
       },
-      agenticScore: 0.3,
+      agenticScore: 0.2,
     };
   }
 

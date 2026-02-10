@@ -1134,24 +1134,17 @@ async function proxyRequest(
           const systemPrompt =
             typeof systemMsg?.content === "string" ? systemMsg.content : undefined;
 
-          // Detect tool requests - force agentic mode for better tool-use models
+          // Tool detection no longer forces agentic mode
+          // Agentic mode is now triggered by keyword-based detection (agenticScore >= 0.6)
+          // This allows simple queries with tools to use cheaper models
           const tools = parsed.tools as unknown[] | undefined;
           const hasTools = Array.isArray(tools) && tools.length > 0;
-          const effectiveRouterOpts = hasTools
-            ? {
-                ...routerOpts,
-                config: {
-                  ...routerOpts.config,
-                  overrides: { ...routerOpts.config.overrides, agenticMode: true },
-                },
-              }
-            : routerOpts;
 
           if (hasTools) {
-            console.log(`[ClawRouter] Tools detected (${tools.length}), forcing agentic mode`);
+            console.log(`[ClawRouter] Tools detected (${tools.length}), agentic mode via keywords`);
           }
 
-          routingDecision = route(prompt, systemPrompt, maxTokens, effectiveRouterOpts);
+          routingDecision = route(prompt, systemPrompt, maxTokens, routerOpts);
 
           // Replace model in body
           parsed.model = routingDecision.model;

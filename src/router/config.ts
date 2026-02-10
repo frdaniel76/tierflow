@@ -545,8 +545,9 @@ export const DEFAULT_ROUTING_CONFIG: RoutingConfig = {
     ],
 
     // Agentic task keywords - file ops, execution, multi-step, iterative work
+    // Pruned: removed overly common words like "then", "first", "run", "test", "build"
     agenticTaskKeywords: [
-      // English - File operations
+      // English - File operations (clearly agentic)
       "read file",
       "read the file",
       "look at",
@@ -558,30 +559,19 @@ export const DEFAULT_ROUTING_CONFIG: RoutingConfig = {
       "change the",
       "write to",
       "create file",
-      // English - Execution
-      "run",
+      // English - Execution (specific commands only)
       "execute",
-      "test",
-      "build",
       "deploy",
       "install",
       "npm",
       "pip",
       "compile",
-      "start",
-      "launch",
-      // English - Multi-step patterns
-      "then",
+      // English - Multi-step patterns (specific only)
       "after that",
-      "next",
       "and also",
-      "finally",
       "once done",
       "step 1",
       "step 2",
-      "first",
-      "second",
-      "lastly",
       // English - Iterative work
       "fix",
       "debug",
@@ -591,7 +581,7 @@ export const DEFAULT_ROUTING_CONFIG: RoutingConfig = {
       "make sure",
       "verify",
       "confirm",
-      // Chinese
+      // Chinese (keep specific ones)
       "读取文件",
       "查看",
       "打开",
@@ -599,15 +589,9 @@ export const DEFAULT_ROUTING_CONFIG: RoutingConfig = {
       "修改",
       "更新",
       "创建",
-      "运行",
       "执行",
-      "测试",
-      "构建",
       "部署",
       "安装",
-      "然后",
-      "接下来",
-      "最后",
       "第一步",
       "第二步",
       "修复",
@@ -633,14 +617,14 @@ export const DEFAULT_ROUTING_CONFIG: RoutingConfig = {
       referenceComplexity: 0.02,
       negationComplexity: 0.01,
       domainSpecificity: 0.02,
-      agenticTask: 0.1, // Significant weight for agentic detection
+      agenticTask: 0.04, // Reduced - agentic signals influence tier selection, not dominate it
     },
 
     // Tier boundaries on weighted score axis
     tierBoundaries: {
       simpleMedium: 0.0,
-      mediumComplex: 0.15,
-      complexReasoning: 0.25,
+      mediumComplex: 0.18,
+      complexReasoning: 0.40, // Raised from 0.25 - requires strong reasoning signals
     },
 
     // Sigmoid steepness for confidence calibration
@@ -687,8 +671,8 @@ export const DEFAULT_ROUTING_CONFIG: RoutingConfig = {
       fallback: ["anthropic/claude-opus-4", "xai/grok-4-0709", "openai/gpt-4o"],
     },
     REASONING: {
-      primary: "xai/grok-4-fast-reasoning", // Cheap reasoning for agentic tasks
-      fallback: ["moonshot/kimi-k2.5", "anthropic/claude-sonnet-4", "deepseek/deepseek-reasoner"],
+      primary: "anthropic/claude-sonnet-4", // Strong tool use + reasoning for agentic tasks
+      fallback: ["xai/grok-4-fast-reasoning", "moonshot/kimi-k2.5", "deepseek/deepseek-reasoner"],
     },
   },
 
