@@ -40,7 +40,9 @@ import { logUsage, type UsageEntry } from "./logger.js";
 import { getStats } from "./stats.js";
 import { RequestDeduplicator } from "./dedup.js";
 import { BalanceMonitor } from "./balance.js";
-import { InsufficientFundsError, EmptyWalletError } from "./errors.js";
+// Error classes available for programmatic use but not used in proxy
+// (universal free fallback means we don't throw balance errors anymore)
+// import { InsufficientFundsError, EmptyWalletError } from "./errors.js";
 import { USER_AGENT } from "./version.js";
 import { SessionStore, getSessionId, type SessionConfig } from "./session.js";
 
