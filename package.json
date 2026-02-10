@@ -1,6 +1,6 @@
 {
   "name": "@blockrun/clawrouter",
-  "version": "0.6.4",
+  "version": "0.6.6",
   "description": "Smart LLM router — save 78% on inference costs. 30+ models, one wallet, x402 micropayments.",
   "type": "module",
   "main": "dist/index.js",
@@ -27,7 +27,13 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint src/",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "test:resilience:errors": "npx tsx test/resilience-errors.ts",
+    "test:resilience:stability": "DURATION_MINUTES=5 npx tsx test/resilience-stability.ts",
+    "test:resilience:stability:full": "DURATION_MINUTES=240 npx tsx test/resilience-stability.ts",
+    "test:resilience:lifecycle": "npx tsx test/resilience-lifecycle.ts",
+    "test:resilience:quick": "npm run test:resilience:errors && npm run test:resilience:lifecycle",
+    "test:resilience:full": "npm run test:resilience:errors && npm run test:resilience:lifecycle && npm run test:resilience:stability:full"
   },
   "keywords": [
     "llm",

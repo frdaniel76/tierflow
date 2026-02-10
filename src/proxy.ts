@@ -22,6 +22,7 @@
  */
 
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { finished } from "node:stream";
 import type { AddressInfo } from "node:net";
 import { privateKeyToAccount } from "viem/accounts";
 import { createPaymentFetch, type PreAuthParams } from "./x402.js";
@@ -103,6 +104,32 @@ function prioritizeNonRateLimited(models: string[]): string[] {
 
   return [...available, ...rateLimited];
 }
+
+/**
+ * Check if response socket is writable (prevents write-after-close errors).
+ * Returns true only if all conditions are safe for writing.
+ */
+function canWrite(res: ServerResponse): boolean {
+  return (
+    !res.writableEnded &&
+    !res.destroyed &&
+    res.socket !== null &&
+    !res.socket.destroyed &&
+    res.socket.writable
+  );
+}
+
+/**
+ * Safe write with backpressure handling.
+ * Returns true if write succeeded, false if socket is closed or write failed.
+ */
+function safeWrite(res: ServerResponse, data: string | Buffer): boolean {
+  if (!canWrite(res)) {
+    return false;
+  }
+  return res.write(data);
+}
+
 // Extra buffer for balance check (on top of estimateAmount's 20% buffer)
 // Total effective buffer: 1.2 * 1.5 = 1.8x (80% safety margin)
 // This prevents x402 payment failures after streaming headers are sent,
@@ -523,7 +550,37 @@ export async function startProxy(options: ProxyOptions): Promise<ProxyHandle> {
   // Session store for model persistence (prevents mid-task model switching)
   const sessionStore = new SessionStore(options.sessionConfig);
 
+  // Track active connections for graceful cleanup
+  const connections = new Set<import("net").Socket>();
+
   const server = createServer(async (req: IncomingMessage, res: ServerResponse) => {
+    // Add stream error handlers to prevent server crashes
+    req.on("error", (err) => {
+      console.error(`[ClawRouter] Request stream error: ${err.message}`);
+      // Don't throw - just log and let request handler deal with it
+    });
+
+    res.on("error", (err) => {
+      console.error(`[ClawRouter] Response stream error: ${err.message}`);
+      // Don't try to write to failed socket - just log
+    });
+
+    // Finished wrapper for guaranteed cleanup on response completion/error
+    finished(res, (err) => {
+      if (err && err.code !== "ERR_STREAM_DESTROYED") {
+        console.error(`[ClawRouter] Response finished with error: ${err.message}`);
+      }
+      // Note: heartbeatInterval cleanup happens in res.on("close") handler
+      // Note: completed and dedup cleanup happens in the res.on("close") handler below
+    });
+
+    // Request finished wrapper for complete stream lifecycle tracking
+    finished(req, (err) => {
+      if (err && err.code !== "ERR_STREAM_DESTROYED") {
+        console.error(`[ClawRouter] Request finished with error: ${err.message}`);
+      }
+    });
+
     // Health check with optional balance info
     if (req.url === "/health" || req.url?.startsWith("/health?")) {
       const url = new URL(req.url, "http://localhost");
@@ -658,6 +715,48 @@ export async function startProxy(options: ProxyOptions): Promise<ProxyHandle> {
 
       options.onReady?.(port);
 
+      // Add runtime error handler AFTER successful listen
+      // This handles errors that occur during server operation (not just startup)
+      server.on("error", (err) => {
+        console.error(`[ClawRouter] Server runtime error: ${err.message}`);
+        options.onError?.(err);
+        // Don't crash - log and continue
+      });
+
+      // Handle client connection errors (bad requests, socket errors)
+      server.on("clientError", (err, socket) => {
+        console.error(`[ClawRouter] Client error: ${err.message}`);
+        // Send 400 Bad Request if socket is still writable
+        if (socket.writable && !socket.destroyed) {
+          socket.end("HTTP/1.1 400 Bad Request\r\n\r\n");
+        }
+      });
+
+      // Track connections for graceful cleanup
+      server.on("connection", (socket) => {
+        connections.add(socket);
+
+        // Set 5-minute timeout for streaming requests
+        socket.setTimeout(300_000);
+
+        socket.on("timeout", () => {
+          console.error(`[ClawRouter] Socket timeout, destroying connection`);
+          socket.destroy();
+        });
+
+        socket.on("end", () => {
+          // Half-closed by client (FIN received)
+        });
+
+        socket.on("error", (err) => {
+          console.error(`[ClawRouter] Socket error: ${err.message}`);
+        });
+
+        socket.on("close", () => {
+          connections.delete(socket);
+        });
+      });
+
       resolve({
         port,
         baseUrl,
@@ -665,8 +764,24 @@ export async function startProxy(options: ProxyOptions): Promise<ProxyHandle> {
         balanceMonitor,
         close: () =>
           new Promise<void>((res, rej) => {
+            const timeout = setTimeout(() => {
+              rej(new Error("[ClawRouter] Close timeout after 4s"));
+            }, 4000);
+
             sessionStore.close();
-            server.close((err) => (err ? rej(err) : res()));
+            // Destroy all active connections before closing server
+            for (const socket of connections) {
+              socket.destroy();
+            }
+            connections.clear();
+            server.close((err) => {
+              clearTimeout(timeout);
+              if (err) {
+                rej(err);
+              } else {
+                res();
+              }
+            });
           }),
       });
     });
@@ -1019,12 +1134,16 @@ async function proxyRequest(
     headersSentEarly = true;
 
     // First heartbeat immediately
-    res.write(": heartbeat\n\n");
+    safeWrite(res, ": heartbeat\n\n");
 
     // Continue heartbeats every 2s while waiting for upstream
     heartbeatInterval = setInterval(() => {
-      if (!res.writableEnded) {
-        res.write(": heartbeat\n\n");
+      if (canWrite(res)) {
+        safeWrite(res, ": heartbeat\n\n");
+      } else {
+        // Socket closed, stop heartbeat
+        clearInterval(heartbeatInterval);
+        heartbeatInterval = undefined;
       }
     }, HEARTBEAT_INTERVAL_MS);
   }
@@ -1193,8 +1312,8 @@ async function proxyRequest(
       if (headersSentEarly) {
         // Streaming: send error as SSE event
         const errEvent = `data: ${JSON.stringify({ error: { message: errBody, type: "provider_error", status: errStatus } })}\n\n`;
-        res.write(errEvent);
-        res.write("data: [DONE]\n\n");
+        safeWrite(res, errEvent);
+        safeWrite(res, "data: [DONE]\n\n");
         res.end();
 
         const errBuf = Buffer.from(errEvent + "data: [DONE]\n\n");
@@ -1308,7 +1427,7 @@ async function proxyRequest(
                 choices: [{ index, delta: { role }, logprobs: null, finish_reason: null }],
               };
               const roleData = `data: ${JSON.stringify(roleChunk)}\n\n`;
-              res.write(roleData);
+              safeWrite(res, roleData);
               responseChunks.push(Buffer.from(roleData));
 
               // Chunk 2: content (single chunk with full content)
@@ -1318,7 +1437,7 @@ async function proxyRequest(
                   choices: [{ index, delta: { content }, logprobs: null, finish_reason: null }],
                 };
                 const contentData = `data: ${JSON.stringify(contentChunk)}\n\n`;
-                res.write(contentData);
+                safeWrite(res, contentData);
                 responseChunks.push(Buffer.from(contentData));
               }
 
@@ -1337,7 +1456,7 @@ async function proxyRequest(
                   ],
                 };
                 const toolCallData = `data: ${JSON.stringify(toolCallChunk)}\n\n`;
-                res.write(toolCallData);
+                safeWrite(res, toolCallData);
                 responseChunks.push(Buffer.from(toolCallData));
               }
 
@@ -1354,20 +1473,20 @@ async function proxyRequest(
                 ],
               };
               const finishData = `data: ${JSON.stringify(finishChunk)}\n\n`;
-              res.write(finishData);
+              safeWrite(res, finishData);
               responseChunks.push(Buffer.from(finishData));
             }
           }
         } catch {
           // If parsing fails, send raw response as single chunk
           const sseData = `data: ${jsonStr}\n\n`;
-          res.write(sseData);
+          safeWrite(res, sseData);
           responseChunks.push(Buffer.from(sseData));
         }
       }
 
       // Send SSE terminator
-      res.write("data: [DONE]\n\n");
+      safeWrite(res, "data: [DONE]\n\n");
       responseChunks.push(Buffer.from("data: [DONE]\n\n"));
       res.end();
 
@@ -1396,8 +1515,9 @@ async function proxyRequest(
           while (true) {
             const { done, value } = await reader.read();
             if (done) break;
-            res.write(value);
-            responseChunks.push(Buffer.from(value));
+            const chunk = Buffer.from(value);
+            safeWrite(res, chunk);
+            responseChunks.push(chunk);
           }
         } finally {
           reader.releaseLock();
