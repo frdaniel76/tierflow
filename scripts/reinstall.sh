@@ -96,7 +96,42 @@ if (!store.profiles[profileKey]) {
 }
 "
 
-# 5. Add plugin to allow list (required for OpenClaw to load it)
+# 5. Ensure apiKey is present for /model picker (but DON'T override default model)
+echo "→ Finalizing setup..."
+node -e "
+const os = require('os');
+const fs = require('fs');
+const path = require('path');
+const configPath = path.join(os.homedir(), '.openclaw', 'openclaw.json');
+
+if (fs.existsSync(configPath)) {
+  try {
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    let changed = false;
+
+    // Ensure blockrun provider has apiKey (required by ModelRegistry for /model picker)
+    if (config.models?.providers?.blockrun && !config.models.providers.blockrun.apiKey) {
+      config.models.providers.blockrun.apiKey = 'x402-proxy-handles-auth';
+      console.log('  Added apiKey to blockrun provider config');
+      changed = true;
+    }
+
+    if (changed) {
+      fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+    }
+  } catch (e) {
+    console.log('  Could not update config:', e.message);
+  }
+} else {
+  console.log('  No openclaw.json found, skipping');
+}
+"
+
+# 6. Install plugin (config is ready, but no allow list yet to avoid validation error)
+echo "→ Installing ClawRouter..."
+openclaw plugins install @blockrun/clawrouter
+
+# 7. Add plugin to allow list (done AFTER install so plugin files exist for validation)
 echo "→ Adding to plugins allow list..."
 node -e "
 const os = require('os');
@@ -128,41 +163,6 @@ if (fs.existsSync(configPath)) {
   console.log('  No openclaw.json found, skipping');
 }
 "
-
-# 6. Ensure apiKey is present for /model picker (but DON'T override default model)
-echo "→ Finalizing setup..."
-node -e "
-const os = require('os');
-const fs = require('fs');
-const path = require('path');
-const configPath = path.join(os.homedir(), '.openclaw', 'openclaw.json');
-
-if (fs.existsSync(configPath)) {
-  try {
-    const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-    let changed = false;
-
-    // Ensure blockrun provider has apiKey (required by ModelRegistry for /model picker)
-    if (config.models?.providers?.blockrun && !config.models.providers.blockrun.apiKey) {
-      config.models.providers.blockrun.apiKey = 'x402-proxy-handles-auth';
-      console.log('  Added apiKey to blockrun provider config');
-      changed = true;
-    }
-
-    if (changed) {
-      fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
-    }
-  } catch (e) {
-    console.log('  Could not update config:', e.message);
-  }
-} else {
-  console.log('  No openclaw.json found, skipping');
-}
-"
-
-# 7. Install plugin (done last so it starts with correct config)
-echo "→ Installing ClawRouter..."
-openclaw plugins install @blockrun/clawrouter
 
 echo ""
 echo "✓ Done! Smart routing enabled by default."
