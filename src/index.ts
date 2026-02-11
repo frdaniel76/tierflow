@@ -103,8 +103,14 @@ function injectModelsConfig(logger: { info: (msg: string) => void }): void {
       needsWrite = true;
     } else {
       // Update existing config if fields are missing or outdated
-      if (config.models.providers.blockrun.baseUrl !== expectedBaseUrl) {
+      // Fix: explicitly check for undefined/missing fields
+      if (!config.models.providers.blockrun.baseUrl || config.models.providers.blockrun.baseUrl !== expectedBaseUrl) {
         config.models.providers.blockrun.baseUrl = expectedBaseUrl;
+        needsWrite = true;
+      }
+      // Ensure api field is present
+      if (!config.models.providers.blockrun.api) {
+        config.models.providers.blockrun.api = "openai-completions";
         needsWrite = true;
       }
       // Ensure apiKey is present (required by ModelRegistry for /model picker)
