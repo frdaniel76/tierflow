@@ -62,6 +62,63 @@ const PORT_RETRY_ATTEMPTS = 5; // Max attempts to bind port (handles TIME_WAIT)
 const PORT_RETRY_DELAY_MS = 1_000; // Delay between retry attempts
 
 /**
+ * Transform upstream payment errors into user-friendly messages.
+ * Parses the raw x402 error and formats it nicely.
+ */
+function transformPaymentError(errorBody: string): string {
+  try {
+    // Try to parse the error JSON
+    const parsed = JSON.parse(errorBody) as {
+      error?: string;
+      details?: string;
+    };
+
+    // Check if this is a payment verification error
+    if (parsed.error === "Payment verification failed" && parsed.details) {
+      // Extract the nested JSON from details
+      // Format: "Verification failed: {json}\n"
+      const match = parsed.details.match(/Verification failed:\s*(\{.*\})/s);
+      if (match) {
+        const innerJson = JSON.parse(match[1]) as {
+          invalidMessage?: string;
+          invalidReason?: string;
+          payer?: string;
+        };
+
+        if (innerJson.invalidReason === "insufficient_funds" && innerJson.invalidMessage) {
+          // Parse "insufficient balance: 251 < 11463"
+          const balanceMatch = innerJson.invalidMessage.match(
+            /insufficient balance:\s*(\d+)\s*<\s*(\d+)/i,
+          );
+          if (balanceMatch) {
+            const currentMicros = parseInt(balanceMatch[1], 10);
+            const requiredMicros = parseInt(balanceMatch[2], 10);
+            const currentUSD = (currentMicros / 1_000_000).toFixed(6);
+            const requiredUSD = (requiredMicros / 1_000_000).toFixed(6);
+            const wallet = innerJson.payer || "unknown";
+            const shortWallet = wallet.length > 12 ? `${wallet.slice(0, 6)}...${wallet.slice(-4)}` : wallet;
+
+            return JSON.stringify({
+              error: {
+                message: `Insufficient USDC balance. Current: $${currentUSD}, Required: ~$${requiredUSD}`,
+                type: "insufficient_funds",
+                wallet: wallet,
+                current_balance_usd: currentUSD,
+                required_usd: requiredUSD,
+                help: `Fund wallet ${shortWallet} with USDC on Base, or use free model: /model free`,
+              },
+            });
+          }
+        }
+      }
+    }
+  } catch {
+    // If parsing fails, return original
+  }
+  return errorBody;
+}
+
+/**
  * Track rate-limited models to avoid hitting them again.
  * Maps model ID to the timestamp when the rate limit was hit.
  */
@@ -1505,12 +1562,23 @@ async function proxyRequest(
 
     // --- Handle case where all models failed ---
     if (!upstream) {
-      const errBody = lastError?.body || "All models in fallback chain failed";
+      const rawErrBody = lastError?.body || "All models in fallback chain failed";
       const errStatus = lastError?.status || 502;
+
+      // Transform payment errors into user-friendly messages
+      const transformedErr = transformPaymentError(rawErrBody);
 
       if (headersSentEarly) {
         // Streaming: send error as SSE event
-        const errEvent = `data: ${JSON.stringify({ error: { message: errBody, type: "provider_error", status: errStatus } })}\n\n`;
+        // If transformed error is already JSON, parse and use it; otherwise wrap in standard format
+        let errPayload: string;
+        try {
+          const parsed = JSON.parse(transformedErr);
+          errPayload = JSON.stringify(parsed);
+        } catch {
+          errPayload = JSON.stringify({ error: { message: rawErrBody, type: "provider_error", status: errStatus } });
+        }
+        const errEvent = `data: ${errPayload}\n\n`;
         safeWrite(res, errEvent);
         safeWrite(res, "data: [DONE]\n\n");
         res.end();
@@ -1523,20 +1591,14 @@ async function proxyRequest(
           completedAt: Date.now(),
         });
       } else {
-        // Non-streaming: send error response
+        // Non-streaming: send transformed error response
         res.writeHead(errStatus, { "Content-Type": "application/json" });
-        res.end(
-          JSON.stringify({
-            error: { message: errBody, type: "provider_error" },
-          }),
-        );
+        res.end(transformedErr);
 
         deduplicator.complete(dedupKey, {
           status: errStatus,
           headers: { "content-type": "application/json" },
-          body: Buffer.from(
-            JSON.stringify({ error: { message: errBody, type: "provider_error" } }),
-          ),
+          body: Buffer.from(transformedErr),
           completedAt: Date.now(),
         });
       }
