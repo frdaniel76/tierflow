@@ -68,16 +68,14 @@ function isCompletionMode(): boolean {
 }
 
 /**
- * Detect if we're running during plugin installation.
- * During `openclaw plugins install`, we should NOT start the proxy server
- * because it keeps the process alive and prevents the install command from exiting.
- * The proxy will start automatically when the gateway starts.
+ * Detect if we're running in gateway mode.
+ * The proxy should ONLY start when the gateway is running.
+ * During CLI commands (plugins, models, etc), the proxy keeps the process alive.
  */
-function isInstallMode(): boolean {
+function isGatewayMode(): boolean {
   const args = process.argv;
-  // Check for: openclaw plugins install/uninstall
-  // argv includes: openclaw, plugins, install/uninstall
-  return args.some((arg) => arg === "plugins") && args.some((arg) => arg === "install" || arg === "uninstall");
+  // Gateway mode is: openclaw gateway start/restart/stop
+  return args.includes("gateway");
 }
 
 /**
@@ -654,11 +652,11 @@ const plugin: OpenClawPluginDefinition = {
       },
     });
 
-    // During plugin installation, skip proxy startup to prevent install command from hanging
-    // The proxy keeps the Node.js event loop alive, preventing the install command from exiting
+    // Skip proxy startup unless we're in gateway mode
+    // The proxy keeps the Node.js event loop alive, preventing CLI commands from exiting
     // The proxy will start automatically when the gateway runs
-    if (isInstallMode()) {
-      api.logger.info("Installation mode — proxy will start when gateway runs");
+    if (!isGatewayMode()) {
+      api.logger.info("Not in gateway mode — proxy will start when gateway runs");
       return;
     }
 
