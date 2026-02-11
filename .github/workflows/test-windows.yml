@@ -1,4 +1,4 @@
-name: Windows Tests
+name: Windows Compatibility Check
 
 on:
   push:
@@ -9,7 +9,7 @@ on:
 
 jobs:
   test-windows:
-    name: Test on Windows Server 2022
+    name: Verify Windows Status (OpenClaw CLI Bug)
     runs-on: windows-latest
 
     steps:
