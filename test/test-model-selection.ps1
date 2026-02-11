@@ -117,16 +117,16 @@ if ($modelAfter -ne "openai/gpt-4") {
     exit 1
 }
 
-Write-Host "  ✓ Model selection preserved (not hijacked by plugin)" -ForegroundColor Green
+Write-Host "SUCCESS: Model selection preserved (not hijacked by plugin)" -ForegroundColor Green
 Write-Host ""
 
-Write-Host "✅ All tests passed!" -ForegroundColor Green
+Write-Host "All tests passed!" -ForegroundColor Green
 Write-Host ""
 
 Write-Host "Summary:" -ForegroundColor Cyan
-Write-Host "  - Plugin installs without hanging"
-Write-Host "  - Config is created correctly"
-Write-Host "  - Models are available"
-Write-Host "  - Can switch to non-BlockRun models"
-Write-Host "  - Model selection persists after reload"
+Write-Host "- Plugin installs without hanging" -ForegroundColor White
+Write-Host "- Config is created correctly" -ForegroundColor White
+Write-Host "- Models are available" -ForegroundColor White
+Write-Host "- Can switch to non-BlockRun models" -ForegroundColor White
+Write-Host "- Model selection persists after reload" -ForegroundColor White
 Write-Host ""
