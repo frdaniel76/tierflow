@@ -551,12 +551,6 @@ const KIMI_BLOCK_RE = /<[｜|][^<>]*begin[^<>]*[｜|]>[\s\S]*?<[｜|][^<>]*end[^
 // Match standalone Kimi tokens like <｜end▁of▁thinking｜>
 const KIMI_TOKEN_RE = /<[｜|][^<>]*[｜|]>/g;
 
-// DSML (DeepSeek Markup Language) tags that leak from Kimi/DeepSeek models
-// Pattern: <｜DSML｜function_calls>, </｜DSML｜invoke>, <｜DSML｜parameter ...>content</｜DSML｜parameter>
-// These are internal tool-calling markup that shouldn't reach users
-const DSML_BLOCK_RE = /<[｜|]DSML[｜|][^>]*>[\s\S]*?<\/[｜|]DSML[｜|][^>]*>/gi;
-const DSML_TAG_RE = /<\/?[｜|]DSML[｜|][^>]*>/gi;
-
 // Standard thinking tags that may leak through from various models
 const THINKING_TAG_RE = /<\s*\/?\s*(?:think(?:ing)?|thought|antthinking)\b[^>]*>/gi;
 
@@ -566,7 +560,10 @@ const THINKING_BLOCK_RE =
 
 /**
  * Strip thinking tokens and blocks from model response content.
- * Handles Kimi-style Unicode tokens, DSML markup, and standard XML-style tags.
+ * Handles both Kimi-style Unicode tokens and standard XML-style tags.
+ *
+ * NOTE: DSML tags (<｜DSML｜...>) are NOT stripped - those are tool calls
+ * that should be handled by the API, not hidden from users.
  */
 function stripThinkingTokens(content: string): string {
   if (!content) return content;
@@ -574,10 +571,6 @@ function stripThinkingTokens(content: string): string {
   let cleaned = content.replace(KIMI_BLOCK_RE, "");
   // Strip remaining standalone Kimi tokens
   cleaned = cleaned.replace(KIMI_TOKEN_RE, "");
-  // Strip DSML blocks (tool-calling markup from DeepSeek/Kimi)
-  cleaned = cleaned.replace(DSML_BLOCK_RE, "");
-  // Strip standalone DSML tags
-  cleaned = cleaned.replace(DSML_TAG_RE, "");
   // Strip full thinking blocks (<think>...</think>)
   cleaned = cleaned.replace(THINKING_BLOCK_RE, "");
   // Strip remaining standalone thinking tags
