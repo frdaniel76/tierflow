@@ -29,16 +29,19 @@ export function selectModel(
   const model = tierConfig.primary;
   const pricing = modelPricing.get(model);
 
-  const inputCost = pricing ? (estimatedInputTokens / 1_000_000) * pricing.inputPrice : 0;
-  const outputCost = pricing ? (maxOutputTokens / 1_000_000) * pricing.outputPrice : 0;
+  // Defensive: guard against undefined price fields (not just undefined pricing)
+  const inputPrice = pricing?.inputPrice ?? 0;
+  const outputPrice = pricing?.outputPrice ?? 0;
+  const inputCost = (estimatedInputTokens / 1_000_000) * inputPrice;
+  const outputCost = (maxOutputTokens / 1_000_000) * outputPrice;
   const costEstimate = inputCost + outputCost;
 
   // Baseline: what Claude Opus would cost (the premium default)
   const opusPricing = modelPricing.get("anthropic/claude-opus-4");
-  const baselineInput = opusPricing
-    ? (estimatedInputTokens / 1_000_000) * opusPricing.inputPrice
-    : 0;
-  const baselineOutput = opusPricing ? (maxOutputTokens / 1_000_000) * opusPricing.outputPrice : 0;
+  const opusInputPrice = opusPricing?.inputPrice ?? 0;
+  const opusOutputPrice = opusPricing?.outputPrice ?? 0;
+  const baselineInput = (estimatedInputTokens / 1_000_000) * opusInputPrice;
+  const baselineOutput = (maxOutputTokens / 1_000_000) * opusOutputPrice;
   const baselineCost = baselineInput + baselineOutput;
 
   const savings = baselineCost > 0 ? Math.max(0, (baselineCost - costEstimate) / baselineCost) : 0;
@@ -75,16 +78,19 @@ export function calculateModelCost(
 ): { costEstimate: number; baselineCost: number; savings: number } {
   const pricing = modelPricing.get(model);
 
-  const inputCost = pricing ? (estimatedInputTokens / 1_000_000) * pricing.inputPrice : 0;
-  const outputCost = pricing ? (maxOutputTokens / 1_000_000) * pricing.outputPrice : 0;
+  // Defensive: guard against undefined price fields (not just undefined pricing)
+  const inputPrice = pricing?.inputPrice ?? 0;
+  const outputPrice = pricing?.outputPrice ?? 0;
+  const inputCost = (estimatedInputTokens / 1_000_000) * inputPrice;
+  const outputCost = (maxOutputTokens / 1_000_000) * outputPrice;
   const costEstimate = inputCost + outputCost;
 
   // Baseline: what Claude Opus would cost
   const opusPricing = modelPricing.get("anthropic/claude-opus-4");
-  const baselineInput = opusPricing
-    ? (estimatedInputTokens / 1_000_000) * opusPricing.inputPrice
-    : 0;
-  const baselineOutput = opusPricing ? (maxOutputTokens / 1_000_000) * opusPricing.outputPrice : 0;
+  const opusInputPrice = opusPricing?.inputPrice ?? 0;
+  const opusOutputPrice = opusPricing?.outputPrice ?? 0;
+  const baselineInput = (estimatedInputTokens / 1_000_000) * opusInputPrice;
+  const baselineOutput = (maxOutputTokens / 1_000_000) * opusOutputPrice;
   const baselineCost = baselineInput + baselineOutput;
 
   const savings = baselineCost > 0 ? Math.max(0, (baselineCost - costEstimate) / baselineCost) : 0;
