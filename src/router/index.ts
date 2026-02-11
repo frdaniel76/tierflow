@@ -41,9 +41,9 @@ export function route(
 
   // Determine if agentic tiers should be used:
   // 1. Explicit agenticMode config OR
-  // 2. Auto-detected agentic task (agenticScore >= 0.75)
+  // 2. Auto-detected agentic task (agenticScore >= 0.69)
   const agenticScore = ruleResult.agenticScore ?? 0;
-  const isAutoAgentic = agenticScore >= 0.75;
+  const isAutoAgentic = agenticScore >= 0.69;
   const isExplicitAgentic = config.overrides.agenticMode ?? false;
   const useAgenticTiers = (isAutoAgentic || isExplicitAgentic) && config.agenticTiers != null;
   const tierConfigs = useAgenticTiers ? config.agenticTiers! : config.tiers;
