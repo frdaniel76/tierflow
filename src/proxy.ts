@@ -57,6 +57,8 @@ const DEFAULT_PORT = 8402;
 const MAX_FALLBACK_ATTEMPTS = 3; // Maximum models to try in fallback chain
 const HEALTH_CHECK_TIMEOUT_MS = 2_000; // Timeout for checking existing proxy
 const RATE_LIMIT_COOLDOWN_MS = 60_000; // 60 seconds cooldown for rate-limited models
+const PORT_RETRY_ATTEMPTS = 5; // Max attempts to bind port (handles TIME_WAIT)
+const PORT_RETRY_DELAY_MS = 1_000; // Delay between retry attempts
 
 /**
  * Track rate-limited models to avoid hitting them again.
@@ -811,108 +813,168 @@ export async function startProxy(options: ProxyOptions): Promise<ProxyHandle> {
     }
   });
 
-  // Listen on configured port (already determined above)
-  return new Promise<ProxyHandle>((resolve, reject) => {
-    server.on("error", (err: NodeJS.ErrnoException) => {
-      // Handle EADDRINUSE gracefully — proxy is already running
-      if (err.code === "EADDRINUSE") {
-        // Port is in use, which means a proxy is already running.
-        // This can happen when openclaw logs triggers plugin reload.
-        // Silently reuse the existing proxy instead of failing.
+  // Listen on configured port with retry logic for TIME_WAIT handling
+  // When gateway restarts quickly, the port may still be in TIME_WAIT state.
+  // We retry with delay instead of incorrectly assuming a proxy is running.
+  const tryListen = (attempt: number): Promise<void> => {
+    return new Promise<void>((resolveAttempt, rejectAttempt) => {
+      const onError = async (err: NodeJS.ErrnoException) => {
+        server.removeListener("error", onError);
+
+        if (err.code === "EADDRINUSE") {
+          // Port is in use - check if a proxy is actually running
+          const existingWallet = await checkExistingProxy(listenPort);
+          if (existingWallet) {
+            // Proxy is actually running - this is fine, reuse it
+            console.log(`[ClawRouter] Existing proxy detected on port ${listenPort}, reusing`);
+            rejectAttempt({ code: "REUSE_EXISTING", wallet: existingWallet });
+            return;
+          }
+
+          // Port is in TIME_WAIT (no proxy responding) - retry after delay
+          if (attempt < PORT_RETRY_ATTEMPTS) {
+            console.log(
+              `[ClawRouter] Port ${listenPort} in TIME_WAIT, retrying in ${PORT_RETRY_DELAY_MS}ms (attempt ${attempt}/${PORT_RETRY_ATTEMPTS})`,
+            );
+            rejectAttempt({ code: "RETRY", attempt });
+            return;
+          }
+
+          // Max retries exceeded
+          console.error(
+            `[ClawRouter] Port ${listenPort} still in use after ${PORT_RETRY_ATTEMPTS} attempts`,
+          );
+          rejectAttempt(err);
+          return;
+        }
+
+        rejectAttempt(err);
+      };
+
+      server.once("error", onError);
+      server.listen(listenPort, "127.0.0.1", () => {
+        server.removeListener("error", onError);
+        resolveAttempt();
+      });
+    });
+  };
+
+  // Retry loop for port binding
+  let lastError: Error | undefined;
+  for (let attempt = 1; attempt <= PORT_RETRY_ATTEMPTS; attempt++) {
+    try {
+      await tryListen(attempt);
+      break; // Success
+    } catch (err: unknown) {
+      const error = err as { code?: string; wallet?: string; attempt?: number };
+
+      if (error.code === "REUSE_EXISTING" && error.wallet) {
+        // Proxy is running, reuse it
         const baseUrl = `http://127.0.0.1:${listenPort}`;
         options.onReady?.(listenPort);
-        resolve({
+        return {
           port: listenPort,
           baseUrl,
-          walletAddress: account.address,
+          walletAddress: error.wallet,
           balanceMonitor,
           close: async () => {
             // No-op: we didn't start this proxy, so we shouldn't close it
           },
-        });
-        return;
+        };
       }
-      reject(err);
+
+      if (error.code === "RETRY") {
+        // Wait before retry
+        await new Promise((r) => setTimeout(r, PORT_RETRY_DELAY_MS));
+        continue;
+      }
+
+      // Other error - throw
+      lastError = err as Error;
+      break;
+    }
+  }
+
+  if (lastError) {
+    throw lastError;
+  }
+
+  // Server is now listening - set up remaining handlers
+  const addr = server.address() as AddressInfo;
+  const port = addr.port;
+  const baseUrl = `http://127.0.0.1:${port}`;
+
+  options.onReady?.(port);
+
+  // Add runtime error handler AFTER successful listen
+  // This handles errors that occur during server operation (not just startup)
+  server.on("error", (err) => {
+    console.error(`[ClawRouter] Server runtime error: ${err.message}`);
+    options.onError?.(err);
+    // Don't crash - log and continue
+  });
+
+  // Handle client connection errors (bad requests, socket errors)
+  server.on("clientError", (err, socket) => {
+    console.error(`[ClawRouter] Client error: ${err.message}`);
+    // Send 400 Bad Request if socket is still writable
+    if (socket.writable && !socket.destroyed) {
+      socket.end("HTTP/1.1 400 Bad Request\r\n\r\n");
+    }
+  });
+
+  // Track connections for graceful cleanup
+  server.on("connection", (socket) => {
+    connections.add(socket);
+
+    // Set 5-minute timeout for streaming requests
+    socket.setTimeout(300_000);
+
+    socket.on("timeout", () => {
+      console.error(`[ClawRouter] Socket timeout, destroying connection`);
+      socket.destroy();
     });
 
-    server.listen(listenPort, "127.0.0.1", () => {
-      const addr = server.address() as AddressInfo;
-      const port = addr.port;
-      const baseUrl = `http://127.0.0.1:${port}`;
+    socket.on("end", () => {
+      // Half-closed by client (FIN received)
+    });
 
-      options.onReady?.(port);
+    socket.on("error", (err) => {
+      console.error(`[ClawRouter] Socket error: ${err.message}`);
+    });
 
-      // Add runtime error handler AFTER successful listen
-      // This handles errors that occur during server operation (not just startup)
-      server.on("error", (err) => {
-        console.error(`[ClawRouter] Server runtime error: ${err.message}`);
-        options.onError?.(err);
-        // Don't crash - log and continue
-      });
-
-      // Handle client connection errors (bad requests, socket errors)
-      server.on("clientError", (err, socket) => {
-        console.error(`[ClawRouter] Client error: ${err.message}`);
-        // Send 400 Bad Request if socket is still writable
-        if (socket.writable && !socket.destroyed) {
-          socket.end("HTTP/1.1 400 Bad Request\r\n\r\n");
-        }
-      });
-
-      // Track connections for graceful cleanup
-      server.on("connection", (socket) => {
-        connections.add(socket);
-
-        // Set 5-minute timeout for streaming requests
-        socket.setTimeout(300_000);
-
-        socket.on("timeout", () => {
-          console.error(`[ClawRouter] Socket timeout, destroying connection`);
-          socket.destroy();
-        });
-
-        socket.on("end", () => {
-          // Half-closed by client (FIN received)
-        });
-
-        socket.on("error", (err) => {
-          console.error(`[ClawRouter] Socket error: ${err.message}`);
-        });
-
-        socket.on("close", () => {
-          connections.delete(socket);
-        });
-      });
-
-      resolve({
-        port,
-        baseUrl,
-        walletAddress: account.address,
-        balanceMonitor,
-        close: () =>
-          new Promise<void>((res, rej) => {
-            const timeout = setTimeout(() => {
-              rej(new Error("[ClawRouter] Close timeout after 4s"));
-            }, 4000);
-
-            sessionStore.close();
-            // Destroy all active connections before closing server
-            for (const socket of connections) {
-              socket.destroy();
-            }
-            connections.clear();
-            server.close((err) => {
-              clearTimeout(timeout);
-              if (err) {
-                rej(err);
-              } else {
-                res();
-              }
-            });
-          }),
-      });
+    socket.on("close", () => {
+      connections.delete(socket);
     });
   });
+
+  return {
+    port,
+    baseUrl,
+    walletAddress: account.address,
+    balanceMonitor,
+    close: () =>
+      new Promise<void>((res, rej) => {
+        const timeout = setTimeout(() => {
+          rej(new Error("[ClawRouter] Close timeout after 4s"));
+        }, 4000);
+
+        sessionStore.close();
+        // Destroy all active connections before closing server
+        for (const socket of connections) {
+          socket.destroy();
+        }
+        connections.clear();
+        server.close((err) => {
+          clearTimeout(timeout);
+          if (err) {
+            rej(err);
+          } else {
+            res();
+          }
+        });
+      }),
+  };
 }
 
 /** Result of attempting a model request */
