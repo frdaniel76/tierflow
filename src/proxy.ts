@@ -530,14 +530,21 @@ function normalizeMessagesForThinking(messages: ExtendedChatMessage[]): Extended
 
   let hasChanges = false;
   const normalized = messages.map((msg) => {
-    // Only process assistant messages with tool_calls that lack reasoning_content
-    if (
-      msg.role === "assistant" &&
-      msg.tool_calls &&
-      Array.isArray(msg.tool_calls) &&
-      msg.tool_calls.length > 0 &&
-      msg.reasoning_content === undefined
-    ) {
+    // Skip if not assistant or already has reasoning_content
+    if (msg.role !== "assistant" || msg.reasoning_content !== undefined) {
+      return msg;
+    }
+
+    // Check for OpenAI format: tool_calls array
+    const hasOpenAIToolCalls =
+      msg.tool_calls && Array.isArray(msg.tool_calls) && msg.tool_calls.length > 0;
+
+    // Check for Anthropic format: content array with tool_use blocks
+    const hasAnthropicToolUse =
+      Array.isArray(msg.content) &&
+      (msg.content as Array<{ type?: string }>).some((block) => block?.type === "tool_use");
+
+    if (hasOpenAIToolCalls || hasAnthropicToolUse) {
       hasChanges = true;
       return { ...msg, reasoning_content: "" };
     }
