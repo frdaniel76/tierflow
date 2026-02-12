@@ -52,6 +52,7 @@ import { BalanceMonitor } from "./balance.js";
 // import { InsufficientFundsError, EmptyWalletError } from "./errors.js";
 import { USER_AGENT } from "./version.js";
 import { SessionStore, getSessionId, type SessionConfig } from "./session.js";
+import { checkForUpdates } from "./updater.js";
 
 const BLOCKRUN_API = "https://blockrun.ai/api";
 const AUTO_MODEL = "blockrun/auto";
@@ -979,6 +980,9 @@ export async function startProxy(options: ProxyOptions): Promise<ProxyHandle> {
   const baseUrl = `http://127.0.0.1:${port}`;
 
   options.onReady?.(port);
+
+  // Check for updates (non-blocking)
+  checkForUpdates();
 
   // Add runtime error handler AFTER successful listen
   // This handles errors that occur during server operation (not just startup)
