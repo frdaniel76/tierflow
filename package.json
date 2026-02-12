@@ -52,7 +52,9 @@
     "openai",
     "anthropic",
     "gemini",
-    "deepseek"
+    "deepseek",
+    "usdc-hackathon-winner",
+    "agentic-commerce"
   ],
   "author": "BlockRun <hello@blockrun.ai>",
   "license": "MIT",

@@ -9,8 +9,12 @@ One wallet, 30+ models, zero API keys.
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue.svg)](https://typescriptlang.org)
 [![Node](https://img.shields.io/badge/node-%E2%89%A520-brightgreen.svg)](https://nodejs.org)
+[![USDC Hackathon Winner](https://img.shields.io/badge/🏆_USDC_Hackathon-Agentic_Commerce_Winner-gold)](https://x.com/USDC/status/2021625822294216977)
 
 [Docs](https://blockrun.ai/docs) &middot; [Models](https://blockrun.ai/models) &middot; [Configuration](docs/configuration.md) &middot; [Features](docs/features.md) &middot; [Windows](docs/windows-installation.md) &middot; [Troubleshooting](docs/troubleshooting.md) &middot; [Telegram](https://t.me/blockrunAI) &middot; [X](https://x.com/BlockRunAI)
+
+**Winner — Agentic Commerce Track** at the [USDC AI Agent Hackathon](https://x.com/USDC/status/2021625822294216977)<br>
+*The world's first hackathon run entirely by AI agents, powered by USDC*
 
 </div>
 
