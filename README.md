@@ -1,10 +1,54 @@
-# FreeRouter — Smart Model Routing for [OpenClaw](https://github.com/openclaw/openclaw)
+# FreeRouter — Free, Self-Hosted AI Model Router (OpenRouter Alternative)
 
-> 🔌 **Built for [OpenClaw](https://docs.openclaw.ai)** — the open-source AI agent framework. FreeRouter acts as a transparent routing proxy that sits between your OpenClaw gateway and AI providers (Anthropic, Kimi, OpenAI-compatible). It classifies each message by complexity and routes to the optimal model automatically.
->
-> **Forked from [BlockRunAI/ClawRouter](https://github.com/BlockRunAI/ClawRouter).** Strips the x402 payment protocol, gives you the same powerful 14-dimension routing engine — free, open, using your own API keys.
->
-> **Requirements:** [OpenClaw](https://github.com/openclaw/openclaw) gateway running. FreeRouter plugs in as a provider — OpenClaw sees one model (`freerouter/auto`), FreeRouter handles the rest.
+**Route AI requests to the right model automatically — using your own API keys. No middleman, no markup, no payment layer.**
+
+[![OpenClaw](https://img.shields.io/badge/Built%20for-OpenClaw-blue)](https://github.com/openclaw/openclaw)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
+## The Problem
+
+Services like [OpenRouter](https://openrouter.ai) solved a real problem: **smart model routing**. Instead of sending every request to one expensive model, they classify by complexity and route to the cheapest model that can handle it. Great approach — saves 60-80% on inference costs.
+
+But if you already have your own API keys for Anthropic, OpenAI, Kimi, or other providers, **why pay a middleman?** You're already paying the providers directly. You just need the routing logic.
+
+## The Solution
+
+**FreeRouter** gives you the same smart routing — **locally, for free, with your own keys.**
+
+- ✅ Same 14-dimension complexity classifier
+- ✅ Automatic tier-based routing (simple → cheap model, complex → powerful model)
+- ✅ Your own API keys — no signup, no account, no usage fees
+- ✅ Self-hosted — runs on your machine, your data stays local
+- ✅ Works with any OpenAI-compatible API consumer
+- ❌ No payment layer, no crypto wallets, no token metering
+
+> **Forked from [BlockRunAI/ClawRouter](https://github.com/BlockRunAI/ClawRouter)** — we kept the excellent routing engine and stripped the x402 payment protocol. Credit to BlockRunAI for the original classifier design.
+
+## Who Is This For?
+
+- **OpenClaw users** who want automatic model routing without manual tier selection
+- **Developers with their own API keys** who don't want to pay OpenRouter's markup
+- **Self-hosters** who want model routing without sending data through third-party services
+- **Teams** who already pay for Anthropic/OpenAI and just need smart dispatching
+- **Anyone** who looked at OpenRouter's approach and thought "I want this, but with my own keys"
+
+## How It Works
+
+```
+Your App / OpenClaw → FreeRouter (:18800) → 14-dim Classifier → Route to best model
+                                                                   ├── Simple → Kimi K2.5 (cheap)
+                                                                   ├── Medium → Sonnet 4.5 (balanced)
+                                                                   ├── Complex → Opus 4.6 (powerful)
+                                                                   └── Reasoning → Opus 4.6 (max thinking)
+```
+
+FreeRouter exposes a standard **OpenAI-compatible API** (`/v1/chat/completions`). Point any client at it — it classifies the request, picks the right model, forwards to the provider, and streams the response back. Your app sees one endpoint; FreeRouter handles the rest.
+
+## Built for [OpenClaw](https://docs.openclaw.ai)
+
+FreeRouter is designed as a drop-in provider for [OpenClaw](https://github.com/openclaw/openclaw), the open-source AI agent framework. OpenClaw sees one model (`freerouter/auto`), FreeRouter handles all routing transparently.
+
+**But it's not OpenClaw-only** — any app that speaks the OpenAI API format can use it.
 
 ## How Is This Different from ClawRouter?
 
