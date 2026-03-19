@@ -7,6 +7,7 @@
 import { getAuth } from "./auth.js";
 import { getConfig, toInternalApiType, supportsAdaptiveThinking as configSupportsAdaptive, getThinkingBudget } from "./config.js";
 import { logger } from "./logger.js";
+import { rehydrateText, rehydrateChunk } from "./pii/index.js";
 import type { IncomingMessage, ServerResponse } from "node:http";
 // --- Timeout Configuration ---
 const TIER_TIMEOUTS: Record<string, number> = {
@@ -534,6 +535,8 @@ async function forwardToOpenAI(
   tier: string,
   res: ServerResponse,
   stream: boolean,
+  piiSession?: string | null,
+  piiMode?: "strict" | "standard",
 ): Promise<void> {
   const auth = getAuth(provider);
   if (!auth?.apiKey) throw new Error(`No API key for ${provider}`);
@@ -593,8 +596,33 @@ async function forwardToOpenAI(
   if (!stream) {
     const data = await response.json() as Record<string, unknown>;
     if (data.model) data.model = `clawrouter/${modelName}`;
-    res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify(data));
+
+    // PII Rehydration — non-streaming
+    if (piiSession) {
+      try {
+        const choices = (data as any).choices as Array<{ message?: { content?: string } }> | undefined;
+        for (const choice of choices ?? []) {
+          if (choice.message?.content) {
+            choice.message.content = rehydrateText(choice.message.content, piiSession);
+          }
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        logger.error(`[PII] Rehydrate failed: ${msg}`);
+        if (piiMode === "strict") {
+          res.writeHead(502, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: { message: "PII rehydrate failed", type: "pii_error" } }));
+          return;
+        }
+        // standard mode: pass through with warning header
+        res.setHeader("X-PII-Warning", "rehydration-failed");
+      }
+    }
+
+    // Recalculate Content-Length after rehydration (placeholder ≠ original value length)
+    const responseBody = JSON.stringify(data);
+    res.writeHead(200, { "Content-Type": "application/json", "Content-Length": String(Buffer.byteLength(responseBody)) });
+    res.end(responseBody);
     return;
   }
 
@@ -610,6 +638,7 @@ async function forwardToOpenAI(
 
   const decoder = new TextDecoder();
   let buffer = "";
+  let piiCarry = ""; // Carry buffer for split PII placeholders
 
   try {
     await readStreamWithStallDetection(reader, (value) => {
@@ -627,6 +656,32 @@ async function forwardToOpenAI(
           try {
             const chunk = JSON.parse(jsonStr);
             if (chunk.model) chunk.model = `clawrouter/${modelName}`;
+
+            // PII Rehydration — streaming
+            if (piiSession && chunk.choices?.[0]?.delta?.content) {
+              try {
+                const { output, carry } = rehydrateChunk(
+                  chunk.choices[0].delta.content,
+                  piiSession,
+                  piiCarry,
+                );
+                piiCarry = carry;
+                chunk.choices[0].delta.content = output;
+                // Skip emitting empty content chunks (carry absorbed everything)
+                if (!output && carry) continue;
+              } catch (err) {
+                const msg = err instanceof Error ? err.message : String(err);
+                logger.error(`[PII] Streaming rehydrate error: ${msg}`);
+                if (piiMode === "strict") {
+                  res.write(`data: ${JSON.stringify({ error: { message: "PII rehydrate failed" } })}\n\n`);
+                  res.write("data: [DONE]\n\n");
+                  res.end();
+                  return;
+                }
+                // standard mode: pass chunk with placeholders intact
+              }
+            }
+
             res.write(`data: ${JSON.stringify(chunk)}\n\n`);
           } catch {
             res.write(line + "\n");
@@ -644,6 +699,17 @@ async function forwardToOpenAI(
     }
     throw err;
   } finally {
+    // Flush remaining PII carry buffer
+    if (piiCarry && !res.writableEnded) {
+      const flushChunk = {
+        id: `chatcmpl-${Date.now()}`,
+        object: "chat.completion.chunk",
+        created: Math.floor(Date.now() / 1000),
+        model: `clawrouter/${modelName}`,
+        choices: [{ index: 0, delta: { content: piiCarry }, finish_reason: null }],
+      };
+      res.write(`data: ${JSON.stringify(flushChunk)}\n\n`);
+    }
     if (!res.writableEnded) {
       res.write("data: [DONE]\n\n");
       res.end();
@@ -660,6 +726,8 @@ export async function forwardRequest(
   tier: string,
   res: ServerResponse,
   stream: boolean,
+  piiSession?: string | null,
+  piiMode?: "strict" | "standard",
 ): Promise<void> {
   const { provider, model } = parseModelId(routedModel);
 
@@ -671,6 +739,6 @@ export async function forwardRequest(
   if (providerConfig.api === "anthropic-messages") {
     await forwardToAnthropic(chatReq, model, tier, res, stream);
   } else {
-    await forwardToOpenAI(chatReq, provider, model, tier, res, stream);
+    await forwardToOpenAI(chatReq, provider, model, tier, res, stream, piiSession, piiMode);
   }
 }

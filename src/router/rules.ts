@@ -130,7 +130,9 @@ export function classifyByRules(
   estimatedTokens: number,
   config: ScoringConfig,
 ): ScoringResult {
-  const text = `${systemPrompt ?? ""} ${prompt}`.toLowerCase();
+  // Score only the user message — system prompts contain technical keywords
+  // that inflate the complexity score (e.g., tool schemas mention "class", "import", etc.)
+  const text = prompt.toLowerCase();
   const userText = prompt.toLowerCase();
 
   const dimensions: DimensionScore[] = [

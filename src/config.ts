@@ -24,11 +24,19 @@ export type AuthConfig = {
   account?: string;       // for type=keychain
 };
 
+export type PiiConfig = {
+  enabled: boolean;
+  mode?: "strict" | "standard";       // strict = fail-closed, standard = log + pass
+  exclude?: string[];                 // categories to skip (e.g. ["postcode", "phone"])
+  debug_log_scrubbed?: boolean;       // TEMPORARY — logs scrubbed payload for verification
+};
+
 export type ProviderConfigEntry = {
   baseUrl: string;
   api: "anthropic" | "openai";
   headers?: Record<string, string>;
   auth?: AuthConfig;
+  pii?: boolean | PiiConfig;          // PII scrubbing — default: false (no overhead)
 };
 
 export type TierMapping = {
@@ -273,6 +281,41 @@ export function getThinkingBudget(modelId: string): number | null {
     return enabled.budget;
   }
   return null;
+}
+
+// ─── PII Helpers ───
+
+/**
+ * Check if PII scrubbing is enabled for a provider config entry.
+ */
+export function isPiiEnabled(entry: ProviderConfigEntry): boolean {
+  if (entry.pii === true) return true;
+  if (typeof entry.pii === "object" && entry.pii.enabled) return true;
+  return false;
+}
+
+/**
+ * Get PII exclude list for a provider (categories to skip).
+ */
+export function getPiiExclude(entry: ProviderConfigEntry): string[] | undefined {
+  if (typeof entry.pii === "object" && entry.pii.exclude) return entry.pii.exclude;
+  return undefined;
+}
+
+/**
+ * Get PII mode for a provider (strict or standard).
+ */
+export function getPiiMode(entry: ProviderConfigEntry): "strict" | "standard" {
+  if (typeof entry.pii === "object" && entry.pii.mode) return entry.pii.mode;
+  return "strict"; // default: fail-closed
+}
+
+/**
+ * Check if PII debug logging is enabled for a provider.
+ */
+export function isPiiDebugLog(entry: ProviderConfigEntry): boolean {
+  if (typeof entry.pii === "object" && entry.pii.debug_log_scrubbed) return true;
+  return false;
 }
 
 // Export defaults for backward compat

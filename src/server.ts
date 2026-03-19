@@ -16,10 +16,11 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { route } from "./router/index.js";
 import { getRoutingConfig } from "./router/config.js";
 import { buildPricingMap } from "./models.js";
-import { forwardRequest, TimeoutError, type ChatRequest } from "./provider.js";
+import { forwardRequest, TimeoutError, parseModelId, type ChatRequest } from "./provider.js";
 import { reloadAuth } from "./auth.js";
-import { loadConfig, getConfig, reloadConfig, getSanitizedConfig, getConfigPath } from "./config.js";
+import { loadConfig, getConfig, reloadConfig, getSanitizedConfig, getConfigPath, isPiiEnabled, getPiiExclude, getPiiMode, isPiiDebugLog } from "./config.js";
 import { logger, setLogLevel } from "./logger.js";
+import { scrubMessages, destroySession, piiVaultStore } from "./pii/index.js";
 
 // Load config at startup
 const appConfig = loadConfig();
@@ -37,6 +38,7 @@ const stats = {
   timeouts: 0,
   byTier: { SIMPLE: 0, MEDIUM: 0, COMPLEX: 0, REASONING: 0 } as Record<string, number>,
   byModel: {} as Record<string, number>,
+  pii: { scrubbed: 0, rehydrated: 0, errors: 0 },
 };
 
 /**
@@ -244,6 +246,43 @@ async function handleChatCompletions(req: IncomingMessage, res: ServerResponse) 
   res.setHeader("X-ClawRouter-Tier", tier);
   res.setHeader("X-ClawRouter-Reasoning", reasoning.slice(0, 200));
 
+  // ─── PII Scrub (if provider requires it) ───
+  let piiSession: string | null = null;
+  let piiScrubbed = false;
+  const primaryProvider = parseModelId(routedModel).provider;
+  const cfg = getConfig();
+  const primaryProviderCfg = cfg.providers[primaryProvider];
+
+  if (primaryProviderCfg && isPiiEnabled(primaryProviderCfg)) {
+    try {
+      const piiMode = getPiiMode(primaryProviderCfg);
+      const scrubResult = scrubMessages(chatReq.messages, getPiiExclude(primaryProviderCfg));
+      piiSession = scrubResult.sessionId;
+      piiScrubbed = scrubResult.scrubbed;
+
+      if (piiScrubbed) {
+        chatReq = { ...chatReq, messages: scrubResult.messages };
+        stats.pii.scrubbed++;
+
+        // Debug logging (temporary — logs safe/scrubbed payload only)
+        if (isPiiDebugLog(primaryProviderCfg)) {
+          logger.info(`[PII] DEBUG scrubbed payload: ${JSON.stringify(scrubResult.messages.map(m => ({ role: m.role, content: typeof m.content === "string" ? m.content.slice(0, 200) : "[array]" })))}`);
+        }
+
+        // Add PII info headers
+        res.setHeader("X-PII-Scrubbed", "true");
+        res.setHeader("X-PII-Categories", scrubResult.categories.join(","));
+        res.setHeader("X-PII-Count", String(scrubResult.categories.length));
+      }
+    } catch (err) {
+      stats.pii.errors++;
+      const msg = err instanceof Error ? err.message : String(err);
+      logger.error(`[PII] ERROR: Scrub failed — request blocked — error: ${msg}`);
+      // Fail-closed: NEVER forward unscrubbed data to external provider
+      return sendError(res, 500, "PII scrub failed");
+    }
+  }
+
   // Build model list: primary + fallbacks
   const modelsToTry: string[] = [routedModel];
   if (tier !== "EXPLICIT") {
@@ -257,34 +296,53 @@ async function handleChatCompletions(req: IncomingMessage, res: ServerResponse) 
   }
 
   let lastError: string = "";
-  for (const modelToTry of modelsToTry) {
-    try {
-      if (modelToTry !== routedModel) {
-        logger.info(`[${stats.requests}] Falling back to ${modelToTry}`);
-        res.setHeader("X-ClawRouter-Model", modelToTry);
-      }
-      await forwardRequest(chatReq, modelToTry, tier, res, stream);
-      return; // success
-    } catch (err) {
-      lastError = err instanceof Error ? err.message : String(err);
-      const isTimeout = err instanceof TimeoutError;
-      if (isTimeout) {
-        stats.timeouts++;
-        logger.error(`\u23f1 TIMEOUT (${modelToTry}): ${lastError} — trying fallback...`);
-      } else {
-        logger.error(`Forward error (${modelToTry}): ${lastError}`);
-      }
-      if (res.headersSent) break; // can't retry if already streaming
-    }
-  }
+  try {
+    for (const modelToTry of modelsToTry) {
+      try {
+        if (modelToTry !== routedModel) {
+          logger.info(`[${stats.requests}] Falling back to ${modelToTry}`);
+          res.setHeader("X-ClawRouter-Model", modelToTry);
+        }
 
-  stats.errors++;
-  if (!res.headersSent) {
-    sendError(res, 502, `Backend error: ${lastError}`, "upstream_error");
-  } else if (!res.writableEnded) {
-    res.write(`data: ${JSON.stringify({ error: { message: lastError } })}\n\n`);
-    res.write("data: [DONE]\n\n");
-    res.end();
+        // Determine if the actual responding provider needs PII rehydration
+        const actualProvider = parseModelId(modelToTry).provider;
+        const actualProviderCfg = cfg.providers[actualProvider];
+        const needsRehydrate = piiScrubbed && actualProviderCfg && isPiiEnabled(actualProviderCfg);
+        const piiMode = actualProviderCfg ? getPiiMode(actualProviderCfg) : "strict";
+
+        await forwardRequest(
+          chatReq, modelToTry, tier, res, stream,
+          needsRehydrate ? piiSession : null,
+          needsRehydrate ? piiMode : undefined,
+        );
+        if (needsRehydrate) stats.pii.rehydrated++;
+        return; // success
+      } catch (err) {
+        lastError = err instanceof Error ? err.message : String(err);
+        const isTimeout = err instanceof TimeoutError;
+        if (isTimeout) {
+          stats.timeouts++;
+          logger.error(`\u23f1 TIMEOUT (${modelToTry}): ${lastError} — trying fallback...`);
+        } else {
+          logger.error(`Forward error (${modelToTry}): ${lastError}`);
+        }
+        if (res.headersSent) break; // can't retry if already streaming
+      }
+    }
+
+    stats.errors++;
+    if (!res.headersSent) {
+      sendError(res, 502, `Backend error: ${lastError}`, "upstream_error");
+    } else if (!res.writableEnded) {
+      res.write(`data: ${JSON.stringify({ error: { message: lastError } })}\n\n`);
+      res.write("data: [DONE]\n\n");
+      res.end();
+    }
+  } finally {
+    // Always clean up PII session
+    if (piiSession && piiScrubbed) {
+      destroySession(piiSession);
+    }
   }
 }
 
@@ -456,10 +514,12 @@ server.listen(PORT, HOST, () => {
 // Graceful shutdown
 process.on("SIGINT", () => {
   logger.info("Shutting down...");
+  piiVaultStore.shutdown();
   server.close(() => process.exit(0));
 });
 
 process.on("SIGTERM", () => {
   logger.info("Shutting down...");
+  piiVaultStore.shutdown();
   server.close(() => process.exit(0));
 });
