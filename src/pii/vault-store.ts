@@ -11,6 +11,7 @@ import { SecretVault } from "./vault.js";
 
 const DEFAULT_TTL_MS = 30 * 60 * 1000;  // 30 minutes
 const SWEEP_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+const MAX_SESSIONS = 1000; // M-5: cap to prevent unbounded memory growth
 
 interface Session {
   vault: SecretVault;
@@ -58,6 +59,12 @@ export class VaultStore {
   getOrCreate(sessionId: string, exclude?: string[]): SecretVault {
     const existing = this.get(sessionId);
     if (existing) return existing;
+
+    // M-5: evict oldest session if at capacity
+    if (this.sessions.size >= MAX_SESSIONS) {
+      const oldestId = this.sessions.keys().next().value;
+      if (oldestId) this.destroy(oldestId);
+    }
 
     const vault = new SecretVault(exclude);
     this.sessions.set(sessionId, {

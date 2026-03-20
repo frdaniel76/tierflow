@@ -46,9 +46,9 @@ function cloneMessage(msg: ChatMessage): ChatMessage {
 
 /**
  * Scrub PII from all message content fields.
- * - Skips system/developer role messages (design decision: system prompts rarely contain user PII)
+ * - Skips system/developer role messages (warns if PII-like patterns detected)
  * - Handles both string content and OpenAI array-format content
- * - Only scrubs type: "text" entries in array content — images and other types unchanged
+ * - Scrubs type: "text" and type: "tool_result" entries in array content
  * - Scrubs tool_calls arguments (can contain user data)
  * - Deep-copies messages (originals untouched)
  */
@@ -63,9 +63,16 @@ export function scrubMessages(
   let totalScrubbed = false;
   const scrubbedMessages: ChatMessage[] = [];
 
+  // M-1: simple PII-like check for system messages (warn-only, no scrub)
+  const piiHintRe = /[\w.+'-]+@[\w-]+\.[\w.]{2,}|\b\d{3}[- ]?\d{2}[- ]?\d{4}\b|\+\d{1,3}[\s.-]?\d/;
+
   for (const msg of messages) {
-    // Skip system/developer messages
+    // Skip system/developer messages but warn if PII-like content detected
     if (msg.role === "system" || msg.role === "developer") {
+      const text = typeof msg.content === "string" ? msg.content : "";
+      if (text && piiHintRe.test(text)) {
+        logger.warn(`[PII] WARNING: system/developer message may contain PII — not scrubbed by design`);
+      }
       scrubbedMessages.push(msg); // pass through unmodified
       continue;
     }
@@ -86,6 +93,14 @@ export function scrubMessages(
           const result = vault.redact(block.text);
           if (result.count > 0) {
             block.text = result.text;
+            totalScrubbed = true;
+            result.categories.forEach(c => allCategories.add(c));
+          }
+        } else if (block.type === "tool_result" && typeof (block as any).content === "string" && (block as any).content) {
+          // C-4 fix: scrub Anthropic tool_result content blocks
+          const result = vault.redact((block as any).content);
+          if (result.count > 0) {
+            (block as any).content = result.text;
             totalScrubbed = true;
             result.categories.forEach(c => allCategories.add(c));
           }
@@ -191,7 +206,8 @@ export function rehydrateChunk(
   if (partialStart !== -1) {
     const afterPartial = remaining.slice(partialStart);
     // Max placeholder length: << (2) + type (8) + : (1) + hexid (12) + >> (2) = 25 chars
-    if (afterPartial.length < 25 && !afterPartial.includes(">>")) {
+    // M-4 fix: use <= 25 to avoid off-by-one on max-length partial
+    if (afterPartial.length <= 25 && !afterPartial.includes(">>")) {
       // Partial match — hold it in carry
       result += remaining.slice(0, partialStart);
       return { output: result, carry: afterPartial };
@@ -215,6 +231,9 @@ export function rehydrateChunk(
  * Clean up a vault session after request completes.
  */
 export function destroySession(sessionId: string): void {
+  const hadSession = piiVaultStore.get(sessionId) !== undefined;
   piiVaultStore.destroy(sessionId);
-  logger.info(`[PII] Session ${sessionId.slice(0, 8)} destroyed`);
+  if (hadSession) {
+    logger.info(`[PII] Session ${sessionId.slice(0, 8)} destroyed`);
+  }
 }

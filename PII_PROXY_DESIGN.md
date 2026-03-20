@@ -1,8 +1,8 @@
 # FreeRouter PII Proxy — Design & Implementation Plan
 
-**Version:** 1.1.0
-**Date:** 2026-03-18
-**Status:** IMPLEMENTED — 107/107 tests passing
+**Version:** 1.2.0
+**Date:** 2026-03-19
+**Status:** IMPLEMENTED — 125/125 tests passing (security hardened)
 
 ---
 

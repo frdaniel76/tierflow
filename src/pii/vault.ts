@@ -10,7 +10,7 @@
  *   e.g. <<email:a1b2c3d4e5f6>>
  */
 
-import { randomBytes, createCipheriv, createDecipheriv } from "node:crypto";
+import { randomBytes, createCipheriv, createDecipheriv, createHmac } from "node:crypto";
 import { PATTERNS, fresh, type PatternDef } from "./patterns.js";
 
 // ─── Types ───
@@ -64,7 +64,7 @@ function insideCodeBlock(offset: number, blocks: Array<{ start: number; end: num
 export class SecretVault {
   private key: Buffer;
   private entries = new Map<string, VaultEntry>();
-  private valueToId = new Map<string, string>(); // deduplication
+  private valueToId = new Map<string, string>(); // dedup: HMAC(value) → id (M-6: no plaintext keys)
   private destroyed = false;
   private exclude: Set<string>;
 
@@ -104,15 +104,23 @@ export class SecretVault {
    * Store a PII value, returning its placeholder ID.
    * Deduplicates: same value always gets the same placeholder.
    */
+  /**
+   * HMAC a value for dedup lookup — avoids storing plaintext PII as map keys (M-6).
+   */
+  private hmacValue(value: string): string {
+    return createHmac("sha256", this.key).update(value).digest("hex");
+  }
+
   private store(value: string, category: string): string {
-    // Check dedup cache
-    const existing = this.valueToId.get(value);
+    // Check dedup cache using HMAC (no plaintext stored)
+    const hash = this.hmacValue(value);
+    const existing = this.valueToId.get(hash);
     if (existing) return existing;
 
     const id = this.generateId();
     const { encrypted, iv, tag } = this.encrypt(value);
     this.entries.set(id, { category, encrypted, iv, tag });
-    this.valueToId.set(value, id);
+    this.valueToId.set(hash, id);
     return id;
   }
 

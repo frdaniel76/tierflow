@@ -272,7 +272,10 @@ async function handleChatCompletions(req: IncomingMessage, res: ServerResponse) 
         // Add PII info headers
         res.setHeader("X-PII-Scrubbed", "true");
         res.setHeader("X-PII-Categories", scrubResult.categories.join(","));
-        res.setHeader("X-PII-Count", String(scrubResult.categories.length));
+        res.setHeader("X-PII-Count", String(scrubResult.messages.reduce((n, m) => {
+          const c = typeof m.content === "string" ? m.content : JSON.stringify(m.content ?? "");
+          return n + (c.match(/<<[a-z]{2,8}:[0-9a-f]{12}>>/g) ?? []).length;
+        }, 0)));
       }
     } catch (err) {
       stats.pii.errors++;

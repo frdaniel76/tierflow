@@ -181,6 +181,143 @@ async function patternDetectionTests() {
     assertNotIncludes(result.text, "/Users/medme");
     vault.destroy();
   });
+
+  // C-2: SSN detection
+  await test("detects US Social Security Numbers (XXX-XX-XXXX)", () => {
+    const vault = new SecretVault();
+    const result = vault.redact("SSN: 123-45-6789");
+    assert(result.count >= 1, `Expected ≥1, got ${result.count}`);
+    assertNotIncludes(result.text, "123-45-6789");
+    assert(result.categories.includes("ssn"), "Should include ssn category");
+    vault.destroy();
+  });
+
+  await test("detects SSN without dashes (123456789)", () => {
+    const vault = new SecretVault();
+    const result = vault.redact("SSN: 123456789");
+    assert(result.count >= 1, `Expected ≥1, got ${result.count}`);
+    assertNotIncludes(result.text, "123456789");
+    vault.destroy();
+  });
+
+  await test("detects SSN with spaces (123 45 6789)", () => {
+    const vault = new SecretVault();
+    const result = vault.redact("SSN: 123 45 6789");
+    assert(result.count >= 1, `Expected ≥1, got ${result.count}`);
+    assertNotIncludes(result.text, "123 45 6789");
+    vault.destroy();
+  });
+
+  // C-3: credit card — tighter pattern
+  await test("detects Visa card (4111111111111111)", () => {
+    const vault = new SecretVault();
+    const result = vault.redact("Card: 4111111111111111");
+    assert(result.count >= 1, `Expected ≥1, got ${result.count}`);
+    assertNotIncludes(result.text, "4111111111111111");
+    vault.destroy();
+  });
+
+  await test("detects grouped card (4111 1111 1111 1111)", () => {
+    const vault = new SecretVault();
+    const result = vault.redact("Card: 4111 1111 1111 1111");
+    assert(result.count >= 1, `Expected ≥1, got ${result.count}`);
+    assertNotIncludes(result.text, "4111 1111");
+    vault.destroy();
+  });
+
+  await test("detects Amex card (378282246310005)", () => {
+    const vault = new SecretVault();
+    const result = vault.redact("Amex: 378282246310005");
+    assert(result.count >= 1, `Expected ≥1, got ${result.count}`);
+    assertNotIncludes(result.text, "378282246310005");
+    vault.destroy();
+  });
+
+  await test("does NOT false-positive on version strings as credit card", () => {
+    const vault = new SecretVault();
+    const result = vault.redact("Version 2.3.4.5 released today");
+    const ccMatches = (result.text.match(/<<cc:/g) ?? []).length;
+    assertEqual(ccMatches, 0, "Version string should NOT match as credit card");
+    vault.destroy();
+  });
+
+  // H-3: IPv6 detection
+  await test("detects full IPv6 address", () => {
+    const vault = new SecretVault();
+    const result = vault.redact("Server at 2001:0db8:85a3:0000:0000:8a2e:0370:7334");
+    assert(result.count >= 1, `Expected ≥1, got ${result.count}`);
+    assertNotIncludes(result.text, "2001:0db8");
+    vault.destroy();
+  });
+
+  // H-4: JWT without signature
+  await test("detects JWT with signature", () => {
+    const vault = new SecretVault();
+    const jwt = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U";
+    const result = vault.redact(`Token: ${jwt}`);
+    assert(result.count >= 1, `Expected ≥1, got ${result.count}`);
+    assertNotIncludes(result.text, "eyJhbGci");
+    vault.destroy();
+  });
+
+  await test("detects unsigned JWT (no signature segment)", () => {
+    const vault = new SecretVault();
+    const jwt = "eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIn0";
+    const result = vault.redact(`Token: ${jwt}`);
+    assert(result.count >= 1, `Expected ≥1, got ${result.count}`);
+    assertNotIncludes(result.text, "eyJhbGci");
+    vault.destroy();
+  });
+
+  // M-7: expanded credential keywords
+  await test("detects credentials with 'pwd' keyword", () => {
+    const vault = new SecretVault();
+    const result = vault.redact("config: pwd=MySecret123!");
+    assert(result.count >= 1, `Expected ≥1, got ${result.count}`);
+    assertNotIncludes(result.text, "MySecret123");
+    vault.destroy();
+  });
+
+  await test("detects credentials with 'private_key' keyword", () => {
+    const vault = new SecretVault();
+    const result = vault.redact("private_key=abcdefghijklmnop");
+    assert(result.count >= 1, `Expected ≥1, got ${result.count}`);
+    assertNotIncludes(result.text, "abcdefghijklmnop");
+    vault.destroy();
+  });
+
+  await test("detects credentials with 'client_secret' keyword", () => {
+    const vault = new SecretVault();
+    const result = vault.redact("client_secret: xyzSecret999");
+    assert(result.count >= 1, `Expected ≥1, got ${result.count}`);
+    assertNotIncludes(result.text, "xyzSecret999");
+    vault.destroy();
+  });
+
+  // L-3: expanded file paths
+  await test("detects file paths (/root/...)", () => {
+    const vault = new SecretVault();
+    const result = vault.redact("Located at /root/.ssh/id_rsa");
+    assert(result.count >= 1, `Expected ≥1, got ${result.count}`);
+    assertNotIncludes(result.text, "/root/.ssh");
+    vault.destroy();
+  });
+
+  await test("detects file paths (/etc/...)", () => {
+    const vault = new SecretVault();
+    const result = vault.redact("Check /etc/passwd for users");
+    assert(result.count >= 1, `Expected ≥1, got ${result.count}`);
+    assertNotIncludes(result.text, "/etc/passwd");
+    vault.destroy();
+  });
+
+  await test("detects file paths (/var/...)", () => {
+    const vault = new SecretVault();
+    const result = vault.redact("Logs at /var/log/syslog");
+    assert(result.count >= 1, `Expected ≥1, got ${result.count}`);
+    assertNotIncludes(result.text, "/var/log");
+    vault.destroy();
+  });
 }
 
 // ═══════════════════════════════════════════
@@ -577,6 +714,34 @@ async function scrubMessagesTests() {
     const result = scrubMessages(messages);
     assert(result.categories.includes("email"), "Should include email");
     assert(result.categories.includes("apikey"), "Should include apikey");
+    destroySession(result.sessionId);
+  });
+
+  // C-4: tool_result array content scrubbing
+  await test("scrubs tool_result blocks in array content (Anthropic format)", () => {
+    const messages: ChatMessage[] = [
+      {
+        role: "user",
+        content: [
+          { type: "tool_result" as any, content: "Email: john@acme.com" } as any,
+        ],
+      },
+    ];
+    const result = scrubMessages(messages);
+    assert(result.scrubbed, "Should scrub tool_result content");
+    const block = (result.messages[0].content as any[])[0];
+    assertNotIncludes(block.content, "john@acme.com");
+    destroySession(result.sessionId);
+  });
+
+  // SSN in integration context
+  await test("scrubs SSN from user messages", () => {
+    const messages: ChatMessage[] = [
+      { role: "user", content: "My SSN is 123-45-6789" },
+    ];
+    const result = scrubMessages(messages);
+    assert(result.scrubbed, "Should scrub SSN");
+    assertNotIncludes(result.messages[0].content as string, "123-45-6789");
     destroySession(result.sessionId);
   });
 
