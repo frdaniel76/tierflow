@@ -21,16 +21,16 @@
     }
   },
   "tiers": {
-    "SIMPLE":    { "primary": "ollama/qwen3:8b",           "fallback": ["ollama/gemma3:4b"] },
-    "MEDIUM":    { "primary": "ollama/qwen3:8b",           "fallback": ["ollama/gemma3:4b"] },
-    "COMPLEX":   { "primary": "ollama/qwen3:8b",           "fallback": ["ollama/qwen2.5-coder:7b"] },
-    "REASONING": { "primary": "ollama/qwen3:8b",           "fallback": ["ollama/deepseek-r1:7b"] }
+    "SIMPLE":    { "primary": "ollama/gemma3:4b",                              "fallback": ["ollama/gemma3:1b"] },
+    "MEDIUM":    { "primary": "ollama/gemma3:4b",                              "fallback": ["ollama/gemma3:1b"] },
+    "COMPLEX":   { "primary": "openrouter/minimax/minimax-m2.5",           "fallback": ["openrouter/deepseek/deepseek-chat-v3-0324", "ollama/gemma3:4b"] },
+    "REASONING": { "primary": "openrouter/deepseek/deepseek-r1",               "fallback": ["openrouter/minimax/minimax-m2.5", "ollama/qwen3:8b"] }
   },
   "agenticTiers": {
-    "SIMPLE":    { "primary": "ollama/qwen3:8b",           "fallback": ["ollama/gemma3:4b"] },
-    "MEDIUM":    { "primary": "ollama/qwen3:8b",           "fallback": ["ollama/gemma3:4b"] },
-    "COMPLEX":   { "primary": "ollama/qwen3:8b",           "fallback": ["ollama/qwen2.5-coder:7b"] },
-    "REASONING": { "primary": "ollama/qwen3:8b",           "fallback": ["ollama/deepseek-r1:7b"] }
+    "SIMPLE":    { "primary": "ollama/gemma3:4b",                              "fallback": ["ollama/gemma3:1b"] },
+    "MEDIUM":    { "primary": "ollama/gemma3:4b",                              "fallback": ["ollama/gemma3:1b"] },
+    "COMPLEX":   { "primary": "openrouter/minimax/minimax-m2.5",           "fallback": ["openrouter/deepseek/deepseek-chat-v3-0324", "ollama/gemma3:4b"] },
+    "REASONING": { "primary": "openrouter/deepseek/deepseek-r1",               "fallback": ["openrouter/minimax/minimax-m2.5", "ollama/qwen3:8b"] }
   },
   "tierBoundaries": {
     "simpleMedium": -0.05,
