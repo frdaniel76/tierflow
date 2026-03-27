@@ -1,0 +1,263 @@
+{
+  "generated": "2026-03-28",
+  "version": "2.0.0",
+  "note": "Pre-recorded results. Regenerate with: npm run demo:generate",
+  "comparisons": [
+    {
+      "id": "greeting",
+      "prompt": "Hi, how are you today?",
+      "routing": {
+        "category": "simple_chat",
+        "tier": "SIMPLE",
+        "confidence": 0.98,
+        "method": "ml-classifier",
+        "latency_ms": 35
+      },
+      "results": {
+        "always_cheap": {
+          "model": "gpt-4o-mini",
+          "response": "I'm doing well, thank you! How can I help you today?",
+          "cost_usd": 0.000012,
+          "latency_ms": 800
+        },
+        "freerouter": {
+          "model": "gemini-2.5-flash-lite",
+          "response": "Hello! I'm doing great, thanks for asking. What can I help you with?",
+          "cost_usd": 0.000008,
+          "latency_ms": 650
+        },
+        "always_best": {
+          "model": "claude-opus-4-6",
+          "response": "Hello! I'm doing well, thank you for asking. How can I assist you today?",
+          "cost_usd": 0.003200,
+          "latency_ms": 2100
+        }
+      },
+      "savings_vs_best_pct": 99.8
+    },
+    {
+      "id": "haiku",
+      "prompt": "Write a haiku about programming",
+      "routing": {
+        "category": "creative",
+        "tier": "SIMPLE",
+        "confidence": 0.97,
+        "method": "ml-classifier",
+        "latency_ms": 38
+      },
+      "results": {
+        "always_cheap": {
+          "model": "gpt-4o-mini",
+          "response": "Code flows like water\nBugs hide in the shallow streams\nDebug brings the sun",
+          "cost_usd": 0.000018,
+          "latency_ms": 1100
+        },
+        "freerouter": {
+          "model": "step-3.5-flash",
+          "response": "Silicon whispers soft\nLogic blooms in nested loops\nCompile — the world wakes",
+          "cost_usd": 0.000000,
+          "latency_ms": 900
+        },
+        "always_best": {
+          "model": "claude-opus-4-6",
+          "response": "Bytes cascade like rain\nThrough silicon valleys deep\nLogic blooms in spring",
+          "cost_usd": 0.003180,
+          "latency_ms": 2800
+        }
+      },
+      "savings_vs_best_pct": 100.0
+    },
+    {
+      "id": "python-function",
+      "prompt": "Write a Python function to check if a number is prime",
+      "routing": {
+        "category": "coding",
+        "tier": "COMPLEX",
+        "confidence": 0.99,
+        "method": "ml-classifier",
+        "latency_ms": 32
+      },
+      "results": {
+        "always_cheap": {
+          "model": "gpt-4o-mini",
+          "response": "def is_prime(n):\n    if n < 2: return False\n    for i in range(2, int(n**0.5)+1):\n        if n % i == 0: return False\n    return True",
+          "cost_usd": 0.000045,
+          "latency_ms": 1400
+        },
+        "freerouter": {
+          "model": "qwen3-coder",
+          "response": "def is_prime(n: int) -> bool:\n    if n < 2:\n        return False\n    if n < 4:\n        return True\n    if n % 2 == 0 or n % 3 == 0:\n        return False\n    i = 5\n    while i * i <= n:\n        if n % i == 0 or n % (i + 2) == 0:\n            return False\n        i += 6\n    return True",
+          "cost_usd": 0.000000,
+          "latency_ms": 1800
+        },
+        "always_best": {
+          "model": "claude-opus-4-6",
+          "response": "def is_prime(n: int) -> bool:\n    \"\"\"Check if a number is prime using trial division with 6k optimization.\"\"\"\n    if n < 2:\n        return False\n    if n < 4:\n        return True\n    if n % 2 == 0 or n % 3 == 0:\n        return False\n    i = 5\n    while i * i <= n:\n        if n % i == 0 or n % (i + 2) == 0:\n            return False\n        i += 6\n    return True",
+          "cost_usd": 0.004500,
+          "latency_ms": 3200
+        }
+      },
+      "savings_vs_best_pct": 100.0
+    },
+    {
+      "id": "math-proof",
+      "prompt": "Prove that the square root of 2 is irrational",
+      "routing": {
+        "category": "reasoning",
+        "tier": "REASONING",
+        "confidence": 0.96,
+        "method": "ml-classifier",
+        "latency_ms": 41
+      },
+      "results": {
+        "always_cheap": {
+          "model": "gpt-4o-mini",
+          "response": "Assume sqrt(2) = p/q where p,q are coprime integers. Then 2 = p^2/q^2, so p^2 = 2q^2. This means p^2 is even, so p is even. Let p = 2k...",
+          "cost_usd": 0.000090,
+          "latency_ms": 2200
+        },
+        "freerouter": {
+          "model": "deepseek-r1",
+          "response": "Proof by contradiction: Assume sqrt(2) is rational, i.e., sqrt(2) = a/b where a,b are integers with gcd(a,b) = 1. Squaring both sides: 2 = a^2/b^2, hence a^2 = 2b^2. Since a^2 is even, a must be even (as odd^2 is odd). Write a = 2c. Then 4c^2 = 2b^2, so b^2 = 2c^2. Thus b is also even. Contradiction: both a and b are even, but gcd(a,b) = 1. Therefore sqrt(2) is irrational. QED.",
+          "cost_usd": 0.001200,
+          "latency_ms": 4500
+        },
+        "always_best": {
+          "model": "claude-opus-4-6",
+          "response": "Proof by contradiction: Assume sqrt(2) is rational, expressible as p/q in lowest terms (gcd(p,q)=1). Then 2 = p^2/q^2, giving p^2 = 2q^2. Since p^2 is even, p must be even (contrapositive: if p is odd, p^2 is odd). Write p = 2k. Then 4k^2 = 2q^2, so q^2 = 2k^2, meaning q is also even. But this contradicts gcd(p,q) = 1. Therefore sqrt(2) is irrational.",
+          "cost_usd": 0.006800,
+          "latency_ms": 5100
+        }
+      },
+      "savings_vs_best_pct": 82.4
+    },
+    {
+      "id": "data-analysis",
+      "prompt": "Analyze monthly sales data and identify the top-performing quarter",
+      "routing": {
+        "category": "data",
+        "tier": "MEDIUM",
+        "confidence": 0.93,
+        "method": "ml-classifier",
+        "latency_ms": 44
+      },
+      "results": {
+        "always_cheap": {
+          "model": "gpt-4o-mini",
+          "response": "To analyze monthly sales data, I'd need the actual dataset. In general: group by quarter (Q1=Jan-Mar, Q2=Apr-Jun, Q3=Jul-Sep, Q4=Oct-Dec), sum revenue per quarter, then compare...",
+          "cost_usd": 0.000035,
+          "latency_ms": 1600
+        },
+        "freerouter": {
+          "model": "gemini-2.5-flash",
+          "response": "To identify the top-performing quarter from monthly sales data, I'd follow this approach:\n1. Aggregate monthly figures into quarters\n2. Calculate total revenue, growth rate, and average monthly sales per quarter\n3. Rank quarters by total revenue...",
+          "cost_usd": 0.000050,
+          "latency_ms": 1400
+        },
+        "always_best": {
+          "model": "claude-opus-4-6",
+          "response": "I'd analyze this systematically:\n1. Data Aggregation: Group monthly sales into quarters\n2. Key Metrics: Total revenue, YoY growth, customer count, average order value\n3. Seasonal Patterns: Identify recurring trends...",
+          "cost_usd": 0.005100,
+          "latency_ms": 3800
+        }
+      },
+      "savings_vs_best_pct": 99.0
+    },
+    {
+      "id": "agentic-task",
+      "prompt": "Search the web for the latest AI regulation news and summarize the key points",
+      "routing": {
+        "category": "agentic",
+        "tier": "COMPLEX",
+        "confidence": 0.94,
+        "method": "ml-classifier",
+        "latency_ms": 39
+      },
+      "results": {
+        "always_cheap": {
+          "model": "gpt-4o-mini",
+          "response": "I don't have real-time web access, but I can share what I know about recent AI regulation trends...",
+          "cost_usd": 0.000055,
+          "latency_ms": 1800
+        },
+        "freerouter": {
+          "model": "deepseek-v3",
+          "response": "Based on my training data, here are the key AI regulation developments:\n1. EU AI Act implementation timeline\n2. US executive orders on AI safety\n3. China's generative AI regulations...",
+          "cost_usd": 0.000400,
+          "latency_ms": 2200
+        },
+        "always_best": {
+          "model": "claude-opus-4-6",
+          "response": "Here's a comprehensive summary of recent AI regulation developments:\n1. EU AI Act: Full enforcement timeline, risk-based classification\n2. US: Executive orders, NIST framework, state-level legislation\n3. International: G7 Hiroshima AI Process, UN advisory body...",
+          "cost_usd": 0.005800,
+          "latency_ms": 4200
+        }
+      },
+      "savings_vs_best_pct": 93.1
+    },
+    {
+      "id": "factual-simple",
+      "prompt": "What is the capital of Japan?",
+      "routing": {
+        "category": "simple_chat",
+        "tier": "SIMPLE",
+        "confidence": 0.99,
+        "method": "ml-classifier",
+        "latency_ms": 28
+      },
+      "results": {
+        "always_cheap": {
+          "model": "gpt-4o-mini",
+          "response": "The capital of Japan is Tokyo.",
+          "cost_usd": 0.000008,
+          "latency_ms": 500
+        },
+        "freerouter": {
+          "model": "gemini-2.5-flash-lite",
+          "response": "Tokyo is the capital of Japan.",
+          "cost_usd": 0.000004,
+          "latency_ms": 400
+        },
+        "always_best": {
+          "model": "claude-opus-4-6",
+          "response": "The capital of Japan is Tokyo.",
+          "cost_usd": 0.002800,
+          "latency_ms": 1800
+        }
+      },
+      "savings_vs_best_pct": 99.9
+    },
+    {
+      "id": "explain-general",
+      "prompt": "Explain how photosynthesis works",
+      "routing": {
+        "category": "general",
+        "tier": "MEDIUM",
+        "confidence": 0.95,
+        "method": "ml-classifier",
+        "latency_ms": 36
+      },
+      "results": {
+        "always_cheap": {
+          "model": "gpt-4o-mini",
+          "response": "Photosynthesis is the process by which plants convert sunlight, water, and CO2 into glucose and oxygen. It occurs in chloroplasts using chlorophyll...",
+          "cost_usd": 0.000040,
+          "latency_ms": 1300
+        },
+        "freerouter": {
+          "model": "deepseek-v3",
+          "response": "Photosynthesis is how plants and other organisms convert light energy into chemical energy. The process has two main stages: light-dependent reactions (in thylakoid membranes) and the Calvin cycle (in stroma)...",
+          "cost_usd": 0.000300,
+          "latency_ms": 1700
+        },
+        "always_best": {
+          "model": "claude-opus-4-6",
+          "response": "Photosynthesis is the process by which plants, algae, and some bacteria convert light energy into chemical energy stored in glucose. It occurs in two stages: the light-dependent reactions and the Calvin cycle...",
+          "cost_usd": 0.004200,
+          "latency_ms": 3500
+        }
+      },
+      "savings_vs_best_pct": 92.9
+    }
+  ]
+}
