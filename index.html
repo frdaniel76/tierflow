@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>FreeRouter Demo — Smart AI Model Routing</title>
+<title>TierFlow Demo — Smart AI Model Routing</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div class="container">
   <header>
-    <h1><span>Free</span>Router</h1>
+    <h1><span>Tier</span>Flow</h1>
     <p>Same prompt. Three routing strategies. See how smart routing saves 75-99% on AI costs without sacrificing quality.</p>
   </header>
 
@@ -31,8 +31,8 @@
   </div>
 
   <footer>
-    <p>FreeRouter &mdash; Free, self-hosted AI model router with ML-powered classification</p>
-    <p>Pre-recorded results from <span id="generated-date"></span> &middot; <a href="https://github.com/your-org/freerouter">GitHub</a> &middot; <code>npx freerouter</code></p>
+    <p>TierFlow &mdash; Free, self-hosted AI model router with ML-powered classification</p>
+    <p>Pre-recorded results from <span id="generated-date"></span> &middot; <a href="https://github.com/your-org/tierflow">GitHub</a> &middot; <code>npx tierflow</code></p>
   </footer>
 </div>
 
@@ -71,10 +71,10 @@ function render(idx) {
   document.getElementById('prompt-text').textContent = '"' + c.prompt + '"';
 
   const grid = document.getElementById('comparison-grid');
-  grid.innerHTML = ['always_cheap', 'freerouter', 'always_best'].map(key => {
+  grid.innerHTML = ['always_cheap', 'tierflow', 'always_best'].map(key => {
     const r = c.results[key];
-    const isHero = key === 'freerouter';
-    const title = key === 'always_cheap' ? 'Always Cheapest' : key === 'freerouter' ? 'FreeRouter' : 'Always Best';
+    const isHero = key === 'tierflow';
+    const title = key === 'always_cheap' ? 'Always Cheapest' : key === 'tierflow' ? 'TierFlow' : 'Always Best';
     return `<div class="comparison-card${isHero ? ' hero' : ''}">
       <div class="card-header">
         <span class="card-title">${title}</span>
@@ -91,7 +91,7 @@ function render(idx) {
   // Savings banner
   document.getElementById('savings-banner').innerHTML =
     `<div class="big">${c.savings_vs_best_pct.toFixed(1)}% cheaper</div>
-     <div class="sub">FreeRouter (${fmtCost(c.results.freerouter.cost_usd)}) vs Always Best (${fmtCost(c.results.always_best.cost_usd)})</div>`;
+     <div class="sub">TierFlow (${fmtCost(c.results.tierflow.cost_usd)}) vs Always Best (${fmtCost(c.results.always_best.cost_usd)})</div>`;
 
   // Routing info
   document.getElementById('routing-info').innerHTML =
@@ -109,7 +109,7 @@ function computeAggregate() {
 
   for (const c of data.comparisons) {
     totalSavings += c.savings_vs_best_pct;
-    totalCostRouted += c.results.freerouter.cost_usd;
+    totalCostRouted += c.results.tierflow.cost_usd;
     totalCostBest += c.results.always_best.cost_usd;
   }
 
