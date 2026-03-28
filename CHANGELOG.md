@@ -1,5 +1,104 @@
 # Changelog
 
+## [2.0.0] — 2026-03-23
+
+### ML-Powered Category Routing
+
+Replaced the 14-dimension keyword scorer with an ML classifier service.
+
+#### Architecture
+- LLMRouter microservice (Python FastAPI) on localhost:18801
+- KNN classifier with sentence-transformers embeddings (all-MiniLM-L6-v2, 80MB)
+- 160 curated training examples across 8 categories
+- ~40ms classification latency, graceful fallback when ML service is down
+
+#### 8 Categories → Specialized Models
+| Category | Model | Cost |
+|----------|-------|------|
+| simple_chat | Gemini Flash | $0.50/M |
+| general | DeepSeek V3.2 | $2.74/M |
+| coding | Qwen3 Coder | Free |
+| reasoning | DeepSeek R1 | $4.36/M |
+| creative | Step 3.5 Flash | Free |
+| data | Gemini Flash | $0.50/M |
+| agentic | DeepSeek V3.2 | $2.74/M |
+| transcription | Local whisper | Free |
+
+#### Key Improvements
+- "Tell me a joke" → simple_chat (was REASONING due to keyword matching)
+- Voice messages → transcription (was REASONING due to session context bleed)
+- Code queries → specialized coding model (free, better quality)
+- Creative queries → specialized creative model (free)
+- ~57% cost reduction from free model routing
+
+---
+
+## [1.5.0] — 2026-03-22
+
+### Type-Preserving PII Placeholders
+
+Placeholders now look like the original data type — LLMs understand what the data IS and echo it correctly in tool calls.
+
+#### Placeholder Templates
+| Category | Template | Example |
+|----------|----------|---------|
+| email | `p0{hex}@maildomain.com` | `p0a1b2c3d4e5f6@maildomain.com` |
+| apikey | `sk-p0{hex}-placeholder` | `sk-p0a1b2c3d4e5f6-placeholder` |
+| conn | `p0{hex}://placeholder/db` | `p0a1b2c3d4e5f6://placeholder/db` |
+| cred | `Bearer p0{hex}-placeholder` | `Bearer p0a1b2c3d4e5f6-placeholder` |
+| cc | `0000-p0{hex}-0000` | `0000-p0a1b2c3d4e5f6-0000` |
+| ssn | `900-p0{hex}` | `900-p0a1b2c3d4e5f6` |
+| phone | `+0-555-p0{hex}` | `+0-555-p0a1b2c3d4e5f6` |
+| ip | `p0{hex}.0.0.1` | `p0a1b2c3d4e5f6.0.0.1` |
+| path | `/pii/p0{hex}/redacted` | `/pii/p0a1b2c3d4e5f6/redacted` |
+| pem | `-----BEGIN PII p0{hex} KEY-----` | `-----BEGIN PII p0a1b2... KEY-----` |
+| nino | `QQp0{hex}C` | `QQp0a1b2c3d4e5f6C` |
+| post | `ZZp0{hex}` | `ZZp0a1b2c3d4e5f6` |
+| secret | `{keyword}=p0{hex}-redacted` | `password=p0a1b2c3d4e5f6-redacted` |
+
+- Universal ID marker: `p0[0-9a-f]{12}` — present in every placeholder
+- `secret` category preserves the keyword prefix (password, token, api_key, etc.)
+- Per-type rehydration regexes + contextual fallback patterns
+- Carry buffer rewritten for streaming with type-aware partial detection
+
+---
+
+## [1.4.0] — 2026-03-22
+
+### PII Tool Call Hardening & Placeholder Format Change
+
+#### Placeholder Format
+- Changed from `<<category:hexid>>` to `__PII_category_hexid__`
+- Old format was parsed/stripped by LLMs (especially DeepSeek) which broke tool call rehydration
+- New format is treated as an opaque identifier — LLMs echo it verbatim
+- Added fallback regex to handle cases where LLMs strip the `__` delimiters
+
+#### Streaming Tool Call Carry Buffer
+- Added per-tool-call carry buffers for streaming argument deltas (OpenAI + Anthropic paths)
+- Previously used `rehydrateText()` which couldn't handle placeholders split across SSE chunks
+- Now uses `rehydrateChunk()` with proper carry buffer per tool index
+- Carry buffers flushed in `finally` blocks on stream end
+
+#### Tool Result Array Content
+- `tool_result` blocks with nested array content (e.g. `[{type:"text",text:"..."}]`) are now scrubbed
+- Previously only string content was handled
+
+#### System Message Scrubbing (opt-in)
+- New `scrub_system: true` config option in PII config
+- When enabled, scrubs system/developer messages (both string and array content)
+- Default: false (backward compatible)
+
+#### Fallback Provider Rehydration
+- Always rehydrate if data was scrubbed, even when falling back to a non-PII provider (e.g. Ollama)
+- Previously, fallback to a provider without `pii: true` returned raw placeholders to the client
+- `piiMode` now consistently uses the primary provider's config, not the fallback's
+
+#### Tests
+- 41 new tests across `pii-gaps.test.ts` (33) and updated streaming tests (8)
+- **166/166 tests passing** (up from 125/125)
+
+---
+
 ## [1.3.0] — 2026-02-14
 
 ### 🎛️ Mode Overrides — Take Control When You Want It

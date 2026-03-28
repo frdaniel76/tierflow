@@ -102,7 +102,7 @@ async function nonStreamingTests() {
     const modelResponse = `Here's a summary of the contact: ${scrubbedContent}`;
     const rehydrated = rehydrateText(modelResponse, scrubResult.sessionId);
     assertIncludes(rehydrated, "john@acme.com");
-    assertNotIncludes(rehydrated, "<<email:");
+    assertNotIncludes(rehydrated, "@maildomain.com");
     destroySession(scrubResult.sessionId);
   });
 
@@ -153,12 +153,12 @@ async function streamingTests() {
     assert(scrubResult.scrubbed, "Should scrub");
     const scrubbedContent = scrubResult.messages[0].content as string;
 
-    const responseText = `Contact ${scrubbedContent.match(/<<email:[0-9a-f]{12}>>/)![0]} for help`;
+    const responseText = `Contact ${scrubbedContent.match(/p0[0-9a-f]{12}@maildomain\.com/)![0]} for help`;
     const chunks = responseText.match(/.{1,8}/g) ?? [];
     const fullOutput = feedChunks(chunks, scrubResult.sessionId);
 
     assertIncludes(fullOutput, "john@acme.com");
-    assertNotIncludes(fullOutput, "<<email:");
+    assertNotIncludes(fullOutput, "@maildomain.com");
     destroySession(scrubResult.sessionId);
   });
 
@@ -168,7 +168,7 @@ async function streamingTests() {
     ];
     const scrubResult = scrubMessages(messages);
     const scrubbedContent = scrubResult.messages[0].content as string;
-    const placeholder = scrubbedContent.match(/<<email:[0-9a-f]{12}>>/)![0];
+    const placeholder = scrubbedContent.match(/p0[0-9a-f]{12}@maildomain\.com/)![0];
 
     const sseChunks = [
       "Email ",
@@ -184,10 +184,10 @@ async function streamingTests() {
 
   await test("streaming: stream ends → carry flushed", () => {
     const scrubResult = scrubMessages([{ role: "user", content: "john@acme.com" }]);
-    const r1 = rehydrateChunk("some text <<not", scrubResult.sessionId, "");
+    const r1 = rehydrateChunk("some text p0not", scrubResult.sessionId, "");
     assert(r1.carry.length > 0, "Should have carry");
     const finalOutput = r1.output + r1.carry;
-    assertIncludes(finalOutput, "<<not");
+    assertIncludes(finalOutput, "p0not");
     destroySession(scrubResult.sessionId);
   });
 }
@@ -297,7 +297,7 @@ async function sessionLifecycleTests() {
 
     // Cross-session: session 1 can't rehydrate session 2's placeholders
     const cross = rehydrateText(r2.messages[0].content as string, r1.sessionId);
-    assertIncludes(cross, "<<email:"); // Placeholder stays — wrong session
+    assertIncludes(cross, "@maildomain.com"); // Placeholder stays — wrong session
     assertNotIncludes(cross, "bob@y.com");
 
     destroySession(r1.sessionId);
@@ -318,7 +318,7 @@ async function errorTests() {
     destroySession(result.sessionId);
 
     const rehydrated = rehydrateText(scrubbedContent, result.sessionId);
-    assertIncludes(rehydrated, "<<email:");
+    assertIncludes(rehydrated, "@maildomain.com");
     assertNotIncludes(rehydrated, "john@acme.com");
   });
 
@@ -359,7 +359,7 @@ async function errorTests() {
 
     // In standard mode, we'd pass through the response with placeholders
     const degraded = rehydrateText(scrubbedContent, result.sessionId);
-    assertIncludes(degraded, "<<email:");
+    assertIncludes(degraded, "@maildomain.com");
     // Ugly but safe — no PII leaked
     assertNotIncludes(degraded, "john@acme.com");
   });
@@ -426,17 +426,17 @@ async function securityTests() {
     destroySession(result.sessionId);
   });
 
-  await test("placeholder format is valid (<<category:12hex>>)", () => {
+  await test("placeholder format contains p0{hex} marker", () => {
     const result = scrubMessages([
       { role: "user", content: "john@acme.com sk-ant-abcdefghijklmnopqrstuvwxyz 192.168.1.1" },
     ]);
     const scrubbedJson = JSON.stringify(result.messages);
-    const placeholders = scrubbedJson.match(/<<[a-z]{2,8}:[0-9a-f]{12}>>/g) ?? [];
+    const placeholders = scrubbedJson.match(/p0[0-9a-f]{12}/g) ?? [];
     assert(placeholders.length >= 3, `Expected ≥3 placeholders, got ${placeholders.length}`);
 
     // Verify each placeholder matches the exact format
     for (const ph of placeholders) {
-      assertMatch(ph, /^<<[a-z]{2,8}:[0-9a-f]{12}>>$/, `Invalid placeholder format: ${ph}`);
+      assertMatch(ph, /^p0[0-9a-f]{12}$/, `Invalid p0 marker format: ${ph}`);
     }
     destroySession(result.sessionId);
   });
@@ -478,11 +478,11 @@ async function mockServerTests() {
       const data = await response.json() as any;
       const responseContent = data.choices[0].message.content;
       assertNotIncludes(responseContent, "john@acme.com");
-      assertIncludes(responseContent, "<<email:");
+      assertIncludes(responseContent, "@maildomain.com");
 
       const rehydrated = rehydrateText(responseContent, result.sessionId);
       assertIncludes(rehydrated, "john@acme.com");
-      assertNotIncludes(rehydrated, "<<email:");
+      assertNotIncludes(rehydrated, "@maildomain.com");
       destroySession(result.sessionId);
     } finally {
       await mock.close();
@@ -539,7 +539,7 @@ async function mockServerTests() {
       fullOutput += carry;
 
       assertIncludes(fullOutput, "john@acme.com");
-      assertNotIncludes(fullOutput, "<<email:");
+      assertNotIncludes(fullOutput, "@maildomain.com");
       destroySession(result.sessionId);
     } finally {
       await mock.close();
@@ -586,6 +586,140 @@ async function mockServerTests() {
 }
 
 // ═══════════════════════════════════════════
+// Tool Calls Rehydration
+// ═══════════════════════════════════════════
+
+async function toolCallsRehydrationTests() {
+  console.log("\n=== Tool Calls Rehydration ===\n");
+
+  await test("non-streaming: tool_calls arguments are rehydrated", () => {
+    // Scrub a message containing a file path
+    const messages: ChatMessage[] = [
+      { role: "user", content: "Read the file /Users/medme/.openclaw/workspace/TOOLS.md" },
+    ];
+    const scrubResult = scrubMessages(messages);
+    assert(scrubResult.scrubbed, "Should scrub path");
+    const scrubbedContent = scrubResult.messages[0].content as string;
+    assertNotIncludes(scrubbedContent, "/Users/medme");
+    assertMatch(scrubbedContent, /p0[0-9a-f]{12}\/pii\/redacted/, "Should have path placeholder");
+
+    // Simulate model returning a tool call with the scrubbed path
+    const pathPlaceholder = scrubbedContent.match(/p0[0-9a-f]{12}\/pii\/redacted/)?.[0] ?? "";
+    const toolArgs = `{"file_path": "${pathPlaceholder}"}`;
+    const rehydrated = rehydrateText(toolArgs, scrubResult.sessionId);
+    assertIncludes(rehydrated, "/Users/medme/.openclaw/workspace/TOOLS.md");
+    assertNotIncludes(rehydrated, "p0");
+    destroySession(scrubResult.sessionId);
+  });
+
+  await test("non-streaming: tool_calls with email in arguments are rehydrated", () => {
+    const messages: ChatMessage[] = [
+      { role: "user", content: "Send email to john@acme.com" },
+    ];
+    const scrubResult = scrubMessages(messages);
+    assert(scrubResult.scrubbed, "Should scrub email");
+    const scrubbedContent = scrubResult.messages[0].content as string;
+    const emailPlaceholder = scrubbedContent.match(/p0[0-9a-f]{12}@maildomain\.com/)?.[0] ?? "";
+    assert(emailPlaceholder.length > 0, "Should have email placeholder");
+
+    const toolArgs = `{"to": "${emailPlaceholder}", "subject": "Hello"}`;
+    const rehydrated = rehydrateText(toolArgs, scrubResult.sessionId);
+    assertIncludes(rehydrated, "john@acme.com");
+    assertNotIncludes(rehydrated, "@maildomain.com");
+    destroySession(scrubResult.sessionId);
+  });
+
+  await test("non-streaming: multiple PII types in tool_calls arguments", () => {
+    const messages: ChatMessage[] = [
+      { role: "user", content: "Copy /Users/medme/secret.txt to john@acme.com" },
+    ];
+    const scrubResult = scrubMessages(messages);
+    assert(scrubResult.scrubbed, "Should scrub");
+    const scrubbedContent = scrubResult.messages[0].content as string;
+
+    // Model returns tool call using both placeholders
+    const pathPh = scrubbedContent.match(/p0[0-9a-f]{12}\/pii\/redacted/)?.[0] ?? "";
+    const emailPh = scrubbedContent.match(/p0[0-9a-f]{12}@maildomain\.com/)?.[0] ?? "";
+    const toolArgs = `{"source": "${pathPh}", "recipient": "${emailPh}"}`;
+    const rehydrated = rehydrateText(toolArgs, scrubResult.sessionId);
+    assertIncludes(rehydrated, "/Users/medme/secret.txt");
+    assertIncludes(rehydrated, "john@acme.com");
+    destroySession(scrubResult.sessionId);
+  });
+
+  await test("streaming: tool_calls arguments rehydrated across chunks", () => {
+    const messages: ChatMessage[] = [
+      { role: "user", content: "Read /Users/medme/data.json" },
+    ];
+    const scrubResult = scrubMessages(messages);
+    assert(scrubResult.scrubbed, "Should scrub");
+    const scrubbedContent = scrubResult.messages[0].content as string;
+    const pathPh = scrubbedContent.match(/p0[0-9a-f]{12}\/pii\/redacted/)?.[0] ?? "";
+
+    // Simulate streaming tool args in chunks (placeholder might split)
+    const fullArgs = `{"file_path": "${pathPh}"}`;
+    const mid = Math.floor(fullArgs.length / 2);
+    const chunks = [fullArgs.slice(0, mid), fullArgs.slice(mid)];
+    const result = feedChunks(chunks, scrubResult.sessionId);
+    assertIncludes(result, "/Users/medme/data.json");
+    assertNotIncludes(result, "p0");
+    destroySession(scrubResult.sessionId);
+  });
+
+  await test("text content and tool_calls both rehydrated in same response", () => {
+    const messages: ChatMessage[] = [
+      { role: "user", content: "Tell me about john@acme.com and read /Users/medme/notes.txt" },
+    ];
+    const scrubResult = scrubMessages(messages);
+    assert(scrubResult.scrubbed, "Should scrub");
+    const scrubbedContent = scrubResult.messages[0].content as string;
+    const emailPh = scrubbedContent.match(/p0[0-9a-f]{12}@maildomain\.com/)?.[0] ?? "";
+    const pathPh = scrubbedContent.match(/p0[0-9a-f]{12}\/pii\/redacted/)?.[0] ?? "";
+
+    // Model returns text with email placeholder AND tool call with path placeholder
+    const textResponse = `I found info about ${emailPh}`;
+    const rehydratedText = rehydrateText(textResponse, scrubResult.sessionId);
+    assertIncludes(rehydratedText, "john@acme.com");
+
+    const toolArgs = `{"file_path": "${pathPh}"}`;
+    const rehydratedArgs = rehydrateText(toolArgs, scrubResult.sessionId);
+    assertIncludes(rehydratedArgs, "/Users/medme/notes.txt");
+    destroySession(scrubResult.sessionId);
+  });
+
+  await test("tool_calls with no PII in arguments — no change", () => {
+    const messages: ChatMessage[] = [
+      { role: "user", content: "What is 2 + 2?" },
+    ];
+    const scrubResult = scrubMessages(messages);
+    assert(!scrubResult.scrubbed, "Should NOT scrub");
+
+    // Even without a session, rehydrating a clean string should be safe
+    const toolArgs = `{"expression": "2 + 2"}`;
+    // No session, so args should pass through unchanged
+    assertEqual(toolArgs, `{"expression": "2 + 2"}`);
+  });
+
+  await test("API key in tool_calls arguments is scrubbed and rehydrated", () => {
+    const messages: ChatMessage[] = [
+      { role: "user", content: "Use API key sk-1234567890abcdef1234567890abcdef to authenticate" },
+    ];
+    const scrubResult = scrubMessages(messages);
+    assert(scrubResult.scrubbed, "Should scrub API key");
+    const scrubbedContent = scrubResult.messages[0].content as string;
+    assertNotIncludes(scrubbedContent, "sk-1234567890abcdef1234567890abcdef");
+
+    const keyPh = scrubbedContent.match(/(?:sk-)?p0([0-9a-f]{12})/)?.[0] ?? "";
+    if (keyPh) {
+      const toolArgs = `{"api_key": "${keyPh}"}`;
+      const rehydrated = rehydrateText(toolArgs, scrubResult.sessionId);
+      assertIncludes(rehydrated, "sk-1234567890abcdef1234567890abcdef");
+    }
+    destroySession(scrubResult.sessionId);
+  });
+}
+
+// ═══════════════════════════════════════════
 // Run All
 // ═══════════════════════════════════════════
 
@@ -601,6 +735,7 @@ async function main() {
   await errorTests();
   await securityTests();
   await mockServerTests();
+  await toolCallsRehydrationTests();
 
   console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
   console.log(`Results: ${passed} passed, ${failed} failed`);

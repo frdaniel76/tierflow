@@ -1,0 +1,117 @@
+{
+  "port": 18800,
+  "host": "127.0.0.1",
+  "providers": {
+    "ollama": {
+      "baseUrl": "http://127.0.0.1:11434/v1",
+      "api": "openai",
+      "auth": { "type": "none" }
+    },
+    "openrouter": {
+      "baseUrl": "https://openrouter.ai/api/v1",
+      "api": "openai",
+      "auth": { "type": "env", "key": "OPENROUTER_API_KEY" },
+      "pii": true,
+      "compress": true
+    },
+    "anthropic": {
+      "baseUrl": "https://api.anthropic.com",
+      "api": "anthropic",
+      "auth": { "type": "env", "key": "ANTHROPIC_API_KEY" }
+    }
+  },
+  "cache": {
+    "enabled": true,
+    "ttl_seconds": 300,
+    "max_entries": 5000,
+    "exclude_streaming": true,
+    "exclude_tools": true
+  },
+  "mlClassifier": {
+    "url": "http://127.0.0.1:18801/classify",
+    "timeout_ms": 500,
+    "fallback_category": "general"
+  },
+  "categories": {
+    "simple_chat": {
+      "primary": "openrouter/google/gemini-2.5-flash-lite",
+      "fallback": ["ollama/llama3.2"],
+      "timeout": 30000
+    },
+    "general": {
+      "primary": "openrouter/deepseek/deepseek-v3.2",
+      "fallback": ["ollama/llama3.2"],
+      "timeout": 60000
+    },
+    "coding": {
+      "primary": "openrouter/qwen/qwen3-coder:free",
+      "fallback": ["anthropic/claude-sonnet-4-5"],
+      "timeout": 120000
+    },
+    "reasoning": {
+      "primary": "anthropic/claude-opus-4-6",
+      "fallback": ["openrouter/deepseek/deepseek-r1"],
+      "timeout": 120000
+    },
+    "creative": {
+      "primary": "openrouter/stepfun/step-3.5-flash:free",
+      "fallback": ["openrouter/deepseek/deepseek-v3.2"],
+      "timeout": 60000
+    },
+    "data": {
+      "primary": "openrouter/google/gemini-2.5-flash-lite",
+      "fallback": ["openrouter/deepseek/deepseek-v3.2"],
+      "timeout": 60000
+    },
+    "agentic": {
+      "primary": "openrouter/deepseek/deepseek-v3.2",
+      "fallback": ["anthropic/claude-sonnet-4-5"],
+      "timeout": 120000
+    },
+    "transcription": {
+      "primary": "openrouter/google/gemini-2.5-flash-lite",
+      "fallback": [],
+      "timeout": 30000
+    }
+  },
+  "modeOverrides": {
+    "simple": "simple_chat",
+    "basic": "simple_chat",
+    "cheap": "simple_chat",
+    "medium": "general",
+    "balanced": "general",
+    "complex": "coding",
+    "code": "coding",
+    "max": "reasoning",
+    "reasoning": "reasoning",
+    "think": "reasoning",
+    "deep": "reasoning",
+    "creative": "creative",
+    "data": "data"
+  },
+  "tiers": {
+    "SIMPLE":    { "primary": "openrouter/google/gemini-2.5-flash-lite", "fallback": ["ollama/llama3.2"] },
+    "MEDIUM":    { "primary": "openrouter/deepseek/deepseek-v3.2",      "fallback": ["ollama/llama3.2"] },
+    "COMPLEX":   { "primary": "anthropic/claude-sonnet-4-5",            "fallback": ["openrouter/deepseek/deepseek-v3.2"] },
+    "REASONING": { "primary": "anthropic/claude-opus-4-6",              "fallback": ["openrouter/deepseek/deepseek-r1"] }
+  },
+  "agenticTiers": {
+    "SIMPLE":    { "primary": "openrouter/deepseek/deepseek-v3.2", "fallback": [] },
+    "MEDIUM":    { "primary": "openrouter/deepseek/deepseek-v3.2", "fallback": [] },
+    "COMPLEX":   { "primary": "openrouter/deepseek/deepseek-v3.2", "fallback": [] },
+    "REASONING": { "primary": "openrouter/deepseek/deepseek-v3.2", "fallback": [] }
+  },
+  "tierBoundaries": {
+    "simpleMedium": -0.05,
+    "mediumComplex": 0.10,
+    "complexReasoning": 0.20
+  },
+  "thinking": {
+    "adaptive": [],
+    "enabled": { "models": [], "budget": 0 }
+  },
+  "auth": {
+    "default": "env",
+    "env": { "type": "env", "key": "OLLAMA_API_KEY" }
+  }
+}

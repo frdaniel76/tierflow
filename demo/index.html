@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FreeRouter Demo — Smart AI Model Routing</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1><span>Free</span>Router</h1>
+    <p>Same prompt. Three routing strategies. See how smart routing saves 75-99% on AI costs without sacrificing quality.</p>
+  </header>
+
+  <div class="prompt-selector">
+    <select id="prompt-select"></select>
+  </div>
+
+  <div class="prompt-display" id="prompt-text"></div>
+
+  <div class="comparison-grid" id="comparison-grid"></div>
+
+  <div class="savings-banner" id="savings-banner"></div>
+
+  <div class="routing-info" id="routing-info"></div>
+
+  <div class="aggregate" id="aggregate">
+    <h2>Across All Test Prompts</h2>
+    <div class="aggregate-stats" id="aggregate-stats"></div>
+  </div>
+
+  <footer>
+    <p>FreeRouter &mdash; Free, self-hosted AI model router with ML-powered classification</p>
+    <p>Pre-recorded results from <span id="generated-date"></span> &middot; <a href="https://github.com/your-org/freerouter">GitHub</a> &middot; <code>npx freerouter</code></p>
+  </footer>
+</div>
+
+<script>
+const fmtCost = n => n === 0 ? 'FREE' : n < 0.001 ? '$' + n.toFixed(6) : '$' + n.toFixed(4);
+
+let data;
+
+async function init() {
+  const res = await fetch('./data.json');
+  data = await res.json();
+
+  document.getElementById('generated-date').textContent = data.generated;
+
+  // Populate selector
+  const select = document.getElementById('prompt-select');
+  data.comparisons.forEach((c, i) => {
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = c.prompt.length > 60 ? c.prompt.slice(0, 60) + '...' : c.prompt;
+    select.appendChild(opt);
+  });
+
+  select.addEventListener('change', () => render(Number(select.value)));
+
+  // Compute aggregate stats
+  computeAggregate();
+
+  // Render first
+  render(0);
+}
+
+function render(idx) {
+  const c = data.comparisons[idx];
+
+  document.getElementById('prompt-text').textContent = '"' + c.prompt + '"';
+
+  const grid = document.getElementById('comparison-grid');
+  grid.innerHTML = ['always_cheap', 'freerouter', 'always_best'].map(key => {
+    const r = c.results[key];
+    const isHero = key === 'freerouter';
+    const title = key === 'always_cheap' ? 'Always Cheapest' : key === 'freerouter' ? 'FreeRouter' : 'Always Best';
+    return `<div class="comparison-card${isHero ? ' hero' : ''}">
+      <div class="card-header">
+        <span class="card-title">${title}</span>
+        <span class="card-model">${r.model}</span>
+      </div>
+      <div class="card-response">${escapeHtml(r.response)}</div>
+      <div class="card-stats">
+        <span class="card-cost">${fmtCost(r.cost_usd)}</span>
+        <span class="card-latency">${(r.latency_ms / 1000).toFixed(1)}s</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Savings banner
+  document.getElementById('savings-banner').innerHTML =
+    `<div class="big">${c.savings_vs_best_pct.toFixed(1)}% cheaper</div>
+     <div class="sub">FreeRouter (${fmtCost(c.results.freerouter.cost_usd)}) vs Always Best (${fmtCost(c.results.always_best.cost_usd)})</div>`;
+
+  // Routing info
+  document.getElementById('routing-info').innerHTML =
+    `<span>Category: <strong>${c.routing.category}</strong></span>
+     <span>Tier: <strong>${c.routing.tier}</strong></span>
+     <span>Confidence: <strong>${(c.routing.confidence * 100).toFixed(0)}%</strong></span>
+     <span>Method: <strong>${c.routing.method}</strong></span>
+     <span>Routing latency: <strong>${c.routing.latency_ms}ms</strong></span>`;
+}
+
+function computeAggregate() {
+  let totalSavings = 0;
+  let totalCostRouted = 0;
+  let totalCostBest = 0;
+
+  for (const c of data.comparisons) {
+    totalSavings += c.savings_vs_best_pct;
+    totalCostRouted += c.results.freerouter.cost_usd;
+    totalCostBest += c.results.always_best.cost_usd;
+  }
+
+  const n = data.comparisons.length;
+  const avgSavings = totalSavings / n;
+  const dailyCostRouted = (totalCostRouted / n) * 1000;
+  const dailyCostBest = (totalCostBest / n) * 1000;
+
+  document.getElementById('aggregate-stats').innerHTML = `
+    <div class="aggregate-stat"><div class="label">Avg Savings</div><div class="value" style="color:var(--accent)">${avgSavings.toFixed(1)}%</div></div>
+    <div class="aggregate-stat"><div class="label">Routed (1k req/day)</div><div class="value">$${dailyCostRouted.toFixed(2)}</div></div>
+    <div class="aggregate-stat"><div class="label">Always Best (1k req/day)</div><div class="value">$${dailyCostBest.toFixed(2)}</div></div>
+    <div class="aggregate-stat"><div class="label">Test Prompts</div><div class="value">${n}</div></div>
+  `;
+}
+
+function escapeHtml(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+init();
+</script>
+</body>
+</html>

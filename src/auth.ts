@@ -93,7 +93,14 @@ export function getAuth(provider: string): ProviderAuth | undefined {
 function getEnvAuth(provider: string): ProviderAuth | undefined {
   const cfg = getConfig();
   const providerCfg = cfg.providers[provider];
-  if (!providerCfg?.auth || providerCfg.auth.type !== "env") return undefined;
+  if (!providerCfg?.auth) return undefined;
+
+  // "none" auth — for local providers like Ollama that don't need auth
+  if (providerCfg.auth.type === "none") {
+    return { provider, profileName: "none", apiKey: "no-key-required" };
+  }
+
+  if (providerCfg.auth.type !== "env") return undefined;
   const envKey = providerCfg.auth.key;
   if (!envKey) return undefined;
   const value = process.env[envKey];

@@ -1,33 +1,57 @@
 /**
- * Smart Router Types — Forked from ClawRouter (MIT License)
- * Stripped of x402/BlockRun payment layer.
+ * Smart Router Types — v2.0
  *
- * Four classification tiers — REASONING is distinct from COMPLEX because
- * reasoning tasks need different models (o3, deepseek-reasoner) than general
- * complex tasks (gpt-4o, sonnet-4).
- *
- * Scoring uses weighted float dimensions with sigmoid confidence calibration.
+ * Category-based routing powered by ML classifier.
+ * 8 categories map to specialized models.
+ * Backward-compatible with legacy tier system.
  */
 
+// Legacy tier system (kept for backward compat)
 export type Tier = "SIMPLE" | "MEDIUM" | "COMPLEX" | "REASONING";
 
+// New category system
+export type Category =
+  | "simple_chat"
+  | "general"
+  | "coding"
+  | "reasoning"
+  | "creative"
+  | "data"
+  | "agentic"
+  | "transcription";
+
+export type CategoryResult = {
+  category: Category;
+  confidence: number;
+  alternatives?: Array<{ category: Category; confidence: number }>;
+  latency_ms?: number;
+};
+
 export type ScoringResult = {
-  score: number; // weighted float (roughly [-0.3, 0.4])
-  tier: Tier | null; // null = ambiguous, needs fallback
-  confidence: number; // sigmoid-calibrated [0, 1]
+  score: number;
+  tier: Tier | null;
+  confidence: number;
   signals: string[];
-  agenticScore?: number; // 0-1 agentic task score for auto-switching to agentic tiers
+  agenticScore?: number;
+  category?: Category; // v2: ML-classified category
 };
 
 export type RoutingDecision = {
   model: string;
-  tier: Tier;
+  tier: Tier; // legacy compat — derived from category
+  category?: Category; // v2: the actual classification
   confidence: number;
-  method: "rules" | "llm";
+  method: "rules" | "llm" | "ml-classifier" | "shortcut";
   reasoning: string;
   costEstimate: number;
   baselineCost: number;
-  savings: number; // 0-1 percentage
+  savings: number;
+};
+
+export type CategoryConfig = {
+  primary: string;
+  fallback: string[];
+  timeout?: number; // ms
 };
 
 export type TierConfig = {
@@ -35,6 +59,13 @@ export type TierConfig = {
   fallback: string[];
 };
 
+export type MLClassifierConfig = {
+  url: string; // http://127.0.0.1:18801/classify
+  timeout_ms: number; // max wait for classifier response
+  fallback_category: Category; // category when classifier is unreachable
+};
+
+// Legacy scoring config (kept for backward compat, not used in v2)
 export type ScoringConfig = {
   tokenCountThresholds: { simple: number; complex: number };
   codeKeywords: string[];
@@ -80,5 +111,20 @@ export type RoutingConfig = {
   scoring: ScoringConfig;
   tiers: Record<Tier, TierConfig>;
   agenticTiers?: Record<Tier, TierConfig>;
+  categories?: Record<string, CategoryConfig>; // v2: category-based routing
+  mlClassifier?: MLClassifierConfig; // v2: ML service config
+  modeOverrides?: Record<string, string>; // v2: mode → category mapping
   overrides: OverridesConfig;
+};
+
+// Map categories to legacy tiers for backward compat
+export const CATEGORY_TO_TIER: Record<Category, Tier> = {
+  simple_chat: "SIMPLE",
+  general: "MEDIUM",
+  coding: "COMPLEX",
+  reasoning: "REASONING",
+  creative: "MEDIUM",
+  data: "MEDIUM",
+  agentic: "COMPLEX",
+  transcription: "SIMPLE",
 };

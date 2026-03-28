@@ -19,7 +19,7 @@ export type ModelPricing = {
 export function selectModel(
   tier: Tier,
   confidence: number,
-  method: "rules" | "llm",
+  method: "rules" | "llm" | "ml-classifier" | "shortcut",
   reasoning: string,
   tierConfigs: Record<Tier, TierConfig>,
   modelPricing: Map<string, ModelPricing>,

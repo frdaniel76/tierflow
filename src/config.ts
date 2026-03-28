@@ -16,7 +16,7 @@ import { logger } from "./logger.js";
 // ─── Config Types ───
 
 export type AuthConfig = {
-  type: "openclaw" | "env" | "file" | "keychain";
+  type: "openclaw" | "env" | "file" | "keychain" | "none";
   key?: string;           // env var name for type=env
   profilesPath?: string;  // for type=openclaw
   filePath?: string;      // for type=file
@@ -28,7 +28,14 @@ export type PiiConfig = {
   enabled: boolean;
   mode?: "strict" | "standard";       // strict = fail-closed, standard = log + pass
   exclude?: string[];                 // categories to skip (e.g. ["postcode", "phone"])
+  scrub_system?: boolean;             // opt-in: scrub system/developer messages (default: false)
   debug_log_scrubbed?: boolean;       // TEMPORARY — logs scrubbed payload for verification
+};
+
+export type CompressConfig = {
+  enabled: boolean;
+  passes?: string[];                   // subset of: ansi, whitespace, json, dedup, comments, verbose
+  compress_system?: boolean;           // opt-in: compress system messages (default: false)
 };
 
 export type ProviderConfigEntry = {
@@ -37,6 +44,10 @@ export type ProviderConfigEntry = {
   headers?: Record<string, string>;
   auth?: AuthConfig;
   pii?: boolean | PiiConfig;          // PII scrubbing — default: false (no overhead)
+  compress?: boolean | CompressConfig; // CtxPack compression — default: false (no overhead)
+  timeout_ms?: number;                 // per-provider timeout override
+  models?: string[];                   // hint: models this provider supports (for /v1/models)
+  disabled?: boolean;                  // soft-disable without deleting config
 };
 
 export type TierMapping = {
@@ -49,12 +60,36 @@ export type ThinkingConfig = {
   enabled?: { models: string[]; budget: number };
 };
 
+export type CategoryMapping = {
+  primary: string;
+  fallback: string[];
+  timeout?: number;
+};
+
+export type MLClassifierConfig = {
+  url: string;
+  timeout_ms: number;
+  fallback_category: string;
+};
+
+export type CacheGlobalConfig = {
+  enabled: boolean;
+  ttl_seconds?: number;          // default: 300 (5 min)
+  max_entries?: number;          // default: 5000
+  exclude_streaming?: boolean;   // default: true
+  exclude_tools?: boolean;       // default: true
+};
+
 export type FreeRouterConfig = {
   port: number;
   host: string;
   providers: Record<string, ProviderConfigEntry>;
   tiers: Record<string, TierMapping>;
   agenticTiers?: Record<string, TierMapping>;
+  categories?: Record<string, CategoryMapping>;
+  mlClassifier?: MLClassifierConfig;
+  cache?: CacheGlobalConfig;     // Response cache — default: disabled
+  modeOverrides?: Record<string, string>; // v2: mode → category mapping
   tierBoundaries?: {
     simpleMedium: number;
     mediumComplex: number;
@@ -311,10 +346,45 @@ export function getPiiMode(entry: ProviderConfigEntry): "strict" | "standard" {
 }
 
 /**
+ * Check if PII system message scrubbing is enabled for a provider.
+ */
+export function isPiiScrubSystem(entry: ProviderConfigEntry): boolean {
+  if (typeof entry.pii === "object" && entry.pii.scrub_system) return true;
+  return false;
+}
+
+/**
  * Check if PII debug logging is enabled for a provider.
  */
 export function isPiiDebugLog(entry: ProviderConfigEntry): boolean {
   if (typeof entry.pii === "object" && entry.pii.debug_log_scrubbed) return true;
+  return false;
+}
+
+// ─── CtxPack compression helpers ───
+
+/**
+ * Check if CtxPack compression is enabled for a provider config entry.
+ */
+export function isCompressEnabled(entry: ProviderConfigEntry): boolean {
+  if (entry.compress === true) return true;
+  if (typeof entry.compress === "object" && entry.compress.enabled) return true;
+  return false;
+}
+
+/**
+ * Get CtxPack passes for a provider (which compression techniques to apply).
+ */
+export function getCompressPasses(entry: ProviderConfigEntry): string[] | undefined {
+  if (typeof entry.compress === "object" && entry.compress.passes) return entry.compress.passes;
+  return undefined; // all passes by default
+}
+
+/**
+ * Check if system message compression is enabled for a provider.
+ */
+export function isCompressSystem(entry: ProviderConfigEntry): boolean {
+  if (typeof entry.compress === "object" && entry.compress.compress_system) return true;
   return false;
 }
 

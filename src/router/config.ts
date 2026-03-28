@@ -238,5 +238,16 @@ export function getRoutingConfig(): RoutingConfig {
     };
   }
 
+  // v2: Category-based routing
+  if (extCfg.categories) {
+    config.categories = extCfg.categories as RoutingConfig["categories"];
+  }
+  if (extCfg.mlClassifier) {
+    config.mlClassifier = extCfg.mlClassifier as RoutingConfig["mlClassifier"];
+  }
+  if (extCfg.modeOverrides) {
+    config.modeOverrides = extCfg.modeOverrides as Record<string, string>;
+  }
+
   return config;
 }

@@ -8,6 +8,7 @@ import { getAuth } from "./auth.js";
 import { getConfig, toInternalApiType, supportsAdaptiveThinking as configSupportsAdaptive, getThinkingBudget } from "./config.js";
 import { logger } from "./logger.js";
 import { rehydrateText, rehydrateChunk } from "./pii/index.js";
+import { recordUsage } from "./usage.js";
 import type { IncomingMessage, ServerResponse } from "node:http";
 // --- Timeout Configuration ---
 const TIER_TIMEOUTS: Record<string, number> = {
@@ -17,7 +18,7 @@ const TIER_TIMEOUTS: Record<string, number> = {
   REASONING: 120_000,
   EXPLICIT: 120_000,
 };
-const STREAM_STALL_TIMEOUT = 30_000;
+const STREAM_STALL_TIMEOUT = 60_000;
 
 function getTierTimeout(tier: string): number {
   return TIER_TIMEOUTS[tier] ?? 60_000;
@@ -69,12 +70,16 @@ export type ChatRequest = {
   model: string;
   messages: ChatMessage[];
   max_tokens?: number;
+  max_completion_tokens?: number;
   temperature?: number;
   stream?: boolean;
+  stream_options?: { include_usage?: boolean };
   top_p?: number;
   stop?: string[];
   tools?: OpenAITool[];
   tool_choice?: unknown;
+  store?: boolean;
+  [key: string]: unknown; // passthrough for unknown fields
 };
 
 // Provider configs — loaded from freerouter.config.json via getProviderConfig()
@@ -252,6 +257,8 @@ async function forwardToAnthropic(
   tier: string,
   res: ServerResponse,
   stream: boolean,
+  piiSession?: string | null,
+  piiMode?: "strict" | "standard",
 ): Promise<void> {
   const auth = getAuth("anthropic");
   if (!auth?.token) throw new Error("No Anthropic auth token");
@@ -365,6 +372,19 @@ async function forwardToAnthropic(
       stop_reason?: string;
     };
 
+    // PII Rehydration — Anthropic non-streaming (before format conversion)
+    if (piiSession) {
+      for (const block of data.content) {
+        if (block.type === "text" && block.text) {
+          block.text = rehydrateText(block.text, piiSession);
+        } else if (block.type === "tool_use" && block.input) {
+          // Rehydrate tool input by serializing, rehydrating, and parsing back
+          const inputStr = rehydrateText(JSON.stringify(block.input), piiSession);
+          try { block.input = JSON.parse(inputStr); } catch { /* keep original */ }
+        }
+      }
+    }
+
     const textContent = data.content
       .filter((b) => b.type === "text")
       .map((b) => b.text ?? "")
@@ -401,6 +421,12 @@ async function forwardToAnthropic(
       },
     };
 
+    // Record Anthropic token usage
+    recordUsage(modelName, tier, {
+      prompt_tokens: data.usage?.input_tokens ?? 0,
+      completion_tokens: data.usage?.output_tokens ?? 0,
+    }, _currentCategory);
+
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify(openaiResponse));
     return;
@@ -424,6 +450,8 @@ async function forwardToAnthropic(
   let currentBlockType: string | null = null;
   let currentToolIndex = -1;
   let stopReason: string | null = null;
+  let piiAnthropicCarry = ""; // Carry buffer for text content PII placeholders
+  const piiAnthropicToolCarries = new Map<number, string>(); // Per-tool carry buffers
 
   const makeChunk = (delta: Record<string, unknown>, finish: string | null = null) => ({
     id: `chatcmpl-${Date.now()}`,
@@ -482,27 +510,48 @@ async function forwardToAnthropic(
           if (event.type === "content_block_delta") {
             if (insideThinking) continue;
 
-            // Handle tool_use argument streaming
+            // Handle tool_use argument streaming (carry-buffered for PII)
             if (currentBlockType === "tool_use" && event.delta?.type === "input_json_delta") {
+              let args = event.delta.partial_json ?? "";
+              if (piiSession && args) {
+                const carry = piiAnthropicToolCarries.get(currentToolIndex) ?? "";
+                const result = rehydrateChunk(args, piiSession, carry);
+                piiAnthropicToolCarries.set(currentToolIndex, result.carry);
+                args = result.output;
+                if (!args && result.carry) continue; // carry absorbed everything
+              }
               const chunk = makeChunk({
                 tool_calls: [{
                   index: currentToolIndex,
-                  function: { arguments: event.delta.partial_json ?? "" },
+                  function: { arguments: args },
                 }],
               });
               res.write(`data: ${JSON.stringify(chunk)}\n\n`);
               continue;
             }
 
-            // Regular text delta
-            const text = event.delta?.text;
+            // Regular text delta (carry-buffered for PII)
+            let text = event.delta?.text;
             if (text) {
+              if (piiSession) {
+                const result = rehydrateChunk(text, piiSession, piiAnthropicCarry);
+                piiAnthropicCarry = result.carry;
+                text = result.output;
+                if (!text && result.carry) continue; // carry absorbed everything
+              }
               res.write(`data: ${JSON.stringify(makeChunk({ content: text }))}\n\n`);
             }
           }
 
           if (event.type === "message_delta") {
             stopReason = event.delta?.stop_reason ?? null;
+            // Anthropic sends usage in message_delta
+            if (event.usage) {
+              recordUsage(modelName, tier, {
+                prompt_tokens: event.usage.input_tokens ?? 0,
+                completion_tokens: event.usage.output_tokens ?? 0,
+              }, _currentCategory);
+            }
           }
 
           if (event.type === "message_stop") {
@@ -520,6 +569,21 @@ async function forwardToAnthropic(
     }
     throw err;
   } finally {
+    // Flush remaining PII carry buffers (text + tool args) — rehydrate before flushing
+    if (piiAnthropicCarry && !res.writableEnded) {
+      const flushed = piiSession ? rehydrateText(piiAnthropicCarry, piiSession) : piiAnthropicCarry;
+      res.write(`data: ${JSON.stringify(makeChunk({ content: flushed }))}\n\n`);
+    }
+    if (piiAnthropicToolCarries.size > 0 && !res.writableEnded) {
+      for (const [idx, carry] of piiAnthropicToolCarries) {
+        if (carry) {
+          const flushed = piiSession ? rehydrateText(carry, piiSession) : carry;
+          res.write(`data: ${JSON.stringify(makeChunk({
+            tool_calls: [{ index: idx, function: { arguments: flushed } }],
+          }))}\n\n`);
+        }
+      }
+    }
     res.write("data: [DONE]\n\n");
     res.end();
   }
@@ -551,8 +615,13 @@ async function forwardToOpenAI(
   };
 
   if (req.max_tokens) body.max_tokens = req.max_tokens;
+  if (req.max_completion_tokens) body.max_completion_tokens = req.max_completion_tokens;
   if (req.temperature !== undefined) body.temperature = req.temperature;
   if (req.top_p !== undefined) body.top_p = req.top_p;
+  if (req.tools && req.tools.length > 0) body.tools = req.tools;
+  if (req.tool_choice !== undefined) body.tool_choice = req.tool_choice;
+  if (req.stream_options) body.stream_options = req.stream_options;
+  if (req.store !== undefined) body.store = req.store;
 
   const url = `${config.baseUrl}/chat/completions`;
   logger.info(`-> ${provider}: ${modelName} (tier=${tier}, stream=${stream})`);
@@ -597,13 +666,32 @@ async function forwardToOpenAI(
     const data = await response.json() as Record<string, unknown>;
     if (data.model) data.model = `clawrouter/${modelName}`;
 
-    // PII Rehydration — non-streaming
+    // Normalize non-standard fields from providers (e.g. Gemini via OpenRouter)
+    delete (data as any).provider;
+    for (const choice of ((data as any).choices ?? []) as Array<Record<string, any>>) {
+      delete choice.native_finish_reason;
+      delete choice.logprobs;
+      if (choice.message) {
+        delete choice.message.reasoning;
+        delete choice.message.reasoning_details;
+        delete choice.message.refusal;
+      }
+    }
+
+    // PII Rehydration — non-streaming (content + tool_calls arguments)
     if (piiSession) {
       try {
-        const choices = (data as any).choices as Array<{ message?: { content?: string } }> | undefined;
+        const choices = (data as any).choices as Array<{ message?: { content?: string; tool_calls?: Array<{ function?: { arguments?: string } }> } }> | undefined;
         for (const choice of choices ?? []) {
           if (choice.message?.content) {
             choice.message.content = rehydrateText(choice.message.content, piiSession);
+          }
+          if (choice.message?.tool_calls) {
+            for (const tc of choice.message.tool_calls) {
+              if (tc.function?.arguments) {
+                tc.function.arguments = rehydrateText(tc.function.arguments, piiSession);
+              }
+            }
           }
         }
       } catch (err) {
@@ -617,6 +705,12 @@ async function forwardToOpenAI(
         // standard mode: pass through with warning header
         res.setHeader("X-PII-Warning", "rehydration-failed");
       }
+    }
+
+    // Record token usage
+    const respUsage = (data as any).usage;
+    if (respUsage) {
+      recordUsage(modelName, tier, respUsage, _currentCategory);
     }
 
     // Recalculate Content-Length after rehydration (placeholder ≠ original value length)
@@ -638,7 +732,10 @@ async function forwardToOpenAI(
 
   const decoder = new TextDecoder();
   let buffer = "";
-  let piiCarry = ""; // Carry buffer for split PII placeholders
+  let piiCarry = ""; // Carry buffer for split PII placeholders in text content
+  const piiToolCarries = new Map<number, string>(); // Per-tool-call carry buffers for split placeholders in args
+  let sentDone = false;
+  let streamUsage: any = null; // Capture usage from final streaming chunk
 
   try {
     await readStreamWithStallDetection(reader, (value) => {
@@ -650,14 +747,60 @@ async function forwardToOpenAI(
         if (line.startsWith("data: ")) {
           const jsonStr = line.slice(6).trim();
           if (jsonStr === "[DONE]") {
-            res.write("data: [DONE]\n\n");
+            if (!sentDone) {
+              res.write("data: [DONE]\n\n");
+              sentDone = true;
+            }
             continue;
           }
           try {
             const chunk = JSON.parse(jsonStr);
             if (chunk.model) chunk.model = `clawrouter/${modelName}`;
 
-            // PII Rehydration — streaming
+            // Capture usage from streaming chunk (OpenRouter sends it in the last chunk)
+            if (chunk.usage) streamUsage = chunk.usage;
+
+            // Normalize non-standard fields from providers (e.g. Gemini via OpenRouter)
+            delete chunk.provider;
+            const choice = chunk.choices?.[0];
+            if (choice) {
+              delete choice.native_finish_reason;
+              delete choice.logprobs;
+              const delta = choice.delta;
+              if (delta) {
+                delete delta.reasoning;
+                delete delta.reasoning_details;
+                delete delta.refusal;
+              }
+            }
+
+            // PII Rehydration — streaming: tool_calls arguments (carry-buffered)
+            let skipToolChunk = false;
+            if (piiSession && chunk.choices?.[0]?.delta?.tool_calls) {
+              for (const tc of chunk.choices[0].delta.tool_calls) {
+                if (tc.function?.arguments) {
+                  const idx = tc.index ?? 0;
+                  const carry = piiToolCarries.get(idx) ?? "";
+                  logger.debug(`[PII] stream tool arg: raw="${tc.function.arguments}" carry="${carry}"`);
+                  const { output, carry: newCarry } = rehydrateChunk(
+                    tc.function.arguments,
+                    piiSession,
+                    carry,
+                  );
+                  logger.debug(`[PII] stream tool arg: output="${output}" newCarry="${newCarry}"`);
+                  piiToolCarries.set(idx, newCarry);
+                  tc.function.arguments = output;
+                }
+              }
+              // Skip emitting chunk if all tool_calls have empty arguments (carry absorbed everything)
+              skipToolChunk = chunk.choices[0].delta.tool_calls.every(
+                (tc: any) => tc.function?.arguments === "" || tc.function?.arguments === undefined
+              ) && piiToolCarries.size > 0 && [...piiToolCarries.values()].some(c => c.length > 0);
+              if (skipToolChunk) logger.debug(`[PII] stream tool chunk suppressed (in carry)`);
+            }
+            if (skipToolChunk) continue;
+
+            // PII Rehydration — streaming: text content
             if (piiSession && chunk.choices?.[0]?.delta?.content) {
               try {
                 const { output, carry } = rehydrateChunk(
@@ -699,19 +842,39 @@ async function forwardToOpenAI(
     }
     throw err;
   } finally {
-    // Flush remaining PII carry buffer
+    // Flush remaining PII carry buffers (text content + tool call args) — rehydrate before flushing
     if (piiCarry && !res.writableEnded) {
+      const flushed = piiSession ? rehydrateText(piiCarry, piiSession) : piiCarry;
       const flushChunk = {
         id: `chatcmpl-${Date.now()}`,
         object: "chat.completion.chunk",
         created: Math.floor(Date.now() / 1000),
         model: `clawrouter/${modelName}`,
-        choices: [{ index: 0, delta: { content: piiCarry }, finish_reason: null }],
+        choices: [{ index: 0, delta: { content: flushed }, finish_reason: null }],
       };
       res.write(`data: ${JSON.stringify(flushChunk)}\n\n`);
     }
+    // Flush any remaining tool call arg carry buffers — rehydrate before flushing
+    if (piiToolCarries.size > 0 && !res.writableEnded) {
+      for (const [idx, carry] of piiToolCarries) {
+        if (carry) {
+          const flushed = piiSession ? rehydrateText(carry, piiSession) : carry;
+          const flushChunk = {
+            id: `chatcmpl-${Date.now()}`,
+            object: "chat.completion.chunk",
+            created: Math.floor(Date.now() / 1000),
+            model: `clawrouter/${modelName}`,
+            choices: [{ index: 0, delta: { tool_calls: [{ index: idx, function: { arguments: flushed } }] }, finish_reason: null }],
+          };
+          res.write(`data: ${JSON.stringify(flushChunk)}\n\n`);
+        }
+      }
+    }
+    // Record streaming usage
+    if (streamUsage) recordUsage(modelName, tier, streamUsage, _currentCategory);
+
     if (!res.writableEnded) {
-      res.write("data: [DONE]\n\n");
+      if (!sentDone) res.write("data: [DONE]\n\n");
       res.end();
     }
   }
@@ -720,6 +883,10 @@ async function forwardToOpenAI(
 /**
  * Forward a chat completion request to the appropriate backend.
  */
+// Request-scoped category for usage tracking (set by server.ts before forwarding)
+let _currentCategory: string | undefined;
+export function setCurrentCategory(cat: string | undefined) { _currentCategory = cat; }
+
 export async function forwardRequest(
   chatReq: ChatRequest,
   routedModel: string,
@@ -737,7 +904,7 @@ export async function forwardRequest(
   }
 
   if (providerConfig.api === "anthropic-messages") {
-    await forwardToAnthropic(chatReq, model, tier, res, stream);
+    await forwardToAnthropic(chatReq, model, tier, res, stream, piiSession, piiMode);
   } else {
     await forwardToOpenAI(chatReq, provider, model, tier, res, stream, piiSession, piiMode);
   }

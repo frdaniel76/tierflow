@@ -8,7 +8,7 @@
 
 [![OpenClaw](https://img.shields.io/badge/Built%20for-OpenClaw-blue)](https://github.com/openclaw/openclaw)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-75%2F75-brightgreen)](tests/)
+[![Tests](https://img.shields.io/badge/tests-153%2F153-brightgreen)](tests/)
 
 ---
 
@@ -33,7 +33,10 @@
 - **Request timeouts** — per-tier timeouts with automatic fallback to secondary model
 - **Tool call translation** — bidirectional Anthropic ↔ OpenAI format translation
 - **OpenAI-compatible API** — drop-in replacement; works with any client that speaks `/v1/chat/completions`
-- **75/75 test suite** — core routing, streaming, tool calls, unicode, concurrency, mode overrides
+- **PII scrubbing** — auto-redact emails, phones, API keys, IPs before external requests; type-preserving placeholders; auto-rehydrate on response
+- **CtxPack compression** — algorithmic context compression (ANSI strip, whitespace collapse, JSON compact, line dedup, comment strip, stack trace trim); per-provider config; 30-70% token savings on typical messages
+- **Response cache** — exact-match hash cache with LRU eviction and TTL; skips entire pipeline on cache hit; excludes streaming and tool calls by default; `X-Cache: HIT/MISS` headers for observability
+- **250+ test suite** — core routing, streaming, tool calls, unicode, concurrency, mode overrides, PII middleware/integration, CtxPack compression, cache, ML classifier, agentic routing, stats accuracy
 
 ## How It Works
 
@@ -230,9 +233,27 @@ freerouter/
 │       ├── index.ts       # 14-dimension classifier
 │       ├── config.ts      # Tier mappings + scoring weights
 │       └── rules.ts       # Keyword-based overrides
-├── tests/
-│   ├── test-proxy.sh      # Core tests (33 + 5 mode override tests)
-│   └── test-proxy-extended.sh  # Extended tests (37)
+├── src/pii/
+│   ├── index.ts          # PII module entry
+│   ├── middleware.ts      # Request/response PII middleware
+│   ├── patterns.ts       # PII detection patterns
+│   ├── vault.ts          # PII vault (redact/rehydrate)
+│   └── vault-store.ts    # Vault persistence
+├── src/compress/
+│   ├── index.ts          # CtxPack module entry
+│   ├── middleware.ts      # Message-level compression middleware
+│   └── passes.ts         # 6 compression passes (ansi, whitespace, json, dedup, comments, verbose)
+├── src/cache/
+│   ├── index.ts          # Cache module entry
+│   └── store.ts          # LRU cache with TTL, normalize, hash key generation
+├── test/
+│   ├── cache-*.test.ts    # Cache tests (store unit, integration)
+│   ├── compress-*.test.ts # CtxPack tests (passes, middleware)
+│   ├── pii-*.test.ts     # PII tests (middleware, integration, streaming, gaps)
+│   ├── usage.test.ts     # Usage tracking tests
+│   ├── e2e.ts            # End-to-end tests
+│   ├── fallback.ts       # Fallback chain tests
+│   └── resilience-*.ts   # Resilience tests (errors, lifecycle, stability)
 ├── freerouter.config.json # Example config
 ├── tsconfig.json
 └── package.json

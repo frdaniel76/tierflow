@@ -1,8 +1,8 @@
 # FreeRouter PII Proxy — Design & Implementation Plan
 
-**Version:** 1.2.0
-**Date:** 2026-03-19
-**Status:** IMPLEMENTED — 125/125 tests passing (security hardened)
+**Version:** 1.5.0
+**Date:** 2026-03-22
+**Status:** IMPLEMENTED — 153/153 tests passing (v1.5.0: type-preserving placeholders)
 
 ---
 
@@ -285,14 +285,15 @@ handleChatCompletions()                    (server.ts)
 │
 ├── PII SCRUB (NEW)
 │   ├── scrubMessages(chatReq.messages)
-│   │     → replaces "email me at john@acme.com" with "email me at <<email:a1b2c3d4e5f6>>"
+│   │     → replaces "email me at john@acme.com" with "email me at p0a1b2c3@maildomain.com"
+│   │     → type-preserving: emails look like emails, keys like keys
 │   │     → returns { messages, sessionId, scrubbed: true }
 │   ├── chatReq.messages = scrubbedMessages
 │   └── (original messages NOT modified — deep copy)
 │
 ├── forwardRequest(chatReq, model, tier, res, stream=false)
 │   └── POST to OpenRouter → gets response JSON
-│       → response.choices[0].message.content contains "<<email:a1b2c3d4e5f6>>"
+│       → response.choices[0].message.content contains "p0a1b2c3@maildomain.com"
 │
 ├── PII REHYDRATE (NEW — inside modified forwardToOpenAI)
 │   ├── rehydrateText(responseBody, sessionId)
@@ -821,10 +822,10 @@ Tests carry buffer logic for streaming rehydration.
 rehydrateChunk() — Split Scenarios:
   ✓ full placeholder in single chunk → rehydrated immediately
   ✓ no placeholder in chunk → passthrough, empty carry
-  ✓ placeholder split: "<<ema" | "il:abc123def456>>" → carry then rehydrate
-  ✓ placeholder split: "<<" | "email:abc123def456>>" → carry then rehydrate
-  ✓ placeholder split: "<<email:abc123def4" | "56>> rest" → carry then rehydrate
-  ✓ placeholder split at ">>" boundary: "<<email:abc123def456" | ">>" → carry then flush
+  ✓ placeholder split across chunks → carry buffer then rehydrate
+  ✓ partial placeholder at chunk boundary → carry then rehydrate
+  ✓ placeholder with trailing text split → carry then rehydrate + emit rest
+  ✓ placeholder end marker at chunk boundary → carry then flush
   ✓ multiple placeholders in one chunk → all rehydrated
   ✓ mixed text and placeholder → text emitted, placeholder rehydrated
   ✓ adjacent placeholders → both rehydrated

@@ -5,7 +5,7 @@
  * carry-buffer rehydration for SSE chunks.
  */
 
-import { SecretVault } from "./vault.js";
+import { SecretVault, PII_ID_MARKER } from "./vault.js";
 import { VaultStore } from "./vault-store.js";
 import { logger } from "../logger.js";
 import type { ChatMessage } from "../provider.js";
@@ -55,6 +55,7 @@ function cloneMessage(msg: ChatMessage): ChatMessage {
 export function scrubMessages(
   messages: ChatMessage[],
   exclude?: string[],
+  scrubSystem?: boolean,
 ): ScrubResult {
   const sessionId = piiVaultStore.generateId();
   const vault = piiVaultStore.getOrCreate(sessionId, exclude);
@@ -67,13 +68,40 @@ export function scrubMessages(
   const piiHintRe = /[\w.+'-]+@[\w-]+\.[\w.]{2,}|\b\d{3}[- ]?\d{2}[- ]?\d{4}\b|\+\d{1,3}[\s.-]?\d/;
 
   for (const msg of messages) {
-    // Skip system/developer messages but warn if PII-like content detected
+    // System/developer messages: scrub if opt-in, otherwise warn-only
     if (msg.role === "system" || msg.role === "developer") {
-      const text = typeof msg.content === "string" ? msg.content : "";
-      if (text && piiHintRe.test(text)) {
-        logger.warn(`[PII] WARNING: system/developer message may contain PII — not scrubbed by design`);
+      if (scrubSystem) {
+        // Opt-in: scrub system/developer messages like any other message
+        const clone = cloneMessage(msg);
+        if (typeof clone.content === "string" && clone.content) {
+          const result = vault.redact(clone.content);
+          if (result.count > 0) {
+            clone.content = result.text;
+            totalScrubbed = true;
+            result.categories.forEach(c => allCategories.add(c));
+            logger.info(`[PII] Scrubbed ${result.count} items from ${msg.role} message`);
+          }
+        } else if (Array.isArray(clone.content)) {
+          for (const block of clone.content) {
+            if (block.type === "text" && block.text) {
+              const result = vault.redact(block.text);
+              if (result.count > 0) {
+                block.text = result.text;
+                totalScrubbed = true;
+                result.categories.forEach(c => allCategories.add(c));
+                logger.info(`[PII] Scrubbed ${result.count} items from ${msg.role} message (array)`);
+              }
+            }
+          }
+        }
+        scrubbedMessages.push(clone);
+      } else {
+        const text = typeof msg.content === "string" ? msg.content : "";
+        if (text && piiHintRe.test(text)) {
+          logger.warn(`[PII] WARNING: system/developer message may contain PII — not scrubbed (enable scrub_system to scrub)`);
+        }
+        scrubbedMessages.push(msg); // pass through unmodified
       }
-      scrubbedMessages.push(msg); // pass through unmodified
       continue;
     }
 
@@ -96,13 +124,28 @@ export function scrubMessages(
             totalScrubbed = true;
             result.categories.forEach(c => allCategories.add(c));
           }
-        } else if (block.type === "tool_result" && typeof (block as any).content === "string" && (block as any).content) {
-          // C-4 fix: scrub Anthropic tool_result content blocks
-          const result = vault.redact((block as any).content);
-          if (result.count > 0) {
-            (block as any).content = result.text;
-            totalScrubbed = true;
-            result.categories.forEach(c => allCategories.add(c));
+        } else if (block.type === "tool_result" && (block as any).content) {
+          // C-4 fix: scrub Anthropic tool_result content blocks (string or array)
+          const trContent = (block as any).content;
+          if (typeof trContent === "string") {
+            const result = vault.redact(trContent);
+            if (result.count > 0) {
+              (block as any).content = result.text;
+              totalScrubbed = true;
+              result.categories.forEach(c => allCategories.add(c));
+            }
+          } else if (Array.isArray(trContent)) {
+            // Handle nested array content in tool_result (e.g. [{type:"text",text:"..."}])
+            for (const nested of trContent) {
+              if (nested.type === "text" && nested.text) {
+                const result = vault.redact(nested.text);
+                if (result.count > 0) {
+                  nested.text = result.text;
+                  totalScrubbed = true;
+                  result.categories.forEach(c => allCategories.add(c));
+                }
+              }
+            }
           }
         }
         // Images and other types pass through unchanged
@@ -168,14 +211,19 @@ export function rehydrateText(
 
 // ─── Rehydration (Streaming) ───
 
+// Max placeholder length across all templates:
+// p0{12hex}://placeholder/db = 33 chars (conn is longest)
+const MAX_PLACEHOLDER_LEN = 40;
+
 /**
  * Rehydrate a streaming chunk, handling split placeholders via carry buffer.
  *
- * Returns { output, carry } where carry is an incomplete placeholder suffix
- * to prepend to the next chunk.
+ * Strategy: use vault.rehydrate() on the combined text, then check if the
+ * remaining text could end with a partial placeholder by looking for the
+ * universal p0 marker or characters that could start one.
  *
- * Carry buffer max size: 24 chars (<<type:hexid>> max = 24).
- * If carry exceeds this, it's not a placeholder — flush it.
+ * Returns { output, carry } where carry is a potential partial placeholder
+ * to prepend to the next chunk.
  */
 export function rehydrateChunk(
   chunk: string,
@@ -187,42 +235,105 @@ export function rehydrateChunk(
 
   const text = carry + chunk;
 
-  // Find all complete placeholders and rehydrate them
-  const placeholderRegex = /<<([a-z]{2,8}):([0-9a-f]{12})>>/g;
-  let result = "";
-  let lastEnd = 0;
+  // 1. Split out any partial placeholder at the end
+  const { output: safeOutput, carry: newCarry } = splitAtPartial(text);
 
-  for (const match of text.matchAll(placeholderRegex)) {
-    result += text.slice(lastEnd, match.index!);
-    const rehydrated = vault.rehydrate(match[0]);
-    result += rehydrated.text;
-    lastEnd = match.index! + match[0].length;
+  // 3. Rehydrate safe output (per-type patterns + guarded fallback).
+  //    vault.rehydrate() skips fallback when all entries were matched by per-type
+  //    patterns, avoiding unnecessary scanning of rehydrated text.
+  if (safeOutput) {
+    const result = vault.rehydrate(safeOutput);
+    return { output: result.text, carry: newCarry };
   }
 
-  // Check for a partial placeholder at the end
-  const remaining = text.slice(lastEnd);
-  const partialStart = remaining.lastIndexOf("<<");
+  return { output: "", carry: newCarry };
+}
 
-  if (partialStart !== -1) {
-    const afterPartial = remaining.slice(partialStart);
-    // Max placeholder length: << (2) + type (8) + : (1) + hexid (12) + >> (2) = 25 chars
-    // M-4 fix: use <= 25 to avoid off-by-one on max-length partial
-    if (afterPartial.length <= 25 && !afterPartial.includes(">>")) {
-      // Partial match — hold it in carry
-      result += remaining.slice(0, partialStart);
-      return { output: result, carry: afterPartial };
+/**
+ * Split text at a potential partial placeholder near the end.
+ *
+ * All placeholders start with p0{12hex}, so we only need to find
+ * a trailing p0 + partial hex or p0{12hex} + partial suffix.
+ */
+function splitAtPartial(text: string): { output: string; carry: string } {
+  // Search for p0 within the last MAX_PLACEHOLDER_LEN chars
+  const searchStart = Math.max(0, text.length - MAX_PLACEHOLDER_LEN);
+  const window = text.slice(searchStart);
+
+  const p0Idx = window.lastIndexOf("p0");
+  if (p0Idx !== -1) {
+    const afterP0 = window.slice(p0Idx + 2);
+    const hexMatch = afterP0.match(/^[0-9a-f]{0,12}/);
+    const hexLen = hexMatch ? hexMatch[0].length : 0;
+
+    if (hexLen < 12) {
+      // Incomplete hex ID — definitely partial, hold in carry from p0
+      const globalCarryStart = searchStart + p0Idx;
+      return {
+        output: text.slice(0, globalCarryStart),
+        carry: text.slice(globalCarryStart),
+      };
+    }
+
+    if (hexLen === 12) {
+      // Full hex ID. Check if the suffix is complete.
+      const afterHex = afterP0.slice(12);
+      if (isPartialSuffix(afterHex)) {
+        const globalCarryStart = searchStart + p0Idx;
+        return {
+          output: text.slice(0, globalCarryStart),
+          carry: text.slice(globalCarryStart),
+        };
+      }
     }
   }
 
-  // Check for a trailing single "<" that could be the first char of "<<"
-  if (remaining.endsWith("<") && partialStart === -1) {
-    result += remaining.slice(0, -1);
-    return { output: result, carry: "<" };
+  // Check for trailing "p" that could start "p0"
+  if (text.endsWith("p") && text.length > 0) {
+    return { output: text.slice(0, -1), carry: "p" };
   }
 
-  // No partial — flush everything
-  result += remaining;
-  return { output: result, carry: "" };
+  return { output: text, carry: "" };
+}
+
+/**
+ * Check if a string after p0{12hex} is a partial (incomplete) suffix.
+ * All suffixes start with a non-hex character, so an empty string means
+ * we're waiting for the suffix to arrive.
+ */
+function isPartialSuffix(s: string): boolean {
+  // All templates have a suffix after p0{hex}. If nothing follows yet, hold in carry.
+  if (s.length === 0) return true;
+
+  const completeSuffixes = [
+    "@maildomain.com",      // email
+    "-placeholder-token",   // cred
+    "-placeholder-key",     // apikey
+    "://placeholder/db",    // conn
+    "-0000-card",           // cc
+    "/pii/redacted",        // path
+    "-postcode",            // post
+    "-PII-KEY",             // pem
+    "-phone",               // phone
+    "-nino",                // nino
+    ".0.0.1",               // ip
+    "-ssn",                 // ssn
+  ];
+  // secret: -keyword (variable suffix, matched by p0{hex}-\w+ regex)
+
+  // Check if s is a prefix of any complete suffix (partial → hold)
+  for (const suffix of completeSuffixes) {
+    if (suffix.startsWith(s) && s.length < suffix.length) {
+      return true;
+    }
+  }
+
+  // Check if s starts with "-" followed by word chars (could be secret keyword suffix)
+  if (/^-\w*$/.test(s) && s.length < 20) {
+    return true; // could be -password, -token, etc.
+  }
+
+  return false;
 }
 
 // ─── Session Cleanup ───

@@ -1,0 +1,46 @@
+version: "3.9"
+
+services:
+  llmrouter:
+    build:
+      context: ../llmrouter-service
+    image: freerouter-llmrouter:latest
+    environment:
+      LLMROUTER_HOST: "0.0.0.0"
+    ports:
+      - "127.0.0.1:18801:18801"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:18801/health')"]
+      interval: 10s
+      timeout: 5s
+      start_period: 20s
+      retries: 5
+
+  freerouter:
+    build:
+      context: .
+    image: freerouter:latest
+    depends_on:
+      llmrouter:
+        condition: service_healthy
+    environment:
+      CLAWROUTER_HOST: "0.0.0.0"
+      CLAWROUTER_PORT: "18800"
+      # Override ML classifier URL to use Docker service name
+      LLMROUTER_URL: "http://llmrouter:18801/classify"
+      # API keys — set these in your .env file or pass via environment
+      # ANTHROPIC_API_KEY: ""
+      # OPENAI_API_KEY: ""
+    volumes:
+      # Mount config from host (optional — uses built-in defaults if absent)
+      - ${FREEROUTER_CONFIG:-./freerouter.config.json}:/app/freerouter.config.json:ro
+    ports:
+      - "127.0.0.1:18800:18800"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:18800/health').then(r=>r.ok?process.exit(0):process.exit(1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      start_period: 10s
+      retries: 3

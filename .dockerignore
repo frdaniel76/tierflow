@@ -1,0 +1,12 @@
+node_modules
+dist
+.git
+.github
+test
+bench
+demo
+docs
+*.md
+!README.md
+.env
+freerouter.config.json

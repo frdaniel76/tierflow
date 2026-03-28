@@ -1,18 +1,46 @@
 {
   "name": "freerouter",
-  "version": "1.0.0",
-  "description": "Free, self-hosted AI model router — smart routing with your own API keys (OpenRouter alternative)",
+  "version": "2.0.0",
+  "description": "Free, self-hosted AI model router — ML-powered smart routing with your own API keys",
   "type": "module",
-  "main": "src/index.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "freerouter": "dist/cli.js"
+  },
+  "files": [
+    "dist/",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "scripts": {
-    "start": "node dist/src/server.js",
-    "build": "tsc",
+    "start": "node dist/server.js",
+    "dev": "npx tsx src/server.ts",
+    "build": "tsup",
+    "build:tsc": "tsc",
     "typecheck": "tsc --noEmit",
-    "test": "npx tsx test/test-router.ts"
+    "test": "npx tsx --test test/unit/*.test.ts",
+    "test:integration": "npx tsx --test test/integration/*.test.ts",
+    "test:all": "npx tsx --test test/unit/*.test.ts test/integration/*.test.ts",
+    "test:legacy": "npx tsx test/test-router.ts",
+    "bench": "npx tsx bench/runner.ts",
+    "bench:ml": "npx tsx bench/runner.ts --ml",
+    "demo:generate": "npx tsx demo/generate-demo-data.ts",
+    "lint": "eslint src/",
+    "lint:fix": "eslint src/ --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "prepublishOnly": "npm run build && npm run typecheck"
   },
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^25.2.3",
+    "eslint": "^9.0.0",
+    "prettier": "^3.4.0",
+    "tsup": "^8.4.0",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0"
   }

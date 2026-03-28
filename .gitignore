@@ -3,3 +3,9 @@ dist/
 *.tsbuildinfo
 .DS_Store
 .playwright-mcp/
+
+# Local config (use freerouter.config.example.json as template)
+freerouter.config.json
+
+# Benchmark results (regenerate with: npm run bench)
+bench/results.json

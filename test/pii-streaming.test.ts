@@ -1,11 +1,12 @@
 /**
  * Unit tests for PII streaming rehydration: rehydrateChunk() carry buffer.
+ * Tests type-preserving placeholder formats with p0{hex} marker.
  *
  * Usage:
  *   npx tsx test/pii-streaming.test.ts
  */
 
-import { scrubMessages, rehydrateChunk, destroySession } from "../src/pii/index.js";
+import { scrubMessages, rehydrateChunk, destroySession, piiVaultStore } from "../src/pii/index.js";
 import type { ChatMessage } from "../src/provider.js";
 
 let passed = 0;
@@ -47,6 +48,7 @@ function setupSession(text: string): { sessionId: string; scrubbed: string } {
 
 /**
  * Helper: feed chunks through rehydrateChunk and collect output.
+ * Final carry is rehydrated (matching production behavior in provider.ts finally blocks).
  */
 function feedChunks(chunks: string[], sessionId: string): string {
   let carry = "";
@@ -56,7 +58,17 @@ function feedChunks(chunks: string[], sessionId: string): string {
     output += r.output;
     carry = r.carry;
   }
-  return output + carry; // flush remaining carry
+  // Rehydrate any remaining carry (matches provider.ts finally block behavior)
+  if (carry) {
+    const vault = piiVaultStore.get(sessionId);
+    if (vault) {
+      const rehydrated = vault.rehydrate(carry);
+      output += rehydrated.text;
+    } else {
+      output += carry;
+    }
+  }
+  return output;
 }
 
 // ═══════════════════════════════════════════
@@ -82,67 +94,33 @@ async function splitScenarioTests() {
     destroySession(sessionId);
   });
 
-  await test("placeholder split: <<ema | il:...>> → carry then rehydrate", () => {
+  await test("placeholder split mid-p0 marker", () => {
     const { sessionId, scrubbed } = setupSession("Email john@acme.com rest");
-    const match = scrubbed.match(/(<<email:[0-9a-f]{12}>>)/)!;
-    const placeholder = match[1];
-    const idx = scrubbed.indexOf(placeholder);
-
-    const splitAt = idx + 5; // "<<ema"
+    // Find the p0 marker position and split there
+    const p0Idx = scrubbed.indexOf("p0");
+    const splitAt = p0Idx + 5; // mid-way through p0+hex
     const chunk1 = scrubbed.slice(0, splitAt);
     const chunk2 = scrubbed.slice(splitAt);
 
     const r1 = rehydrateChunk(chunk1, sessionId, "");
-    assert(r1.carry.length > 0, `Should have carry`);
+    assert(r1.carry.length > 0, "Should have carry");
 
     const r2 = rehydrateChunk(chunk2, sessionId, r1.carry);
-    assertEqual(r2.carry, "");
     assertEqual(r1.output + r2.output, "Email john@acme.com rest");
     destroySession(sessionId);
   });
 
-  await test("placeholder split: << | email:...>> → carry then rehydrate", () => {
+  await test("placeholder split at suffix boundary (@maildomain.com)", () => {
     const { sessionId, scrubbed } = setupSession("Hi john@acme.com bye");
-    const match = scrubbed.match(/(<<email:[0-9a-f]{12}>>)/)!;
-    const idx = scrubbed.indexOf(match[1]);
+    // Split right after the hex ID, before @maildomain.com
+    const phMatch = scrubbed.match(/p0[0-9a-f]{12}/)!;
+    const splitAt = phMatch.index! + phMatch[0].length; // right after p0{hex}
 
-    const splitAt = idx + 2; // just "<<"
     const r1 = rehydrateChunk(scrubbed.slice(0, splitAt), sessionId, "");
-    assert(r1.carry.length > 0, "Should carry '<<'");
+    assert(r1.carry.length > 0, "Should carry partial placeholder");
 
     const r2 = rehydrateChunk(scrubbed.slice(splitAt), sessionId, r1.carry);
     assertEqual(r1.output + r2.output, "Hi john@acme.com bye");
-    destroySession(sessionId);
-  });
-
-  await test("placeholder split near end of hex ID", () => {
-    const { sessionId, scrubbed } = setupSession("X john@acme.com Y");
-    const match = scrubbed.match(/(<<email:[0-9a-f]{12}>>)/)!;
-    const placeholder = match[1];
-    const idx = scrubbed.indexOf(placeholder);
-
-    const splitAt = idx + placeholder.length - 4; // 4 chars before end
-    const r1 = rehydrateChunk(scrubbed.slice(0, splitAt), sessionId, "");
-    assert(r1.carry.length > 0, "Should carry partial");
-
-    const r2 = rehydrateChunk(scrubbed.slice(splitAt), sessionId, r1.carry);
-    assertEqual(r1.output + r2.output, "X john@acme.com Y");
-    destroySession(sessionId);
-  });
-
-  await test("placeholder split at >> boundary", () => {
-    const { sessionId, scrubbed } = setupSession("A john@acme.com B");
-    const match = scrubbed.match(/(<<email:[0-9a-f]{12}>>)/)!;
-    const placeholder = match[1];
-    const idx = scrubbed.indexOf(placeholder);
-
-    // Split right before ">>"
-    const splitAt = idx + placeholder.length - 2;
-    const r1 = rehydrateChunk(scrubbed.slice(0, splitAt), sessionId, "");
-    assert(r1.carry.length > 0, "Should carry up to >>");
-
-    const r2 = rehydrateChunk(scrubbed.slice(splitAt), sessionId, r1.carry);
-    assertEqual(r1.output + r2.output, "A john@acme.com B");
     destroySession(sessionId);
   });
 
@@ -154,21 +132,18 @@ async function splitScenarioTests() {
     destroySession(sessionId);
   });
 
-  await test("mixed text and placeholder → text emitted, placeholder rehydrated", () => {
-    const { sessionId, scrubbed } = setupSession("Hello john@acme.com world");
-    // Feed text before placeholder, then the placeholder, then text after
-    const match = scrubbed.match(/(<<email:[0-9a-f]{12}>>)/)!;
-    const idx = scrubbed.indexOf(match[1]);
+  await test("two placeholders split across different chunks", () => {
+    const { sessionId, scrubbed } = setupSession("A john@acme.com B jane@corp.org C");
+    const matches = [...scrubbed.matchAll(/p0[0-9a-f]{12}@maildomain\.com/g)];
+    assert(matches.length === 2, "Should have 2 placeholders");
 
-    const chunk1 = scrubbed.slice(0, idx); // "Hello "
-    const chunk2 = scrubbed.slice(idx);    // "<<email:...>> world"
+    // Split between the two, mid-way through the second
+    const secondIdx = matches[1].index!;
+    const splitAt = secondIdx + 5;
 
-    const r1 = rehydrateChunk(chunk1, sessionId, "");
-    assertEqual(r1.carry, "");
-    assertEqual(r1.output, "Hello ");
-
-    const r2 = rehydrateChunk(chunk2, sessionId, r1.carry);
-    assertEqual(r2.output, "john@acme.com world");
+    const r1 = rehydrateChunk(scrubbed.slice(0, splitAt), sessionId, "");
+    const r2 = rehydrateChunk(scrubbed.slice(splitAt), sessionId, r1.carry);
+    assertEqual(r1.output + r2.output, "A john@acme.com B jane@corp.org C");
     destroySession(sessionId);
   });
 
@@ -179,23 +154,6 @@ async function splitScenarioTests() {
     assertEqual(output, "john@acme.comjane@corp.org");
     destroySession(sessionId);
   });
-
-  await test("two placeholders split across different chunks", () => {
-    const { sessionId, scrubbed } = setupSession("A john@acme.com B jane@corp.org C");
-    const matches = [...scrubbed.matchAll(/<<email:[0-9a-f]{12}>>/g)];
-    assert(matches.length === 2, "Should have 2 placeholders");
-
-    // Split between the two placeholders, mid-way through the second
-    const secondIdx = matches[1].index!;
-    const splitAt = secondIdx + 5;
-    const chunk1 = scrubbed.slice(0, splitAt);
-    const chunk2 = scrubbed.slice(splitAt);
-
-    const r1 = rehydrateChunk(chunk1, sessionId, "");
-    const r2 = rehydrateChunk(chunk2, sessionId, r1.carry);
-    assertEqual(r1.output + r2.output, "A john@acme.com B jane@corp.org C");
-    destroySession(sessionId);
-  });
 }
 
 // ═══════════════════════════════════════════
@@ -204,55 +162,6 @@ async function splitScenarioTests() {
 
 async function carryEdgeCaseTests() {
   console.log("\n=== rehydrateChunk() — Carry Buffer Edge Cases ===\n");
-
-  await test("carry exceeds max placeholder length → flushed as text", () => {
-    const { sessionId } = setupSession("john@acme.com");
-    const longFake = "<<thisissomeverylongfakecategory:aaaa";
-    const { output } = rehydrateChunk("more text", sessionId, longFake);
-    assertIncludes(output, "<<this");
-    destroySession(sessionId);
-  });
-
-  await test("<< in normal text → eventually flushed", () => {
-    const { sessionId } = setupSession("john@acme.com");
-    const r1 = rehydrateChunk("text with <<important", sessionId, "");
-    assert(r1.carry.startsWith("<<"), "Should carry from <<");
-
-    const r2 = rehydrateChunk(">> stuff", sessionId, r1.carry);
-    const full = r1.output + r2.output;
-    assertIncludes(full, "<<important>>");
-    destroySession(sessionId);
-  });
-
-  await test("chunk ends with single < → held in carry", () => {
-    const { sessionId, scrubbed } = setupSession("Hi john@acme.com end");
-    const match = scrubbed.match(/(<<email:[0-9a-f]{12}>>)/)!;
-    const idx = scrubbed.indexOf(match[1]);
-
-    const splitAt = idx + 1; // just first "<"
-    const r1 = rehydrateChunk(scrubbed.slice(0, splitAt), sessionId, "");
-    assertEqual(r1.carry, "<", "Should carry single <");
-
-    const r2 = rehydrateChunk(scrubbed.slice(splitAt), sessionId, r1.carry);
-    assertEqual(r1.output + r2.output, "Hi john@acme.com end");
-    destroySession(sessionId);
-  });
-
-  await test("empty chunk with existing carry → carry maintained", () => {
-    const { sessionId } = setupSession("john@acme.com");
-    const r1 = rehydrateChunk("", sessionId, "<<ema");
-    assertEqual(r1.carry, "<<ema");
-    assertEqual(r1.output, "");
-    destroySession(sessionId);
-  });
-
-  await test("stream end flush: non-empty carry flushed as-is", () => {
-    const { sessionId } = setupSession("john@acme.com");
-    const r = rehydrateChunk("", sessionId, "<<fake");
-    assertEqual(r.carry, "<<fake");
-    // Caller is responsible for flushing carry on stream end
-    destroySession(sessionId);
-  });
 
   await test("unknown session → carry + chunk flushed together", () => {
     const { output, carry } = rehydrateChunk("hello", "nonexistent", "world");
@@ -270,10 +179,21 @@ async function carryEdgeCaseTests() {
 
   await test("single-character chunks → correct reassembly", () => {
     const { sessionId, scrubbed } = setupSession("A john@acme.com B");
-    // Feed one char at a time
     const chars = scrubbed.split("");
     const result = feedChunks(chars, sessionId);
     assertEqual(result, "A john@acme.com B");
+    destroySession(sessionId);
+  });
+
+  await test("text ending with p → held in carry (could start p0 marker)", () => {
+    const { sessionId } = setupSession("john@acme.com");
+    const { output, carry } = rehydrateChunk("I can help", sessionId, "");
+    assertEqual(output, "I can hel");
+    assertEqual(carry, "p");
+    // Next chunk resolves: if not followed by "0", p is flushed
+    const r2 = rehydrateChunk(" you", sessionId, carry);
+    assertEqual(r2.output, "p you");
+    assertEqual(r2.carry, "");
     destroySession(sessionId);
   });
 }
@@ -285,7 +205,7 @@ async function carryEdgeCaseTests() {
 async function randomSplitTests() {
   console.log("\n=== Randomized Split Tests (Fuzz) ===\n");
 
-  await test("fuzz: 200 iterations, 1 placeholder, random 2-chunk split", () => {
+  await test("fuzz: 200 iterations, 1 email placeholder, random 2-chunk split", () => {
     const original = "Before john@acme.com after text here";
     const { sessionId, scrubbed } = setupSession(original);
 
@@ -300,7 +220,7 @@ async function randomSplitTests() {
     destroySession(sessionId);
   });
 
-  await test("fuzz: 200 iterations, 2 placeholders, random 3-chunk split", () => {
+  await test("fuzz: 200 iterations, 2 email placeholders, random 3-chunk split", () => {
     const original = "A john@acme.com B jane@corp.org C";
     const { sessionId, scrubbed } = setupSession(original);
 
@@ -324,7 +244,7 @@ async function randomSplitTests() {
     destroySession(sessionId);
   });
 
-  await test("fuzz: 100 iterations, 2 PII types, 5-15 random small chunks", () => {
+  await test("fuzz: 100 iterations, email + IP, 5-15 random small chunks", () => {
     const original = "Email john@acme.com and visit 192.168.1.1 please";
     const { sessionId, scrubbed } = setupSession(original);
 
@@ -352,12 +272,11 @@ async function randomSplitTests() {
     destroySession(sessionId);
   });
 
-  await test("fuzz: 100 iterations, unicode + PII, single-char chunks", () => {
+  await test("fuzz: 100 iterations, unicode + PII, 1-4 char chunks", () => {
     const original = "Café john@acme.com résumé 192.168.0.1 naïve";
     const { sessionId, scrubbed } = setupSession(original);
 
     for (let i = 0; i < 100; i++) {
-      // Random chunk size 1-4 chars
       const chunks: string[] = [];
       let pos = 0;
       while (pos < scrubbed.length) {

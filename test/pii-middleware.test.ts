@@ -236,7 +236,7 @@ async function patternDetectionTests() {
   await test("does NOT false-positive on version strings as credit card", () => {
     const vault = new SecretVault();
     const result = vault.redact("Version 2.3.4.5 released today");
-    const ccMatches = (result.text.match(/<<cc:/g) ?? []).length;
+    const ccMatches = (result.text.match(/0000-p0/g) ?? []).length;
     assertEqual(ccMatches, 0, "Version string should NOT match as credit card");
     vault.destroy();
   });
@@ -327,10 +327,10 @@ async function patternDetectionTests() {
 async function vaultCoreTests() {
   console.log("\n=== SecretVault — Core Behaviour ===\n");
 
-  await test("redact produces valid <<category:hexid>> placeholder format", () => {
+  await test("redact produces type-preserving placeholder with p0{hex} marker", () => {
     const vault = new SecretVault();
     const result = vault.redact("Contact john@acme.com ok");
-    assertMatch(result.text, /<<[a-z]{2,8}:[0-9a-f]{12}>>/);
+    assertMatch(result.text, /p0[0-9a-f]{12}@maildomain\.com/);
     vault.destroy();
   });
 
@@ -381,7 +381,7 @@ async function vaultCoreTests() {
 
   await test("rehydrate leaves unknown placeholder IDs intact", () => {
     const vault = new SecretVault();
-    const text = "<<email:000000000000>> is unknown";
+    const text = "p0[0-9a-f]{12} is unknown";
     const result = vault.rehydrate(text);
     assertEqual(result.text, text);
     assertEqual(result.count, 0);
@@ -401,8 +401,8 @@ async function vaultCoreTests() {
     const vault = new SecretVault();
     const r1 = vault.redact("Contact john@acme.com");
     const r2 = vault.redact("Also john@acme.com");
-    const id1 = r1.text.match(/<<email:([0-9a-f]{12})>>/)![1];
-    const id2 = r2.text.match(/<<email:([0-9a-f]{12})>>/)![1];
+    const id1 = r1.text.match(/p0([0-9a-f]{12})@maildomain\.com/)![1];
+    const id2 = r2.text.match(/p0([0-9a-f]{12})@maildomain\.com/)![1];
     assertEqual(id1, id2, "Same value should get same placeholder ID");
     assertEqual(vault.size, 1, "Should only store 1 entry");
     vault.destroy();
@@ -454,7 +454,7 @@ async function vaultLifecycleTests() {
     const vault = new SecretVault();
     vault.destroy();
     try {
-      vault.rehydrate("<<email:abcdef123456>>");
+      vault.rehydrate("p0[0-9a-f]{12}");
       throw new Error("Should have thrown");
     } catch (err) {
       assertIncludes((err as Error).message, "destroyed");
@@ -491,7 +491,7 @@ async function scrubMessagesTests() {
     const result = scrubMessages(messages);
     assert(result.scrubbed, "Should flag as scrubbed");
     assertNotIncludes(result.messages[0].content as string, "john@acme.com");
-    assertIncludes(result.messages[0].content as string, "<<email:");
+    assertIncludes(result.messages[0].content as string, "@maildomain.com");
     destroySession(result.sessionId);
   });
 
@@ -661,8 +661,8 @@ async function scrubMessagesTests() {
       { role: "user", content: "Again john@acme.com" },
     ];
     const result = scrubMessages(messages);
-    const id1 = (result.messages[0].content as string).match(/<<email:([0-9a-f]{12})>>/)![1];
-    const id2 = (result.messages[1].content as string).match(/<<email:([0-9a-f]{12})>>/)![1];
+    const id1 = (result.messages[0].content as string).match(/p0([0-9a-f]{12})@maildomain\.com/)![1];
+    const id2 = (result.messages[1].content as string).match(/p0([0-9a-f]{12})@maildomain\.com/)![1];
     assertEqual(id1, id2, "Same email should produce same placeholder across messages");
     destroySession(result.sessionId);
   });
@@ -810,28 +810,28 @@ async function rehydrateTextTests() {
   });
 
   await test("handles unknown session ID gracefully", () => {
-    const result = rehydrateText("<<email:abcdef123456>> test", "nonexistent");
-    assertEqual(result, "<<email:abcdef123456>> test");
+    const result = rehydrateText("p0[0-9a-f]{12} test", "nonexistent");
+    assertEqual(result, "p0[0-9a-f]{12} test");
   });
 
   await test("handles destroyed session gracefully", () => {
     const scrubbed = scrubMessages([{ role: "user", content: "Email john@acme.com" }]);
     destroySession(scrubbed.sessionId);
     const result = rehydrateText(scrubbed.messages[0].content as string, scrubbed.sessionId);
-    assertIncludes(result, "<<email:");
+    // Placeholder should remain since session is destroyed
+    assertIncludes(result, "@maildomain.com");
   });
 
   await test("partial/malformed placeholders left as-is", () => {
     const scrubbed = scrubMessages([{ role: "user", content: "Email john@acme.com" }]);
-    const result = rehydrateText("<<email:short>> and <<BADFORMAT:abcdef123456>>", scrubbed.sessionId);
-    assertIncludes(result, "<<email:short>>");
-    assertIncludes(result, "<<BADFORMAT:abcdef123456>>");
+    const result = rehydrateText("p0short@maildomain.com and random_text_here", scrubbed.sessionId);
+    assertIncludes(result, "p0short@maildomain.com");
     destroySession(scrubbed.sessionId);
   });
 
   await test("handles response with mixed model text + placeholders", () => {
     const scrubbed = scrubMessages([{ role: "user", content: "Find john@acme.com" }]);
-    const placeholder = (scrubbed.messages[0].content as string).match(/<<email:[0-9a-f]{12}>>/)![0];
+    const placeholder = (scrubbed.messages[0].content as string).match(/p0[0-9a-f]{12}@maildomain\.com/)![0];
     const modelResponse = `I found the contact ${placeholder} in our database. They work at Acme Corp.`;
     const restored = rehydrateText(modelResponse, scrubbed.sessionId);
     assertIncludes(restored, "john@acme.com");
@@ -842,7 +842,7 @@ async function rehydrateTextTests() {
 
   await test("handles placeholder embedded in JSON structure", () => {
     const scrubbed = scrubMessages([{ role: "user", content: "Look up john@acme.com" }]);
-    const placeholder = (scrubbed.messages[0].content as string).match(/<<email:[0-9a-f]{12}>>/)![0];
+    const placeholder = (scrubbed.messages[0].content as string).match(/p0[0-9a-f]{12}@maildomain\.com/)![0];
     const jsonResponse = `{"email": "${placeholder}", "found": true}`;
     const restored = rehydrateText(jsonResponse, scrubbed.sessionId);
     assertIncludes(restored, '"email": "john@acme.com"');

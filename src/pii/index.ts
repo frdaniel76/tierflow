@@ -2,7 +2,7 @@
  * PII module — barrel export.
  */
 
-export { SecretVault } from "./vault.js";
+export { SecretVault, PII_ID_MARKER, PII_ID_MARKER_G } from "./vault.js";
 export type { RedactResult, RehydrateResult } from "./vault.js";
 
 export { VaultStore } from "./vault-store.js";

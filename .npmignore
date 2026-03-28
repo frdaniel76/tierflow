@@ -1,0 +1,16 @@
+src/
+test/
+bench/
+demo/
+docs/
+.github/
+.dockerignore
+docker-compose.yml
+Dockerfile
+tsconfig.json
+tsup.config.ts
+freerouter.config.json
+*.md
+!README.md
+!LICENSE
+COMMUNITY_RELEASE_PLAN.md

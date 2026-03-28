@@ -16,14 +16,25 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { route } from "./router/index.js";
 import { getRoutingConfig } from "./router/config.js";
 import { buildPricingMap } from "./models.js";
-import { forwardRequest, TimeoutError, parseModelId, type ChatRequest } from "./provider.js";
+import { forwardRequest, TimeoutError, parseModelId, setCurrentCategory, type ChatRequest } from "./provider.js";
 import { reloadAuth } from "./auth.js";
-import { loadConfig, getConfig, reloadConfig, getSanitizedConfig, getConfigPath, isPiiEnabled, getPiiExclude, getPiiMode, isPiiDebugLog } from "./config.js";
+import { loadConfig, getConfig, reloadConfig, getSanitizedConfig, getConfigPath, isPiiEnabled, getPiiExclude, getPiiMode, isPiiScrubSystem, isPiiDebugLog, isCompressEnabled, getCompressPasses, isCompressSystem } from "./config.js";
 import { logger, setLogLevel } from "./logger.js";
 import { scrubMessages, destroySession, piiVaultStore } from "./pii/index.js";
+import { compressMessages } from "./compress/index.js";
+import type { PassName } from "./compress/index.js";
+import { LRUCache, buildCacheKey } from "./cache/index.js";
+import type { CacheGlobalConfig } from "./config.js";
+import { getUsageStats } from "./usage.js";
+import { getDashboardHTML } from "./dashboard.js";
 
 // Load config at startup
 const appConfig = loadConfig();
+
+// Docker/env override: allow LLMROUTER_URL to override ML classifier URL
+if (process.env.LLMROUTER_URL && appConfig.mlClassifier) {
+  appConfig.mlClassifier.url = process.env.LLMROUTER_URL;
+}
 const PORT = parseInt(process.env.CLAWROUTER_PORT ?? String(appConfig.port), 10);
 const HOST = process.env.CLAWROUTER_HOST ?? appConfig.host ?? "127.0.0.1";
 
@@ -39,7 +50,22 @@ const stats = {
   byTier: { SIMPLE: 0, MEDIUM: 0, COMPLEX: 0, REASONING: 0 } as Record<string, number>,
   byModel: {} as Record<string, number>,
   pii: { scrubbed: 0, rehydrated: 0, errors: 0 },
+  compress: { compressed: 0, tokensSaved: 0, errors: 0 },
 };
+
+// ─── Response Cache ───
+
+function initCache(): LRUCache | null {
+  const cfg = getConfig();
+  const cacheConfig = cfg.cache;
+  if (!cacheConfig?.enabled) return null;
+  const cache = new LRUCache(cacheConfig.ttl_seconds ?? 300, cacheConfig.max_entries ?? 5000);
+  // Sweep expired entries every 60 seconds
+  setInterval(() => cache.sweep(), 60_000);
+  return cache;
+}
+
+let responseCache: LRUCache | null = null;
 
 /**
  * Read request body as JSON.
@@ -189,6 +215,31 @@ async function handleChatCompletions(req: IncomingMessage, res: ServerResponse) 
 
   const stream = chatReq.stream ?? false;
   const maxTokens = chatReq.max_tokens ?? 4096;
+  const hasTools = !!(chatReq.tools && chatReq.tools.length > 0);
+
+  // ─── Cache Check (before routing — skip entire pipeline on hit) ───
+  const cacheConfig = getConfig().cache;
+  let cacheKey: string | null = null;
+
+  if (responseCache && cacheConfig?.enabled && !stream) {
+    const excludeTools = cacheConfig.exclude_tools !== false; // default true
+    if (!(excludeTools && hasTools)) {
+      cacheKey = buildCacheKey(chatReq.model, chatReq.messages, hasTools);
+      const cached = responseCache.get(cacheKey);
+      if (cached) {
+        res.setHeader("X-Cache", "HIT");
+        res.setHeader("Content-Type", "application/json");
+        res.end(cached);
+        stats.requests++;
+        return;
+      }
+    }
+  }
+
+  // Log tool presence for routing visibility
+  if (chatReq.tools && chatReq.tools.length > 0) {
+    logger.info(`[tools] ${chatReq.tools.length} tools: ${chatReq.tools.map((t: any) => t.function?.name ?? '?').join(', ')}`);
+  }
 
   // Extract prompt for classification
   const { prompt, systemPrompt } = extractPromptForClassification(chatReq.messages);
@@ -202,32 +253,38 @@ async function handleChatCompletions(req: IncomingMessage, res: ServerResponse) 
   let routedModel: string;
   let tier: string;
   let reasoning: string;
+  let category: string | undefined;
 
   if (requestedModel === "auto" || requestedModel === "clawrouter/auto" || requestedModel === "blockrun/auto") {
-    // Check for user mode override (e.g., "max mode: ...", "/complex ...", "[reasoning] ...")
-    const modeOverride = detectModeOverride(prompt);
-    
-    if (modeOverride) {
-      // User explicitly requested a tier — honor it
-      const routingCfg = getRoutingConfig();
-      const tierConfig = routingCfg.tiers[modeOverride.tier as keyof typeof routingCfg.tiers];
-      routedModel = tierConfig?.primary ?? "anthropic/claude-opus-4-6";
-      tier = modeOverride.tier;
-      reasoning = `user-mode: ${modeOverride.tier.toLowerCase()}`;
-      logger.info(`[${stats.requests + 1}] Mode override: tier=${tier} model=${routedModel} | ${reasoning}`);
-    } else {
-      // Run the classifier
-      const decision = route(prompt, systemPrompt, maxTokens, {
-        config: getRoutingConfig(),
-        modelPricing,
-      });
+    // Run the ML classifier (handles mode overrides, tools, audio internally)
+    const routingCfg = getRoutingConfig();
+    const hasTools = chatReq.tools && chatReq.tools.length > 0;
+    const hasAudio = chatReq.messages?.some(m => {
+      const content = typeof m.content === "string" ? m.content : JSON.stringify(m.content ?? "");
+      return content.includes("audio/ogg") || content.includes("audio/") || content.includes("[media attached:");
+    }) ?? false;
 
-      routedModel = decision.model;
-      tier = decision.tier;
-      reasoning = decision.reasoning;
+    const decision = await route(prompt, systemPrompt, maxTokens, {
+      config: routingCfg,
+      modelPricing,
+    }, { hasTools, hasAudio });
 
-      logger.info(`[${stats.requests + 1}] Classified: tier=${tier} model=${routedModel} confidence=${decision.confidence.toFixed(2)} | ${reasoning}`);
+    routedModel = decision.model;
+    tier = decision.tier;
+    reasoning = decision.reasoning;
+    category = decision.category;
+
+    // For legacy tier-based routing (when categories not configured), apply agentic override
+    if (!decision.category && hasTools && routingCfg.agenticTiers) {
+      const agenticTier = routingCfg.agenticTiers[tier as keyof typeof routingCfg.agenticTiers];
+      if (agenticTier && agenticTier.primary !== routedModel) {
+        routedModel = agenticTier.primary;
+        reasoning += ` | tools-present -> agentic(${routedModel})`;
+      }
     }
+
+    const catLabel = decision.category ? ` category=${decision.category}` : "";
+    logger.info(`[${stats.requests + 1}] Classified: tier=${tier}${catLabel} model=${routedModel} confidence=${decision.confidence.toFixed(2)} | ${reasoning}`);
   } else {
     // Explicit model requested — pass through
     routedModel = requestedModel;
@@ -249,6 +306,7 @@ async function handleChatCompletions(req: IncomingMessage, res: ServerResponse) 
   // ─── PII Scrub (if provider requires it) ───
   let piiSession: string | null = null;
   let piiScrubbed = false;
+  let primaryPiiMode: "strict" | "standard" = "strict";
   const primaryProvider = parseModelId(routedModel).provider;
   const cfg = getConfig();
   const primaryProviderCfg = cfg.providers[primaryProvider];
@@ -256,7 +314,8 @@ async function handleChatCompletions(req: IncomingMessage, res: ServerResponse) 
   if (primaryProviderCfg && isPiiEnabled(primaryProviderCfg)) {
     try {
       const piiMode = getPiiMode(primaryProviderCfg);
-      const scrubResult = scrubMessages(chatReq.messages, getPiiExclude(primaryProviderCfg));
+      primaryPiiMode = piiMode;
+      const scrubResult = scrubMessages(chatReq.messages, getPiiExclude(primaryProviderCfg), isPiiScrubSystem(primaryProviderCfg));
       piiSession = scrubResult.sessionId;
       piiScrubbed = scrubResult.scrubbed;
 
@@ -274,7 +333,7 @@ async function handleChatCompletions(req: IncomingMessage, res: ServerResponse) 
         res.setHeader("X-PII-Categories", scrubResult.categories.join(","));
         res.setHeader("X-PII-Count", String(scrubResult.messages.reduce((n, m) => {
           const c = typeof m.content === "string" ? m.content : JSON.stringify(m.content ?? "");
-          return n + (c.match(/<<[a-z]{2,8}:[0-9a-f]{12}>>/g) ?? []).length;
+          return n + (c.match(/p0[0-9a-f]{12}/g) ?? []).length;
         }, 0)));
       }
     } catch (err) {
@@ -286,16 +345,69 @@ async function handleChatCompletions(req: IncomingMessage, res: ServerResponse) 
     }
   }
 
+  // ─── CtxPack Compress (if provider enables it) ───
+  if (primaryProviderCfg && isCompressEnabled(primaryProviderCfg)) {
+    try {
+      const passes = getCompressPasses(primaryProviderCfg) as PassName[] | undefined;
+      const compressSys = isCompressSystem(primaryProviderCfg);
+      const compressResult = compressMessages(chatReq.messages, passes, compressSys);
+
+      if (compressResult.compressed) {
+        chatReq = { ...chatReq, messages: compressResult.messages };
+        stats.compress.compressed++;
+        stats.compress.tokensSaved += (compressResult.tokensBefore - compressResult.tokensAfter);
+
+        res.setHeader("X-CtxPack-Savings", `${compressResult.savings}%`);
+        res.setHeader("X-CtxPack-Before", String(compressResult.tokensBefore));
+        res.setHeader("X-CtxPack-After", String(compressResult.tokensAfter));
+      }
+    } catch (err) {
+      stats.compress.errors++;
+      const msg = err instanceof Error ? err.message : String(err);
+      logger.error(`[CtxPack] ERROR: Compression failed — passing uncompressed — error: ${msg}`);
+      // Fail-open: forward uncompressed (compression is a cost optimization, not a safety feature)
+    }
+  }
+
+  // Set category for usage tracking
+  setCurrentCategory(category);
+
   // Build model list: primary + fallbacks
   const modelsToTry: string[] = [routedModel];
   if (tier !== "EXPLICIT") {
     const routingCfg = getRoutingConfig();
-    const tierConfig = routingCfg.tiers[tier as keyof typeof routingCfg.tiers];
-    if (tierConfig?.fallback) {
-      for (const fb of tierConfig.fallback) {
+    // v2: use category config for fallbacks if available
+    const categoryKey = category;
+    if (categoryKey && routingCfg.categories && categoryKey in routingCfg.categories) {
+      const catConfig = (routingCfg.categories as Record<string, any>)[categoryKey];
+      for (const fb of catConfig.fallback) {
         if (fb !== routedModel) modelsToTry.push(fb);
       }
+    } else {
+      // Legacy: use tier config
+      const hasTools = chatReq.tools && chatReq.tools.length > 0;
+      const tierSource = (hasTools && routingCfg.agenticTiers)
+        ? routingCfg.agenticTiers
+        : routingCfg.tiers;
+      const tierConfig = tierSource[tier as keyof typeof tierSource];
+      if (tierConfig?.fallback) {
+        for (const fb of tierConfig.fallback) {
+          if (fb !== routedModel) modelsToTry.push(fb);
+        }
+      }
     }
+  }
+
+  // ─── Capture response body for caching (non-streaming only) ───
+  let capturedBody: string | null = null;
+  if (cacheKey && !stream) {
+    const originalEnd = res.end.bind(res);
+    (res as any).end = function (chunk?: any, ...args: any[]) {
+      if (chunk && typeof chunk === "string") capturedBody = chunk;
+      else if (chunk && Buffer.isBuffer(chunk)) capturedBody = chunk.toString();
+      return originalEnd(chunk, ...args);
+    };
+    res.setHeader("X-Cache", "MISS");
   }
 
   let lastError: string = "";
@@ -307,11 +419,19 @@ async function handleChatCompletions(req: IncomingMessage, res: ServerResponse) 
           res.setHeader("X-ClawRouter-Model", modelToTry);
         }
 
-        // Determine if the actual responding provider needs PII rehydration
+        // Always rehydrate if we scrubbed — even if fallback provider doesn't have PII enabled,
+        // the messages were already scrubbed and the response will contain placeholders
         const actualProvider = parseModelId(modelToTry).provider;
         const actualProviderCfg = cfg.providers[actualProvider];
-        const needsRehydrate = piiScrubbed && actualProviderCfg && isPiiEnabled(actualProviderCfg);
-        const piiMode = actualProviderCfg ? getPiiMode(actualProviderCfg) : "strict";
+        const needsRehydrate = piiScrubbed;
+        // Use primary provider's piiMode consistently (not the fallback's)
+        const piiMode = primaryPiiMode;
+
+        // Warn if falling back to a non-PII provider with scrubbed data
+        if (piiScrubbed && modelToTry !== routedModel && (!actualProviderCfg || !isPiiEnabled(actualProviderCfg))) {
+          logger.warn(`[PII] Fallback to ${modelToTry} (no PII flag) — rehydrating scrubbed response`);
+          res.setHeader("X-PII-Warning", "fallback-to-non-pii-provider");
+        }
 
         await forwardRequest(
           chatReq, modelToTry, tier, res, stream,
@@ -319,6 +439,12 @@ async function handleChatCompletions(req: IncomingMessage, res: ServerResponse) 
           needsRehydrate ? piiMode : undefined,
         );
         if (needsRehydrate) stats.pii.rehydrated++;
+
+        // Store in cache on success (non-streaming, non-PII responses only)
+        if (cacheKey && capturedBody && !piiScrubbed && responseCache) {
+          responseCache.set(cacheKey, capturedBody, modelToTry);
+        }
+
         return; // success
       } catch (err) {
         lastError = err instanceof Error ? err.message : String(err);
@@ -353,39 +479,39 @@ async function handleChatCompletions(req: IncomingMessage, res: ServerResponse) 
  * Handle GET /v1/models
  */
 function handleListModels(_req: IncomingMessage, res: ServerResponse) {
-  const models = [
-    {
-      id: "auto",
-      object: "model",
-      created: Math.floor(Date.now() / 1000),
-      owned_by: "clawrouter",
-      permission: [],
-    },
-    {
-      id: "anthropic/claude-opus-4-6",
-      object: "model",
-      created: Math.floor(Date.now() / 1000),
-      owned_by: "anthropic",
-    },
-    {
-      id: "anthropic/claude-sonnet-4-5",
-      object: "model",
-      created: Math.floor(Date.now() / 1000),
-      owned_by: "anthropic",
-    },
-    {
-      id: "anthropic/claude-haiku-4-5",
-      object: "model",
-      created: Math.floor(Date.now() / 1000),
-      owned_by: "anthropic",
-    },
-    {
-      id: "kimi-coding/kimi-for-coding",
-      object: "model",
-      created: Math.floor(Date.now() / 1000),
-      owned_by: "kimi-coding",
-    },
-  ];
+  const cfg = getConfig();
+  const created = Math.floor(Date.now() / 1000);
+  const seen = new Set<string>();
+  const models: Array<{ id: string; object: string; created: number; owned_by: string; permission?: unknown[] }> = [];
+
+  // Always include "auto" (the smart router)
+  models.push({ id: "auto", object: "model", created, owned_by: "freerouter", permission: [] });
+  seen.add("auto");
+
+  // Collect models from tiers, agenticTiers, and categories
+  const tierSources = [cfg.tiers, cfg.agenticTiers, cfg.categories].filter(Boolean);
+  for (const source of tierSources) {
+    for (const mapping of Object.values(source!)) {
+      const ids = [mapping.primary, ...(mapping.fallback || [])];
+      for (const modelId of ids) {
+        if (seen.has(modelId)) continue;
+        seen.add(modelId);
+        const provider = modelId.split("/")[0] || "unknown";
+        models.push({ id: modelId, object: "model", created, owned_by: provider });
+      }
+    }
+  }
+
+  // Add explicitly listed models from providers
+  for (const [providerName, providerCfg] of Object.entries(cfg.providers)) {
+    if (providerCfg.disabled) continue;
+    for (const modelId of providerCfg.models ?? []) {
+      const fullId = modelId.includes("/") ? modelId : `${providerName}/${modelId}`;
+      if (seen.has(fullId)) continue;
+      seen.add(fullId);
+      models.push({ id: fullId, object: "model", created, owned_by: providerName });
+    }
+  }
 
   res.writeHead(200, { "Content-Type": "application/json" });
   res.end(JSON.stringify({ object: "list", data: models }));
@@ -400,7 +526,7 @@ function handleHealth(_req: IncomingMessage, res: ServerResponse) {
     status: "ok",
     version: "1.1.0",
     uptime: process.uptime(),
-    stats,
+    stats: { ...stats, cache: responseCache?.getStats() ?? { hits: 0, misses: 0, stores: 0, evictions: 0, size: 0, hitRate: "0.0%" }, tokenUsage: getUsageStats() },
   }));
 }
 
@@ -409,7 +535,7 @@ function handleHealth(_req: IncomingMessage, res: ServerResponse) {
  */
 function handleStats(_req: IncomingMessage, res: ServerResponse) {
   res.writeHead(200, { "Content-Type": "application/json" });
-  res.end(JSON.stringify(stats, null, 2));
+  res.end(JSON.stringify({ ...stats, cache: responseCache?.getStats() ?? { hits: 0, misses: 0, stores: 0, evictions: 0, size: 0, hitRate: "0.0%" }, tokenUsage: getUsageStats() }, null, 2));
 }
 
 
@@ -430,6 +556,7 @@ function handleConfig(_req: IncomingMessage, res: ServerResponse) {
 function handleReloadConfig(_req: IncomingMessage, res: ServerResponse) {
   reloadConfig();
   reloadAuth();
+  responseCache = initCache();
   const cfg = getConfig();
   res.writeHead(200, { "Content-Type": "application/json" });
   res.end(JSON.stringify({
@@ -483,6 +610,9 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse) {
       handleConfig(req, res);
     } else if (method === "POST" && url === "/reload-config") {
       handleReloadConfig(req, res);
+    } else if (method === "GET" && (url === "/dashboard" || url === "/")) {
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+      res.end(getDashboardHTML());
     } else {
       sendError(res, 404, `Not found: ${method} ${url}`, "not_found");
     }
@@ -501,10 +631,13 @@ if (process.argv.includes("--debug")) {
   setLogLevel("debug");
 }
 
+responseCache = initCache();
+
 const server = createServer(handleRequest);
 
 server.listen(PORT, HOST, () => {
   logger.info(`🚀 ClawRouter proxy listening on http://${HOST}:${PORT} (config: ${getConfigPath() ?? "built-in defaults"})`);
+  if (responseCache) logger.info(`   Cache: enabled (TTL=${getConfig().cache?.ttl_seconds ?? 300}s, max=${getConfig().cache?.max_entries ?? 5000})`);
   logger.info(`   POST /v1/chat/completions  — route & forward`);
   logger.info(`   GET  /v1/models            — list models`);
   logger.info(`   GET  /health               — health check`);
@@ -512,6 +645,7 @@ server.listen(PORT, HOST, () => {
   logger.info(`   POST /reload               — reload auth keys`);
   logger.info(`   GET  /config               — show config (sanitized)`);
   logger.info(`   POST /reload-config         — reload config + auth`);
+  logger.info(`   GET  /dashboard             — monitoring dashboard`);
 });
 
 // Graceful shutdown
