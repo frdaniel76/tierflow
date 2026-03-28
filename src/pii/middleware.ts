@@ -64,8 +64,9 @@ export function scrubMessages(
   let totalScrubbed = false;
   const scrubbedMessages: ChatMessage[] = [];
 
-  // M-1: simple PII-like check for system messages (warn-only, no scrub)
-  const piiHintRe = /[\w.+'-]+@[\w-]+\.[\w.]{2,}|\b\d{3}[- ]?\d{2}[- ]?\d{4}\b|\+\d{1,3}[\s.-]?\d/;
+  // M-1: PII-like check for system messages (warn-only, no scrub)
+  // Covers: emails, SSNs, phones, API keys, connection strings, Bearer tokens, PEM blocks
+  const piiHintRe = /[\w.+'-]+@[\w-]+\.[\w.]{2,}|\b\d{3}[- ]\d{2}[- ]\d{4}\b|\+\d{1,3}[\s.-]?\d|sk-ant-[A-Za-z0-9_-]{20,}|sk-[A-Za-z0-9_-]{20,}|ghp_[A-Za-z0-9]{20,}|(?:postgres|mysql|mongodb|redis):\/\/|Bearer\s+[A-Za-z0-9._~+\/=-]{20,}|-----BEGIN [A-Z ]+-----/;
 
   for (const msg of messages) {
     // System/developer messages: scrub if opt-in, otherwise warn-only

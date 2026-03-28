@@ -1,6 +1,6 @@
 /**
  * SecretVault — PII redaction and rehydration with AES-256-GCM encryption.
- * Vendored from pii-vault (github.com/frdaniel76/pii-vault).
+ * PII redaction and rehydration engine for TierFlow.
  *
  * Detects PII in text using multi-pass regex scanning, replaces matches
  * with type-preserving placeholders, and encrypts the original values

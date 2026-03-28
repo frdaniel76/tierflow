@@ -1,6 +1,6 @@
 /**
  * VaultStore — session lifecycle management for SecretVault instances.
- * Vendored from pii-vault (github.com/frdaniel76/pii-vault).
+ * Session lifecycle management for TierFlow PII vaults.
  *
  * Each request gets its own vault session with a sliding TTL.
  * A background sweep runs every 5 minutes to clean up expired sessions.

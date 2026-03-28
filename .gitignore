@@ -3,6 +3,8 @@ dist/
 *.tsbuildinfo
 .DS_Store
 .playwright-mcp/
+.env
+.env.*
 
 # Local config (use tierflow.config.example.json as template)
 tierflow.config.json

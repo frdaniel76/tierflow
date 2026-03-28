@@ -12,7 +12,7 @@ import { createServer } from "node:http";
 import { startProxy } from "./dist/index.js";
 
 // Test wallet key (for testing only - no real funds)
-const TEST_WALLET_KEY = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
+const TEST_WALLET_KEY = "process.env.TEST_WALLET_KEY || "0x0000000000000000000000000000000000000000000000000000000000000001"";
 
 // Test cases: mock responses with thinking tokens
 const TEST_CASES = [

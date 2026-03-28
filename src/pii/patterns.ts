@@ -1,6 +1,6 @@
 /**
  * PII regex patterns for detection and redaction.
- * Vendored from pii-vault (github.com/frdaniel76/pii-vault).
+ * PII detection patterns for TierFlow.
  *
  * Each pattern is defined once with the /g flag. Use fresh() to get
  * a new instance before each scan — avoids shared lastIndex state bugs.
@@ -25,11 +25,12 @@ export const EMAIL = /[a-zA-Z0-9](?:[a-zA-Z0-9.+_'-]*[a-zA-Z0-9])?@[\w-]+\.[\w.]
 export const CREDIT_CARD =
   /\b(?:4[0-9]{12}(?:[0-9]{3})?|5[1-5][0-9]{14}|3[47][0-9]{13}|6(?:011|5[0-9]{2})[0-9]{12}|(?:\d{4}[ -]){3}\d{4})\b/g;
 
-// C-2 fix: US Social Security Number (XXX-XX-XXXX)
-export const SSN = /\b\d{3}[- ]?\d{2}[- ]?\d{4}\b/g;
+// C-2 fix: US Social Security Number — require at least one separator to reduce false positives
+// Matches: 123-45-6789, 123 45 6789 — but NOT bare 9-digit numbers like 123456789
+export const SSN = /\b\d{3}[- ]\d{2}[- ]\d{4}\b/g;
 
-// H-5 fix: tighter phone — no ambiguous optional groups
-export const PHONE = /(?:\+\d{1,3}[\s.-]?)?\(?\d{2,4}\)?[\s.-]?\d{3,4}[\s.-]?\d{3,6}\b/g;
+// H-5 fix: tighter phone — require either + prefix or parenthesized area code to avoid matching dates/versions
+export const PHONE = /(?:\+\d{1,3}[\s.-]?\(?\d{2,4}\)?[\s.-]?\d{3,4}[\s.-]?\d{3,6}|\(\d{2,4}\)[\s.-]?\d{3,4}[\s.-]?\d{3,6})\b/g;
 
 export const API_KEY =
   /\b(sk-ant-[A-Za-z0-9_-]{20,}|sk-[A-Za-z0-9_-]{20,}|ghp_[A-Za-z0-9]{20,}|gho_[A-Za-z0-9]{20,}|xoxb-[A-Za-z0-9-]+|xoxp-[A-Za-z0-9-]+|AIza[A-Za-z0-9_-]{35}|AKIA[A-Z0-9]{16}|ey[A-Za-z0-9_-]{10,}\.ey[A-Za-z0-9_-]{10,}(?:\.[A-Za-z0-9_-]{10,})?)/g;
@@ -56,7 +57,8 @@ export const IPV6_ADDRESS =
 
 export const UK_NINO = /\b[A-CEGHJ-PR-TW-Z]{2}\d{6}[A-D]\b/gi;
 
-export const UK_POSTCODE = /\b[A-Z]{1,2}\d{1,2}[A-Z]?\s?\d[A-Z]{2}\b/gi;
+// UK postcodes are uppercase in practice — remove case-insensitive flag to reduce false positives
+export const UK_POSTCODE = /\b[A-Z]{1,2}\d{1,2}[A-Z]?\s?\d[A-Z]{2}\b/g;
 
 // L-3 fix: expanded file path detection — /home/, /Users/, /root/, /etc/, /var/, C:\Users\, D:\Users\
 export const FILE_PATH =

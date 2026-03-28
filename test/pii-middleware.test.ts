@@ -176,9 +176,9 @@ async function patternDetectionTests() {
 
   await test("detects file paths (/Users/...)", () => {
     const vault = new SecretVault();
-    const result = vault.redact("Located at /Users/medme/Documents/secrets.txt");
+    const result = vault.redact("Located at /Users/testuser/Documents/secrets.txt");
     assert(result.count >= 1, `Expected ≥1, got ${result.count}`);
-    assertNotIncludes(result.text, "/Users/medme");
+    assertNotIncludes(result.text, "/Users/testuser");
     vault.destroy();
   });
 

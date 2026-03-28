@@ -273,12 +273,12 @@ async function verboseTests() {
   });
 
   await test("shortens home directory paths", () => {
-    const result = trimVerbose("/Users/medme/Projects/test.js", "/Users/medme");
+    const result = trimVerbose("/Users/testuser/Projects/test.js", "$HOME");
     assertEqual(result, "~/Projects/test.js");
   });
 
   await test("no change without home dir", () => {
-    const input = "/Users/medme/test.js";
+    const input = "/Users/testuser/test.js";
     assertEqual(trimVerbose(input), input);
   });
 }

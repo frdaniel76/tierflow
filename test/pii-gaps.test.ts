@@ -133,7 +133,7 @@ async function formatValidationTests() {
 
   await test("path → p0{hex}/redacted", () => {
     const vault = new SecretVault();
-    const result = vault.redact("File at /Users/medme/secrets.txt");
+    const result = vault.redact("File at /Users/testuser/secrets.txt");
     assertMatch(result.text, /p0[0-9a-f]{12}\/pii\/redacted/);
     vault.destroy();
   });
@@ -421,7 +421,7 @@ async function fullToolCallFlowTests() {
 
   await test("LLM generates text + tool_call: both rehydrate correctly", () => {
     const scrubbed = scrubMessages([
-      { role: "user", content: "Look up john@acme.com and their file /Users/medme/secrets.txt" },
+      { role: "user", content: "Look up john@acme.com and their file /Users/testuser/secrets.txt" },
     ]);
     const content = scrubbed.messages[0].content as string;
     const emailPh = content.match(/p0[0-9a-f]{12}@maildomain\.com/)![0];
@@ -431,7 +431,7 @@ async function fullToolCallFlowTests() {
     const llmText = `I'll look up ${emailPh} and read ${pathPh}`;
     const restoredText = rehydrateText(llmText, scrubbed.sessionId);
     assertIncludes(restoredText, "john@acme.com");
-    assertIncludes(restoredText, "/Users/medme/secrets.txt");
+    assertIncludes(restoredText, "/Users/testuser/secrets.txt");
 
     destroySession(scrubbed.sessionId);
   });
@@ -452,7 +452,7 @@ async function securityTests() {
       "+44 7911 123456",
       "4532 1234 5678 9012",
       "postgres://admin:s3cret@localhost/db",
-      "/Users/medme/secret.txt",
+      "/Users/testuser/secret.txt",
     ];
     const messages: ChatMessage[] = [
       { role: "user", content: piiValues.join(" | ") },
@@ -604,12 +604,12 @@ async function streamingMultiTypeTests() {
   });
 
   await test("streaming: path placeholder split and rehydrated", () => {
-    const scrubbed = scrubMessages([{ role: "user", content: "File: /Users/medme/secret.txt" }]);
+    const scrubbed = scrubMessages([{ role: "user", content: "File: /Users/testuser/secret.txt" }]);
     const content = scrubbed.messages[0].content as string;
     assertMatch(content, /p0[0-9a-f]{12}\/pii\/redacted/);
     const mid = Math.floor(content.length / 2);
     const result = feedToolArgChunks([content.slice(0, mid), content.slice(mid)], scrubbed.sessionId);
-    assertIncludes(result, "/Users/medme/secret.txt");
+    assertIncludes(result, "/Users/testuser/secret.txt");
     destroySession(scrubbed.sessionId);
   });
 

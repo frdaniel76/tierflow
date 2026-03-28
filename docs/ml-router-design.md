@@ -255,14 +255,14 @@ This can run as a weekly batch job using TierFlow's request logs.
 Run as a launchd daemon alongside TierFlow:
 
 ```xml
-<!-- ~/Library/LaunchAgents/com.medme.llmrouter.plist -->
+<!-- ~/Library/LaunchAgents/com.yourorg.llmrouter.plist -->
 <plist>
   <dict>
-    <key>Label</key><string>com.medme.llmrouter</string>
+    <key>Label</key><string>com.yourorg.llmrouter</string>
     <key>ProgramArguments</key>
     <array>
-      <string>/Users/medme/.pyenv/shims/python</string>
-      <string>/Users/medme/Projects/llmrouter-service/server.py</string>
+      <string>$HOME/.pyenv/shims/python</string>
+      <string>$HOME/Projects/llmrouter-service/server.py</string>
     </array>
     <key>KeepAlive</key><true/>
     <key>RunAtLoad</key><true/>
@@ -430,7 +430,7 @@ export async function route(
 ├── config.yaml            # Router config
 ├── train.py               # Custom training script
 ├── test_classifier.py     # Unit tests
-└── com.medme.llmrouter.plist  # launchd daemon config
+└── com.yourorg.llmrouter.plist  # launchd daemon config
 
 ~/Projects/tierflow/
 ├── src/router/index.ts    # Modified — HTTP call to LLMRouter

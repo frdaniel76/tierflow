@@ -301,7 +301,9 @@ async function handleChatCompletions(req: IncomingMessage, res: ServerResponse) 
   // Add routing info headers
   res.setHeader("X-TierFlow-Model", routedModel);
   res.setHeader("X-TierFlow-Tier", tier);
-  res.setHeader("X-TierFlow-Reasoning", reasoning.slice(0, 200));
+  // Sanitize reasoning to remove any prompt content before setting header
+  const safeReasoning = reasoning.replace(/prompt[:\s].*/gi, "").slice(0, 200);
+  res.setHeader("X-TierFlow-Reasoning", safeReasoning);
 
   // ─── PII Scrub (if provider requires it) ───
   let piiSession: string | null = null;
@@ -468,8 +470,8 @@ async function handleChatCompletions(req: IncomingMessage, res: ServerResponse) 
       res.end();
     }
   } finally {
-    // Always clean up PII session
-    if (piiSession && piiScrubbed) {
+    // Always clean up PII session (idempotent — safe even if already destroyed)
+    if (piiSession) {
       destroySession(piiSession);
     }
   }
