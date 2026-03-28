@@ -1,4 +1,8 @@
-# TierFlow — Free, Self-Hosted AI Model Router
+<p align="center">
+  <img src="assets/logo.svg" width="400" alt="TierFlow"/>
+</p>
+
+# TierFlow — ML-Powered AI Model Router
 
 **Stop overpaying for AI. Route every request to the right model — automatically, with your own API keys.**
 

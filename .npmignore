@@ -14,3 +14,11 @@ freerouter.config.json
 !README.md
 !LICENSE
 COMMUNITY_RELEASE_PLAN.md
+*.map
+dist/*.map
+eslint.config.js
+.prettierrc
+.prettierignore
+bin/
+tierflow.config.json
+tierflow.config.example.json

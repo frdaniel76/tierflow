@@ -9,7 +9,8 @@
     "tierflow": "dist/cli.js"
   },
   "files": [
-    "dist/",
+    "dist/*.js",
+    "dist/*.d.ts",
     "README.md",
     "LICENSE"
   ],
@@ -42,6 +43,7 @@
     "prettier": "^3.4.0",
     "tsup": "^8.4.0",
     "tsx": "^4.19.0",
-    "typescript": "^5.7.0"
+    "typescript": "^5.7.0",
+    "typescript-eslint": "^8.57.2"
   }
 }

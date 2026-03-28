@@ -1,6 +1,6 @@
 /**
  * TierFlow Auth — loads API keys from OpenClaw auth-profiles.json
- * Zero-dep, reads from ~/.openclaw/agents/main/agent/auth-profiles.json
+ * Zero-dep, reads from OpenClaw auth-profiles.json (configurable path)
  */
 
 import { readFileSync, existsSync } from "node:fs";
