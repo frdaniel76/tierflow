@@ -5,22 +5,22 @@
 
 ## Overview
 
-7 improvements to make TierFlow attractive for open-source community release. Positioned as: *"The privacy-first intelligent router for developers who own their API keys"*.
+7 improvements to make TierFlow attractive for open-source community release. Positioned as: _"The privacy-first intelligent router for developers who own their API keys"_.
 
 ---
 
 ## Build Sequence
 
-| Phase | Improvement | Effort | Impact |
-|-------|-----------|--------|--------|
-| 1 | Foundation fixes (deps, build) | Small | Prerequisite |
-| 2 | GitHub Actions CI (#3) | Medium | Trust signal |
-| 3 | Web Dashboard (#5) | Medium | High visibility |
-| 4 | Provider Plugins (#6) | Small | Adoption |
-| 5 | Benchmarks (#2) | Medium | Credibility |
-| 6 | Docker Compose (#1) | Medium | Onboarding |
-| 7 | npm Package (#4) | Medium | Distribution |
-| 8 | Demo Page (#7) | Medium | Marketing |
+| Phase | Improvement                    | Effort | Impact          |
+| ----- | ------------------------------ | ------ | --------------- |
+| 1     | Foundation fixes (deps, build) | Small  | Prerequisite    |
+| 2     | GitHub Actions CI (#3)         | Medium | Trust signal    |
+| 3     | Web Dashboard (#5)             | Medium | High visibility |
+| 4     | Provider Plugins (#6)          | Small  | Adoption        |
+| 5     | Benchmarks (#2)                | Medium | Credibility     |
+| 6     | Docker Compose (#1)            | Medium | Onboarding      |
+| 7     | npm Package (#4)               | Medium | Distribution    |
+| 8     | Demo Page (#7)                 | Medium | Marketing       |
 
 ---
 
@@ -38,23 +38,26 @@
 **Goal:** Automated CI on every PR/push — typecheck, lint, build, unit + integration tests.
 
 ### Files
-| File | Action |
-|------|--------|
-| `.github/workflows/ci.yml` | Replace |
-| `test/unit/router.test.ts` | Create |
-| `test/unit/pii.test.ts` | Create |
-| `test/unit/cache.test.ts` | Create |
-| `test/unit/config.test.ts` | Create |
-| `test/fixtures/mock-ml-server.ts` | Create |
-| `package.json` | Modify |
+
+| File                              | Action  |
+| --------------------------------- | ------- |
+| `.github/workflows/ci.yml`        | Replace |
+| `test/unit/router.test.ts`        | Create  |
+| `test/unit/pii.test.ts`           | Create  |
+| `test/unit/cache.test.ts`         | Create  |
+| `test/unit/config.test.ts`        | Create  |
+| `test/fixtures/mock-ml-server.ts` | Create  |
+| `package.json`                    | Modify  |
 
 ### Design
+
 - **Unit tests**: Pure function tests for `router/rules.ts`, `pii/vault.ts`, `cache/store.ts`, `config.ts` using `node:test`
 - **Integration tests**: Start server + mock ML classifier (Node.js HTTP server returning canned responses), send requests, verify `X-TierFlow-*` headers
 - **Mock ML server**: Minimal HTTP server at `test/fixtures/mock-ml-server.ts` — maps known prompts to categories, returns `{ category, confidence, latency_ms }`
 - **CI matrix**: Node 20 + 22, lint/prettier only on 22
 
 ### Workflow
+
 ```yaml
 jobs:
   check:
@@ -72,6 +75,7 @@ jobs:
 ```
 
 ### Package.json additions
+
 ```json
 "test": "npx tsx --test test/unit/*.test.ts",
 "test:integration": "npx tsx test/integration/router-integration.test.ts"
@@ -84,16 +88,19 @@ jobs:
 **Goal:** Lightweight monitoring UI at `GET /dashboard` — vanilla HTML/JS, no build step, auto-refreshes every 5s.
 
 ### Files
-| File | Action |
-|------|--------|
-| `src/dashboard.ts` | Create |
-| `src/server.ts` | Modify (add route) |
-| `docs/dashboard.md` | Create |
+
+| File                | Action             |
+| ------------------- | ------------------ |
+| `src/dashboard.ts`  | Create             |
+| `src/server.ts`     | Modify (add route) |
+| `docs/dashboard.md` | Create             |
 
 ### Design
+
 Single HTML string returned by `getDashboardHTML()`. Polls `GET /stats` via `fetch()`.
 
 **Sections:**
+
 1. **Header bar**: Router name, uptime, version, ML classifier status
 2. **Top stats** (4 cards): Total Requests, Cache Hit Rate, Total Cost ($X.XX), Uptime
 3. **Tier distribution**: Horizontal CSS bar chart (SIMPLE/MEDIUM/COMPLEX/REASONING %)
@@ -104,6 +111,7 @@ Single HTML string returned by `getDashboardHTML()`. Polls `GET /stats` via `fet
 8. **Cache stats**: Hits, misses, hit rate, current size
 
 **Features:**
+
 - Auto-refresh: 5s/10s/30s/off selector (persisted in localStorage)
 - Dark mode via `prefers-color-scheme: dark`
 - Mobile-responsive CSS Grid
@@ -118,14 +126,16 @@ Single HTML string returned by `getDashboardHTML()`. Polls `GET /stats` via `fet
 **Goal:** Adding a new provider = config entry only. No code, no rebuild.
 
 ### Files
-| File | Action |
-|------|--------|
-| `src/config.ts` | Modify |
-| `src/auth.ts` | Modify |
-| `src/server.ts` | Modify (`/v1/models`) |
-| `docs/providers.md` | Create |
+
+| File                | Action                |
+| ------------------- | --------------------- |
+| `src/config.ts`     | Modify                |
+| `src/auth.ts`       | Modify                |
+| `src/server.ts`     | Modify (`/v1/models`) |
+| `docs/providers.md` | Create                |
 
 ### Design
+
 **Current state is already mostly config-driven.** The gaps:
 
 1. **Add `"none"` auth type** — for Ollama/LM Studio (no API key needed)
@@ -139,6 +149,7 @@ Single HTML string returned by `getDashboardHTML()`. Polls `GET /stats` via `fet
 4. **Provider cookbook** (`docs/providers.md`) — copy-paste configs for: Groq, Together, Mistral, DeepSeek, Ollama, LM Studio, Perplexity, Fireworks
 
 ### Example: Adding Groq (zero code)
+
 ```json
 "providers": {
   "groq": {
@@ -159,16 +170,18 @@ Single HTML string returned by `getDashboardHTML()`. Polls `GET /stats` via `fet
 **Goal:** Reproducible benchmark proving routing accuracy + cost savings — JSON + Markdown output.
 
 ### Files
-| File | Action |
-|------|--------|
-| `bench/dataset.ts` | Create |
-| `bench/runner.ts` | Create |
-| `bench/report.ts` | Create |
-| `bench/README.md` | Create |
+
+| File                 | Action                  |
+| -------------------- | ----------------------- |
+| `bench/dataset.ts`   | Create                  |
+| `bench/runner.ts`    | Create                  |
+| `bench/report.ts`    | Create                  |
+| `bench/README.md`    | Create                  |
 | `docs/benchmarks.md` | Create (auto-generated) |
-| `package.json` | Modify |
+| `package.json`       | Modify                  |
 
 ### Design
+
 **Tests routing decisions, not model responses.** No API calls, no spending money.
 
 - **100 curated prompts** with ground-truth `expected_category` and `expected_tier`
@@ -176,11 +189,13 @@ Single HTML string returned by `getDashboardHTML()`. Polls `GET /stats` via `fet
 - **Metrics**: category accuracy, tier accuracy, cost savings %, latency p50/p95
 
 **Dataset structure:**
+
 ```typescript
 { id, prompt, expected_category, expected_tier, difficulty: "easy"|"medium"|"hard", tags }
 ```
 
 **Output** (`docs/benchmarks.md`):
+
 ```
 Category accuracy: 94%  |  Cost savings: 93.5%  |  Latency p50: 42ms
 ```
@@ -194,36 +209,41 @@ Category accuracy: 94%  |  Cost savings: 93.5%  |  Latency p50: 42ms
 **Goal:** `docker compose up` starts TierFlow + LLMRouter ML classifier.
 
 ### Files
-| File | Action |
-|------|--------|
-| `Dockerfile` | Create |
-| `../llmrouter-service/Dockerfile` | Create |
-| `docker-compose.yml` | Create |
-| `.dockerignore` | Create |
-| `../llmrouter-service/.dockerignore` | Create |
-| `src/server.ts` | Modify (LLMROUTER_URL env override) |
-| `../llmrouter-service/server.py` | Modify (LLMROUTER_HOST env) |
-| `docs/docker.md` | Create |
+
+| File                                 | Action                              |
+| ------------------------------------ | ----------------------------------- |
+| `Dockerfile`                         | Create                              |
+| `../llmrouter-service/Dockerfile`    | Create                              |
+| `docker-compose.yml`                 | Create                              |
+| `.dockerignore`                      | Create                              |
+| `../llmrouter-service/.dockerignore` | Create                              |
+| `src/server.ts`                      | Modify (LLMROUTER_URL env override) |
+| `../llmrouter-service/server.py`     | Modify (LLMROUTER_HOST env)         |
+| `docs/docker.md`                     | Create                              |
 
 ### Design
 
 **LLMRouter Dockerfile:**
+
 - `python:3.12-slim` base
 - Bakes `all-MiniLM-L6-v2` model into image layer (~600MB total)
 - Named volume for KNN joblib cache
 - Health check on `/health`
 
 **TierFlow Dockerfile:**
+
 - Multi-stage: builder (`npm ci` + `npm run build`) + runtime (copy `dist/` only)
 - `node:22-slim` base
 
 **docker-compose.yml:**
+
 - `llmrouter` service: builds `../llmrouter-service`, exposes 18801, health check
 - `tierflow` service: depends on llmrouter (service_healthy), exposes 18800
 - Config via bind mount (`~/.config/tierflow/`) or env vars
 - `LLMROUTER_URL=http://llmrouter:18801/classify` overrides config
 
 **server.ts addition:**
+
 ```typescript
 if (process.env.LLMROUTER_URL && appConfig.mlClassifier) {
   appConfig.mlClassifier.url = process.env.LLMROUTER_URL;
@@ -237,15 +257,17 @@ if (process.env.LLMROUTER_URL && appConfig.mlClassifier) {
 **Goal:** `npx tierflow` downloads and runs with zero cloning.
 
 ### Files
-| File | Action |
-|------|--------|
-| `src/cli.ts` | Create (already in tsup.config.ts) |
-| `package.json` | Modify |
-| `.npmignore` | Create |
+
+| File           | Action                             |
+| -------------- | ---------------------------------- |
+| `src/cli.ts`   | Create (already in tsup.config.ts) |
+| `package.json` | Modify                             |
+| `.npmignore`   | Create                             |
 
 ### Design
 
 **CLI flags:**
+
 ```
 npx tierflow              # start with default config
 npx tierflow --port 8080  # custom port
@@ -255,6 +277,7 @@ npx tierflow --version
 ```
 
 **`--init` generates:**
+
 ```json
 {
   "port": 18800,
@@ -267,6 +290,7 @@ npx tierflow --version
 ```
 
 **package.json additions:**
+
 ```json
 "bin": { "tierflow": "dist/cli.js" },
 "files": ["dist/", "README.md", "LICENSE"],
@@ -282,18 +306,21 @@ npx tierflow --version
 **Goal:** Static comparison page: "same prompt, 3 models, show cost difference."
 
 ### Files
-| File | Action |
-|------|--------|
-| `demo/index.html` | Create |
-| `demo/data.json` | Create (pre-recorded) |
-| `demo/generate-demo-data.ts` | Create |
-| `demo/style.css` | Create |
-| `.github/workflows/deploy-demo.yml` | Create |
+
+| File                                | Action                |
+| ----------------------------------- | --------------------- |
+| `demo/index.html`                   | Create                |
+| `demo/data.json`                    | Create (pre-recorded) |
+| `demo/generate-demo-data.ts`        | Create                |
+| `demo/style.css`                    | Create                |
+| `.github/workflows/deploy-demo.yml` | Create                |
 
 ### Design
+
 **Pre-recorded, not live** (no API keys exposed).
 
 **Layout per prompt:**
+
 ```
 ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐
 │  Always Cheap   │  │   TierFlow    │  │  Always Best    │
@@ -316,21 +343,21 @@ Savings: 96.9% cheaper
 
 ## Key Decisions
 
-| Decision | Choice | Why |
-|----------|--------|-----|
-| Test framework | `node:test` (built-in) | Zero deps, aligns with project philosophy |
-| Dashboard tech | Inline HTML string | No build step, no framework, zero deps |
-| Docker model strategy | Bake into image layer | Bigger image (~600MB) but zero runtime download |
-| Benchmark scope | Routing decisions only | No API calls needed, reproducible, free |
-| Demo data | Pre-recorded | Can't expose API keys publicly |
-| Build tool | tsup (already configured) | Handles CLI + library entry points |
+| Decision              | Choice                    | Why                                             |
+| --------------------- | ------------------------- | ----------------------------------------------- |
+| Test framework        | `node:test` (built-in)    | Zero deps, aligns with project philosophy       |
+| Dashboard tech        | Inline HTML string        | No build step, no framework, zero deps          |
+| Docker model strategy | Bake into image layer     | Bigger image (~600MB) but zero runtime download |
+| Benchmark scope       | Routing decisions only    | No API calls needed, reproducible, free         |
+| Demo data             | Pre-recorded              | Can't expose API keys publicly                  |
+| Build tool            | tsup (already configured) | Handles CLI + library entry points              |
 
 ## Risks
 
-| Risk | Mitigation |
-|------|-----------|
-| Image size (600MB) for Docker | Document volume-based alternative for size-sensitive users |
-| Stats reset on restart | Display "since restart" in dashboard, document limitation |
-| Stale demo data | Timestamp in data.json, regenerate quarterly |
+| Risk                                   | Mitigation                                                             |
+| -------------------------------------- | ---------------------------------------------------------------------- |
+| Image size (600MB) for Docker          | Document volume-based alternative for size-sensitive users             |
+| Stats reset on restart                 | Display "since restart" in dashboard, document limitation              |
+| Stale demo data                        | Timestamp in data.json, regenerate quarterly                           |
 | Existing tests reference deleted files | New tests in `test/unit/` and `test/integration/`, don't run old tests |
-| Google Gemini API incompatible | Document as unsupported, use OpenAI-compat providers |
+| Google Gemini API incompatible         | Document as unsupported, use OpenAI-compat providers                   |

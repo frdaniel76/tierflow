@@ -37,9 +37,7 @@ function classifyPrompt(message: string): string {
   return "general";
 }
 
-export function startMockMLServer(
-  port = 18899,
-): Promise<{ server: Server; url: string }> {
+export function startMockMLServer(port = 18899): Promise<{ server: Server; url: string }> {
   return new Promise((resolve) => {
     const server = createServer((req, res) => {
       if (req.url === "/classify" && req.method === "POST") {
@@ -66,9 +64,7 @@ export function startMockMLServer(
         res.end();
       }
     });
-    server.listen(port, "127.0.0.1", () =>
-      resolve({ server, url: `http://127.0.0.1:${port}` }),
-    );
+    server.listen(port, "127.0.0.1", () => resolve({ server, url: `http://127.0.0.1:${port}` }));
   });
 }
 

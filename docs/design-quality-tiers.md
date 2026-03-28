@@ -27,69 +27,73 @@ Plus a separate **Integrations page** to configure API keys and providers.
 Four one-click profiles that configure ALL categories at once:
 
 ### 1. Free Tier
-*Zero cost. Uses only free models. Quality varies.*
 
-| Category | Model | Cost |
-|----------|-------|------|
-| simple_chat | `openrouter/mistralai/mistral-nemo` | Free* |
-| general | `openrouter/qwen/qwen3-235b-a22b-2507` | ~Free* |
-| coding | `openrouter/qwen/qwen3-coder:free` | Free |
-| reasoning | `openrouter/qwen/qwen3-30b-a3b-thinking-2507` | ~Free* |
-| creative | `openrouter/stepfun/step-3.5-flash:free` | Free |
-| data | `openrouter/google/gemini-2.5-flash-lite` | ~$0.10/M |
-| agentic | `openrouter/xiaomi/mimo-v2-flash` | ~$0.05/M |
-| transcription | `openrouter/google/gemini-2.5-flash-lite` | ~$0.10/M |
+_Zero cost. Uses only free models. Quality varies._
+
+| Category      | Model                                         | Cost     |
+| ------------- | --------------------------------------------- | -------- |
+| simple_chat   | `openrouter/mistralai/mistral-nemo`           | Free\*   |
+| general       | `openrouter/qwen/qwen3-235b-a22b-2507`        | ~Free\*  |
+| coding        | `openrouter/qwen/qwen3-coder:free`            | Free     |
+| reasoning     | `openrouter/qwen/qwen3-30b-a3b-thinking-2507` | ~Free\*  |
+| creative      | `openrouter/stepfun/step-3.5-flash:free`      | Free     |
+| data          | `openrouter/google/gemini-2.5-flash-lite`     | ~$0.10/M |
+| agentic       | `openrouter/xiaomi/mimo-v2-flash`             | ~$0.05/M |
+| transcription | `openrouter/google/gemini-2.5-flash-lite`     | ~$0.10/M |
 
 **Est. cost:** ~$0-0.50/day at moderate usage
 **Quality:** Acceptable for casual use. Coding and creative are solid (purpose-built free models). Reasoning is limited.
 
 ### 2. Smart Saver (Recommended Default)
-*Best value. Routes cheap where it doesn't matter, pays for quality where it does.*
 
-| Category | Model | Cost |
-|----------|-------|------|
-| simple_chat | `openrouter/google/gemini-2.5-flash-lite` | $0.10/$0.40 |
-| general | `openrouter/deepseek/deepseek-v3.2` | $0.27/$1.10 |
-| coding | `openrouter/qwen/qwen3-coder:free` | Free |
-| reasoning | `openrouter/deepseek/deepseek-r1` | $0.55/$2.19 |
-| creative | `openrouter/stepfun/step-3.5-flash:free` | Free |
-| data | `openrouter/deepseek/deepseek-v3.2` | $0.27/$1.10 |
-| agentic | `openrouter/deepseek/deepseek-v3.2` | $0.27/$1.10 |
-| transcription | `openrouter/google/gemini-2.5-flash` | $0.15/$0.60 |
+_Best value. Routes cheap where it doesn't matter, pays for quality where it does._
+
+| Category      | Model                                     | Cost        |
+| ------------- | ----------------------------------------- | ----------- |
+| simple_chat   | `openrouter/google/gemini-2.5-flash-lite` | $0.10/$0.40 |
+| general       | `openrouter/deepseek/deepseek-v3.2`       | $0.27/$1.10 |
+| coding        | `openrouter/qwen/qwen3-coder:free`        | Free        |
+| reasoning     | `openrouter/deepseek/deepseek-r1`         | $0.55/$2.19 |
+| creative      | `openrouter/stepfun/step-3.5-flash:free`  | Free        |
+| data          | `openrouter/deepseek/deepseek-v3.2`       | $0.27/$1.10 |
+| agentic       | `openrouter/deepseek/deepseek-v3.2`       | $0.27/$1.10 |
+| transcription | `openrouter/google/gemini-2.5-flash`      | $0.15/$0.60 |
 
 **Est. cost:** ~$1-5/day at moderate usage
 **Quality:** Good across the board. Coding and creative use specialized free models. Reasoning uses DeepSeek R1 (strong). Simple chat is cheap but capable.
 
 ### 3. Quality First
-*Premium models for important work. Cheap for trivial stuff.*
 
-| Category | Model | Cost |
-|----------|-------|------|
-| simple_chat | `openrouter/google/gemini-2.5-flash` | $0.15/$0.60 |
-| general | `openrouter/deepseek/deepseek-v3.2` | $0.27/$1.10 |
-| coding | `openrouter/anthropic/claude-sonnet-4-5` | $3.00/$15.00 |
-| reasoning | `openrouter/openai/o3` | $2.00/$8.00 |
-| creative | `openrouter/anthropic/claude-sonnet-4-5` | $3.00/$15.00 |
-| data | `openrouter/google/gemini-2.5-pro` | $1.25/$10.00 |
-| agentic | `openrouter/anthropic/claude-sonnet-4-5` | $3.00/$15.00 |
-| transcription | `openrouter/google/gemini-2.5-pro` | $1.25/$10.00 |
+_Premium models for important work. Cheap for trivial stuff._
+
+| Category      | Model                                    | Cost         |
+| ------------- | ---------------------------------------- | ------------ |
+| simple_chat   | `openrouter/google/gemini-2.5-flash`     | $0.15/$0.60  |
+| general       | `openrouter/deepseek/deepseek-v3.2`      | $0.27/$1.10  |
+| coding        | `openrouter/anthropic/claude-sonnet-4-5` | $3.00/$15.00 |
+| reasoning     | `openrouter/openai/o3`                   | $2.00/$8.00  |
+| creative      | `openrouter/anthropic/claude-sonnet-4-5` | $3.00/$15.00 |
+| data          | `openrouter/google/gemini-2.5-pro`       | $1.25/$10.00 |
+| agentic       | `openrouter/anthropic/claude-sonnet-4-5` | $3.00/$15.00 |
+| transcription | `openrouter/google/gemini-2.5-pro`       | $1.25/$10.00 |
 
 **Est. cost:** ~$10-30/day at moderate usage
 **Quality:** Excellent. Claude Sonnet for code/creative/agentic. o3 for reasoning. Gemini Pro for data. Simple chat stays cheap (no need for Opus on "hello").
 
 ### 4. Maximum
-*Best available model for everything. No compromises.*
 
-| Category | Model | Cost |
-|----------|-------|------|
-| simple_chat | `openrouter/anthropic/claude-sonnet-4-5` | $3.00/$15.00 |
-| general | `openrouter/google/gemini-2.5-pro` | $1.25/$10.00 |
-| coding | `openrouter/anthropic/claude-opus-4-5` | $15.00/$75.00 |
-| reasoning | `openrouter/google/gemini-2.5-pro` | $1.25/$10.00 |
-| creative | `openrouter/anthropic/claude-opus-4-5` | $15.00/$75.00 |
-| data | `openrouter/google/gemini-2.5-pro` | $1.25/$10.00 |
-| agentic | `openrouter/anthropic/claude-opus-4-5` | $15.00/$75.00 |
-| transcription | `openrouter/openai/gpt-4o-audio-preview` | $2.50/$10.00 |
+_Best available model for everything. No compromises._
+
+| Category      | Model                                    | Cost          |
+| ------------- | ---------------------------------------- | ------------- |
+| simple_chat   | `openrouter/anthropic/claude-sonnet-4-5` | $3.00/$15.00  |
+| general       | `openrouter/google/gemini-2.5-pro`       | $1.25/$10.00  |
+| coding        | `openrouter/anthropic/claude-opus-4-5`   | $15.00/$75.00 |
+| reasoning     | `openrouter/google/gemini-2.5-pro`       | $1.25/$10.00  |
+| creative      | `openrouter/anthropic/claude-opus-4-5`   | $15.00/$75.00 |
+| data          | `openrouter/google/gemini-2.5-pro`       | $1.25/$10.00  |
+| agentic       | `openrouter/anthropic/claude-opus-4-5`   | $15.00/$75.00 |
+| transcription | `openrouter/openai/gpt-4o-audio-preview` | $2.50/$10.00  |
 
 **Est. cost:** ~$50-150/day at moderate usage
 **Quality:** Maximum across every category. Use for critical production workloads.
@@ -106,6 +110,7 @@ Budget ●────●────●────●────● Premium
 ```
 
 This maps to:
+
 - **1** = Free Tier preset
 - **2** = Smart Saver preset
 - **3** = Between Smart Saver and Quality First
@@ -114,16 +119,16 @@ This maps to:
 
 Level 3 interpolates by promoting reasoning + coding to mid-tier while keeping simple/creative cheap:
 
-| Category | Level 3 Model |
-|----------|---------------|
-| simple_chat | `gemini-2.5-flash-lite` (cheap) |
-| general | `deepseek-v3.2` (value) |
-| coding | `deepseek-v3.2` (value) |
-| reasoning | `openai/o3-mini` (mid-tier) |
-| creative | `deepseek-v3.2` (value) |
-| data | `deepseek-v3.2` (value) |
-| agentic | `anthropic/claude-sonnet-4-5` (premium for tool reliability) |
-| transcription | `gemini-2.5-flash` (value) |
+| Category      | Level 3 Model                                                |
+| ------------- | ------------------------------------------------------------ |
+| simple_chat   | `gemini-2.5-flash-lite` (cheap)                              |
+| general       | `deepseek-v3.2` (value)                                      |
+| coding        | `deepseek-v3.2` (value)                                      |
+| reasoning     | `openai/o3-mini` (mid-tier)                                  |
+| creative      | `deepseek-v3.2` (value)                                      |
+| data          | `deepseek-v3.2` (value)                                      |
+| agentic       | `anthropic/claude-sonnet-4-5` (premium for tool reliability) |
+| transcription | `gemini-2.5-flash` (value)                                   |
 
 ---
 
@@ -132,6 +137,7 @@ Level 3 interpolates by promoting reasoning + coding to mid-tier while keeping s
 Expandable section below the global slider. Only shown when user clicks "Customize per category".
 
 Each category shows:
+
 - Current model (from preset or global slider)
 - Mini slider to override (1-5 specific to that category)
 - Resets to preset default on preset change
@@ -183,6 +189,7 @@ Each category shows:
 ### Preset Cards
 
 Each card shows:
+
 - Icon + name
 - One-line description
 - Estimated daily cost (calculated from actual usage patterns)
@@ -257,6 +264,7 @@ A dedicated tab for managing API providers — enter keys, test connections, ena
 ### Provider Card Details
 
 Each provider card shows:
+
 - **Name + status dot** (green=connected, red=error, gray=disabled)
 - **API key** (masked: `sk-or-****...****`) with Edit button
 - **Features** checkboxes: PII scrubbing, Compression (toggle live)
@@ -309,6 +317,7 @@ Clicking "+ Add Provider" shows a provider template selector:
 ```
 
 Known provider templates (pre-filled base URLs):
+
 - OpenAI: `https://api.openai.com`
 - Anthropic: `https://api.anthropic.com` (api: anthropic)
 - Groq: `https://api.groq.com/openai`
@@ -322,6 +331,7 @@ Known provider templates (pre-filled base URLs):
 ### Test Connection
 
 [Test] button flow:
+
 1. POST to server: `/test-provider` with `{ provider: "openrouter" }`
 2. Server calls provider's `/v1/models` (or `/health`)
 3. Returns: `{ ok: true, models: 47, latency_ms: 120 }` or `{ ok: false, error: "401 Unauthorized" }`
@@ -337,12 +347,16 @@ Known provider templates (pre-filled base URLs):
 export type PresetName = "free" | "smart_saver" | "quality_first" | "maximum" | "custom";
 
 export type QualityConfig = {
-  preset: PresetName;           // active preset
-  globalLevel?: 1 | 2 | 3 | 4 | 5;  // global slider position
-  overrides?: Record<string, {  // per-category overrides
-    level: 1 | 2 | 3 | 4 | 5;
-    model?: string;             // explicit model override
-  }>;
+  preset: PresetName; // active preset
+  globalLevel?: 1 | 2 | 3 | 4 | 5; // global slider position
+  overrides?: Record<
+    string,
+    {
+      // per-category overrides
+      level: 1 | 2 | 3 | 4 | 5;
+      model?: string; // explicit model override
+    }
+  >;
 };
 ```
 
@@ -365,6 +379,7 @@ This means: use Smart Saver for everything, except reasoning which gets bumped t
 ### How preset → categories mapping works
 
 When a preset is applied:
+
 1. Look up the preset's model table (hardcoded in `quality.ts`)
 2. Write each category's `primary` model into `config.categories`
 3. Apply any per-category overrides on top
@@ -376,15 +391,15 @@ The router never sees "presets" — it only sees `categories[cat].primary` as be
 
 ## G. New Server Endpoints
 
-| Endpoint | Method | Purpose |
-|----------|--------|---------|
-| `GET /quality-tiers` | GET | Returns presets + current selection + model matrix |
-| `POST /quality-preset` | POST | Apply a preset: `{ preset: "smart_saver" }` |
-| `POST /quality-level` | POST | Set global level: `{ level: 3 }` |
-| `POST /quality-override` | POST | Override one category: `{ category: "coding", level: 4 }` |
-| `POST /test-provider` | POST | Test provider connectivity: `{ provider: "openrouter" }` |
-| `POST /provider` | POST | Add/update provider config |
-| `DELETE /provider/:name` | DELETE | Remove a provider |
+| Endpoint                 | Method | Purpose                                                   |
+| ------------------------ | ------ | --------------------------------------------------------- |
+| `GET /quality-tiers`     | GET    | Returns presets + current selection + model matrix        |
+| `POST /quality-preset`   | POST   | Apply a preset: `{ preset: "smart_saver" }`               |
+| `POST /quality-level`    | POST   | Set global level: `{ level: 3 }`                          |
+| `POST /quality-override` | POST   | Override one category: `{ category: "coding", level: 4 }` |
+| `POST /test-provider`    | POST   | Test provider connectivity: `{ provider: "openrouter" }`  |
+| `POST /provider`         | POST   | Add/update provider config                                |
+| `DELETE /provider/:name` | DELETE | Remove a provider                                         |
 
 ---
 
@@ -392,42 +407,42 @@ The router never sees "presets" — it only sees `categories[cat].primary` as be
 
 ### New Files
 
-| File | Purpose |
-|------|---------|
-| `src/quality.ts` | Preset definitions, model matrix, preset→categories mapping |
-| `src/integrations.ts` | Provider test, add/edit/remove logic |
+| File                  | Purpose                                                     |
+| --------------------- | ----------------------------------------------------------- |
+| `src/quality.ts`      | Preset definitions, model matrix, preset→categories mapping |
+| `src/integrations.ts` | Provider test, add/edit/remove logic                        |
 
 ### Modified Files
 
-| File | Changes |
-|------|---------|
-| `src/config.ts` | Add `QualityConfig` type, `writeConfig()`, provider CRUD helpers |
-| `src/server.ts` | Add 7 new endpoints |
+| File               | Changes                                                                 |
+| ------------------ | ----------------------------------------------------------------------- |
+| `src/config.ts`    | Add `QualityConfig` type, `writeConfig()`, provider CRUD helpers        |
+| `src/server.ts`    | Add 7 new endpoints                                                     |
 | `src/dashboard.ts` | Add Quality tab, Integrations tab, preset cards, slider, provider cards |
 
 ### Build Sequence
 
-| Phase | What | Effort |
-|-------|------|--------|
-| 1 | Presets + quality module | Medium |
-| 2 | Quality tab UI (presets + global slider) | Medium |
-| 3 | Per-category overrides (collapsible) | Small |
-| 4 | Integrations page — provider list + status | Medium |
-| 5 | Provider test + add/edit flow | Medium |
-| 6 | Savings estimator | Small |
-| 7 | Test & verify | Small |
+| Phase | What                                       | Effort |
+| ----- | ------------------------------------------ | ------ |
+| 1     | Presets + quality module                   | Medium |
+| 2     | Quality tab UI (presets + global slider)   | Medium |
+| 3     | Per-category overrides (collapsible)       | Small  |
+| 4     | Integrations page — provider list + status | Medium |
+| 5     | Provider test + add/edit flow              | Medium |
+| 6     | Savings estimator                          | Small  |
+| 7     | Test & verify                              | Small  |
 
 ---
 
 ## I. Key Simplifications vs v1 Design
 
-| v1 (8x5 matrix) | v2 (presets + slider) |
-|------------------|-----------------------|
-| 40 individual choices | 4 presets (one click) |
-| Must understand every model | Presets are opinionated |
+| v1 (8x5 matrix)              | v2 (presets + slider)     |
+| ---------------------------- | ------------------------- |
+| 40 individual choices        | 4 presets (one click)     |
+| Must understand every model  | Presets are opinionated   |
 | No guidance on which to pick | "Smart Saver" recommended |
-| Power users only | Casual users work fine |
-| No integration management | Full provider config UI |
-| Changes require editing JSON | Visual sliders + Apply |
+| Power users only             | Casual users work fine    |
+| No integration management    | Full provider config UI   |
+| Changes require editing JSON | Visual sliders + Apply    |
 
 The 5-level model matrix per category still exists internally — but it's an implementation detail behind the presets, not the primary UI.

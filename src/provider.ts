@@ -5,18 +5,23 @@
  */
 
 import { getAuth } from "./auth.js";
-import { getConfig, toInternalApiType, supportsAdaptiveThinking as configSupportsAdaptive, getThinkingBudget } from "./config.js";
+import {
+  getConfig,
+  toInternalApiType,
+  supportsAdaptiveThinking as configSupportsAdaptive,
+  getThinkingBudget,
+} from "./config.js";
 import { logger } from "./logger.js";
 import { rehydrateText, rehydrateChunk } from "./pii/index.js";
 import { recordUsage } from "./usage.js";
 
 // Baseline cost: what the most expensive model (Opus) would have cost
 // Used for savings calculation in /stats and dashboard
-const OPUS_INPUT_PRICE  = 15 / 1_000_000;  // $15/1M tokens
-const OPUS_OUTPUT_PRICE = 75 / 1_000_000;  // $75/1M tokens
+const OPUS_INPUT_PRICE = 15 / 1_000_000; // $15/1M tokens
+const OPUS_OUTPUT_PRICE = 75 / 1_000_000; // $75/1M tokens
 
 function computeBaselineCost(promptTokens: number, completionTokens: number): number {
-  return (promptTokens * OPUS_INPUT_PRICE) + (completionTokens * OPUS_OUTPUT_PRICE);
+  return promptTokens * OPUS_INPUT_PRICE + completionTokens * OPUS_OUTPUT_PRICE;
 }
 import type { IncomingMessage, ServerResponse } from "node:http";
 // --- Timeout Configuration ---
@@ -39,7 +44,6 @@ export class TimeoutError extends Error {
     this.name = "TimeoutError";
   }
 }
-
 
 // Provider configs loaded from openclaw.json
 export type ProviderConfig = {
@@ -126,7 +130,10 @@ function supportsAdaptiveThinking(modelId: string): boolean {
 /**
  * Get thinking config based on tier and model.
  */
-function getThinkingConfig(tier: string, modelId: string): { type: string; budget_tokens?: number; effort?: string } | undefined {
+function getThinkingConfig(
+  tier: string,
+  modelId: string,
+): { type: string; budget_tokens?: number; effort?: string } | undefined {
   if (supportsAdaptiveThinking(modelId) && (tier === "COMPLEX" || tier === "REASONING")) {
     return { type: "adaptive" };
   }
@@ -137,8 +144,10 @@ function getThinkingConfig(tier: string, modelId: string): { type: string; budge
 }
 
 /** Convert OpenAI tools to Anthropic tools format */
-function convertToolsToAnthropic(tools: OpenAITool[]): Array<{ name: string; description?: string; input_schema: Record<string, unknown> }> {
-  return tools.map(t => ({
+function convertToolsToAnthropic(
+  tools: OpenAITool[],
+): Array<{ name: string; description?: string; input_schema: Record<string, unknown> }> {
+  return tools.map((t) => ({
     name: t.function.name,
     ...(t.function.description ? { description: t.function.description } : {}),
     input_schema: t.function.parameters ?? { type: "object", properties: {} },
@@ -146,7 +155,9 @@ function convertToolsToAnthropic(tools: OpenAITool[]): Array<{ name: string; des
 }
 
 /** Convert OpenAI tool_choice to Anthropic tool_choice format */
-function convertToolChoiceToAnthropic(toolChoice: unknown): { type: string; name?: string } | undefined {
+function convertToolChoiceToAnthropic(
+  toolChoice: unknown,
+): { type: string; name?: string } | undefined {
   if (toolChoice === "none") return { type: "none" };
   if (toolChoice === "auto" || toolChoice === undefined) return { type: "auto" };
   if (toolChoice === "required") return { type: "any" };
@@ -161,9 +172,10 @@ function convertToolChoiceToAnthropic(toolChoice: unknown): { type: string; name
  * Convert OpenAI messages array to Anthropic messages format.
  * Handles system extraction, tool_calls, tool results, and content merging.
  */
-function convertMessagesToAnthropic(
-  openaiMessages: ChatMessage[]
-): { system: string; messages: Array<{ role: string; content: unknown }> } {
+function convertMessagesToAnthropic(openaiMessages: ChatMessage[]): {
+  system: string;
+  messages: Array<{ role: string; content: unknown }>;
+} {
   let systemContent = "";
   const messages: Array<{ role: string; content: unknown }> = [];
 
@@ -172,9 +184,13 @@ function convertMessagesToAnthropic(
 
     // Extract system/developer messages
     if (msg.role === "system" || msg.role === "developer") {
-      const text = typeof msg.content === "string"
-        ? msg.content
-        : (msg.content ?? []).filter((b: any) => b.type === "text").map((b: any) => b.text).join("\n");
+      const text =
+        typeof msg.content === "string"
+          ? msg.content
+          : (msg.content ?? [])
+              .filter((b: any) => b.type === "text")
+              .map((b: any) => b.text)
+              .join("\n");
       systemContent += (systemContent ? "\n" : "") + text;
       continue;
     }
@@ -188,8 +204,12 @@ function convertMessagesToAnthropic(
       };
       // Merge with previous user message if it only has tool_results
       const last = messages[messages.length - 1];
-      if (last && last.role === "user" && Array.isArray(last.content) &&
-          (last.content as any[]).every((b: any) => b.type === "tool_result")) {
+      if (
+        last &&
+        last.role === "user" &&
+        Array.isArray(last.content) &&
+        (last.content as any[]).every((b: any) => b.type === "tool_result")
+      ) {
         (last.content as any[]).push(toolResult);
       } else {
         messages.push({ role: "user", content: [toolResult] });
@@ -202,14 +222,23 @@ function convertMessagesToAnthropic(
       const contentBlocks: Array<Record<string, unknown>> = [];
       // Include text content first
       if (msg.content) {
-        const text = typeof msg.content === "string" ? msg.content
-          : msg.content.filter((b: any) => b.type === "text").map((b: any) => b.text).join("");
+        const text =
+          typeof msg.content === "string"
+            ? msg.content
+            : msg.content
+                .filter((b: any) => b.type === "text")
+                .map((b: any) => b.text)
+                .join("");
         if (text) contentBlocks.push({ type: "text", text });
       }
       // Add tool_use blocks
       for (const tc of msg.tool_calls) {
         let input: unknown = {};
-        try { input = JSON.parse(tc.function.arguments); } catch { input = {}; }
+        try {
+          input = JSON.parse(tc.function.arguments);
+        } catch {
+          input = {};
+        }
         contentBlocks.push({ type: "tool_use", id: tc.id, name: tc.function.name, input });
       }
       messages.push({ role: "assistant", content: contentBlocks });
@@ -217,15 +246,18 @@ function convertMessagesToAnthropic(
     }
 
     // Regular user/assistant messages
-    const text = typeof msg.content === "string"
-      ? msg.content
-      : (msg.content ?? []).filter((b: any) => b.type === "text").map((b: any) => b.text).join("\n");
+    const text =
+      typeof msg.content === "string"
+        ? msg.content
+        : (msg.content ?? [])
+            .filter((b: any) => b.type === "text")
+            .map((b: any) => b.text)
+            .join("\n");
     messages.push({ role: msg.role === "assistant" ? "assistant" : "user", content: text || "" });
   }
 
   return { system: systemContent, messages };
 }
-
 
 /**
  * Read a stream with stall detection. Aborts if no data for STREAM_STALL_TIMEOUT.
@@ -283,7 +315,10 @@ async function forwardToAnthropic(
   const body: Record<string, unknown> = {
     model: modelName,
     messages,
-    max_tokens: (thinkingConfig?.type === "enabled" && thinkingConfig.budget_tokens) ? maxTokens + thinkingConfig.budget_tokens : maxTokens,
+    max_tokens:
+      thinkingConfig?.type === "enabled" && thinkingConfig.budget_tokens
+        ? maxTokens + thinkingConfig.budget_tokens
+        : maxTokens,
     stream: stream,
   };
 
@@ -305,7 +340,11 @@ async function forwardToAnthropic(
       },
     ];
     if (systemContent) {
-      systemBlocks.push({ type: "text", text: systemContent, cache_control: { type: "ephemeral" } });
+      systemBlocks.push({
+        type: "text",
+        text: systemContent,
+        cache_control: { type: "ephemeral" },
+      });
     }
     body.system = systemBlocks;
   } else if (systemContent) {
@@ -326,17 +365,20 @@ async function forwardToAnthropic(
 
   const url = `${config.baseUrl}/v1/messages`;
   const timeoutMs = getTierTimeout(tier);
-  logger.info(`-> Anthropic: ${modelName} (tier=${tier}, thinking=${thinkingConfig?.type ?? "off"}, stream=${stream}, tools=${req.tools?.length ?? 0}, timeout=${timeoutMs / 1000}s)`);
+  logger.info(
+    `-> Anthropic: ${modelName} (tier=${tier}, thinking=${thinkingConfig?.type ?? "off"}, stream=${stream}, tools=${req.tools?.length ?? 0}, timeout=${timeoutMs / 1000}s)`,
+  );
 
   const authHeaders: Record<string, string> = {
     "Content-Type": "application/json",
     "anthropic-version": "2023-06-01",
-    "accept": "application/json",
+    accept: "application/json",
   };
 
   if (isOAuth) {
     authHeaders["Authorization"] = `Bearer ${auth.token}`;
-    authHeaders["anthropic-beta"] = "claude-code-20250219,oauth-2025-04-20,fine-grained-tool-streaming-2025-05-14,interleaved-thinking-2025-05-14";
+    authHeaders["anthropic-beta"] =
+      "claude-code-20250219,oauth-2025-04-20,fine-grained-tool-streaming-2025-05-14,interleaved-thinking-2025-05-14";
     authHeaders["user-agent"] = "claude-cli/2.1.2 (external, cli)";
     authHeaders["x-app"] = "cli";
     authHeaders["anthropic-dangerous-direct-browser-access"] = "true";
@@ -359,8 +401,12 @@ async function forwardToAnthropic(
   } catch (err: any) {
     clearTimeout(timeoutId);
     if (err?.name === "AbortError" || abortController.signal.aborted) {
-      logger.error(`\u23f1 TIMEOUT: Anthropic ${modelName} after ${timeoutMs / 1000}s (tier=${tier})`);
-      throw new TimeoutError(`Anthropic request timed out after ${timeoutMs / 1000}s (model=${modelName}, tier=${tier})`);
+      logger.error(
+        `\u23f1 TIMEOUT: Anthropic ${modelName} after ${timeoutMs / 1000}s (tier=${tier})`,
+      );
+      throw new TimeoutError(
+        `Anthropic request timed out after ${timeoutMs / 1000}s (model=${modelName}, tier=${tier})`,
+      );
     }
     throw err;
   }
@@ -374,8 +420,15 @@ async function forwardToAnthropic(
 
   if (!stream) {
     clearTimeout(timeoutId);
-    const data = await response.json() as {
-      content: Array<{ type: string; text?: string; thinking?: string; id?: string; name?: string; input?: unknown }>;
+    const data = (await response.json()) as {
+      content: Array<{
+        type: string;
+        text?: string;
+        thinking?: string;
+        id?: string;
+        name?: string;
+        input?: unknown;
+      }>;
       usage?: { input_tokens: number; output_tokens: number };
       model: string;
       stop_reason?: string;
@@ -389,7 +442,11 @@ async function forwardToAnthropic(
         } else if (block.type === "tool_use" && block.input) {
           // Rehydrate tool input by serializing, rehydrating, and parsing back
           const inputStr = rehydrateText(JSON.stringify(block.input), piiSession);
-          try { block.input = JSON.parse(inputStr); } catch { /* keep original */ }
+          try {
+            block.input = JSON.parse(inputStr);
+          } catch {
+            /* keep original */
+          }
         }
       }
     }
@@ -407,9 +464,12 @@ async function forwardToAnthropic(
       function: { name: b.name ?? "", arguments: JSON.stringify(b.input ?? {}) },
     }));
 
-    const finishReason = data.stop_reason === "tool_use" ? "tool_calls"
-      : data.stop_reason === "end_turn" ? "stop"
-      : (data.stop_reason ?? "stop");
+    const finishReason =
+      data.stop_reason === "tool_use"
+        ? "tool_calls"
+        : data.stop_reason === "end_turn"
+          ? "stop"
+          : (data.stop_reason ?? "stop");
 
     const message: Record<string, unknown> = {
       role: "assistant",
@@ -433,11 +493,16 @@ async function forwardToAnthropic(
     // Record Anthropic token usage
     const aPrompt = data.usage?.input_tokens ?? 0;
     const aComp = data.usage?.output_tokens ?? 0;
-    recordUsage(modelName, tier, {
-      prompt_tokens: aPrompt,
-      completion_tokens: aComp,
-      baselineCost: computeBaselineCost(aPrompt, aComp),
-    }, _currentCategory);
+    recordUsage(
+      modelName,
+      tier,
+      {
+        prompt_tokens: aPrompt,
+        completion_tokens: aComp,
+        baselineCost: computeBaselineCost(aPrompt, aComp),
+      },
+      _currentCategory,
+    );
 
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify(openaiResponse));
@@ -448,7 +513,7 @@ async function forwardToAnthropic(
   res.writeHead(200, {
     "Content-Type": "text/event-stream",
     "Cache-Control": "no-cache",
-    "Connection": "keep-alive",
+    Connection: "keep-alive",
   });
 
   clearTimeout(timeoutId); // Stall detection takes over for streaming
@@ -474,110 +539,123 @@ async function forwardToAnthropic(
   });
 
   try {
-    await readStreamWithStallDetection(reader, (value) => {
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split("\n");
-      buffer = lines.pop() ?? "";
+    await readStreamWithStallDetection(
+      reader,
+      (value) => {
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
 
-      for (const line of lines) {
-        if (!line.startsWith("data: ")) continue;
-        const jsonStr = line.slice(6).trim();
-        if (jsonStr === "[DONE]" || !jsonStr) continue;
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const jsonStr = line.slice(6).trim();
+          if (jsonStr === "[DONE]" || !jsonStr) continue;
 
-        try {
-          const event = JSON.parse(jsonStr);
+          try {
+            const event = JSON.parse(jsonStr);
 
-          if (event.type === "content_block_start") {
-            const block = event.content_block;
-            if (block?.type === "thinking") {
-              insideThinking = true;
-              currentBlockType = "thinking";
-            } else if (block?.type === "tool_use") {
-              insideThinking = false;
-              currentBlockType = "tool_use";
-              currentToolIndex++;
-              // Emit first tool_calls chunk with id and function name
-              const chunk = makeChunk({
-                tool_calls: [{
-                  index: currentToolIndex,
-                  id: block.id,
-                  type: "function",
-                  function: { name: block.name, arguments: "" },
-                }],
-              });
-              res.write(`data: ${JSON.stringify(chunk)}\n\n`);
-            } else {
-              insideThinking = false;
-              currentBlockType = block?.type ?? "text";
-            }
-            continue;
-          }
-
-          if (event.type === "content_block_stop") {
-            insideThinking = false;
-            currentBlockType = null;
-            continue;
-          }
-
-          if (event.type === "content_block_delta") {
-            if (insideThinking) continue;
-
-            // Handle tool_use argument streaming (carry-buffered for PII)
-            if (currentBlockType === "tool_use" && event.delta?.type === "input_json_delta") {
-              let args = event.delta.partial_json ?? "";
-              if (piiSession && args) {
-                const carry = piiAnthropicToolCarries.get(currentToolIndex) ?? "";
-                const result = rehydrateChunk(args, piiSession, carry);
-                piiAnthropicToolCarries.set(currentToolIndex, result.carry);
-                args = result.output;
-                if (!args && result.carry) continue; // carry absorbed everything
+            if (event.type === "content_block_start") {
+              const block = event.content_block;
+              if (block?.type === "thinking") {
+                insideThinking = true;
+                currentBlockType = "thinking";
+              } else if (block?.type === "tool_use") {
+                insideThinking = false;
+                currentBlockType = "tool_use";
+                currentToolIndex++;
+                // Emit first tool_calls chunk with id and function name
+                const chunk = makeChunk({
+                  tool_calls: [
+                    {
+                      index: currentToolIndex,
+                      id: block.id,
+                      type: "function",
+                      function: { name: block.name, arguments: "" },
+                    },
+                  ],
+                });
+                res.write(`data: ${JSON.stringify(chunk)}\n\n`);
+              } else {
+                insideThinking = false;
+                currentBlockType = block?.type ?? "text";
               }
-              const chunk = makeChunk({
-                tool_calls: [{
-                  index: currentToolIndex,
-                  function: { arguments: args },
-                }],
-              });
-              res.write(`data: ${JSON.stringify(chunk)}\n\n`);
               continue;
             }
 
-            // Regular text delta (carry-buffered for PII)
-            let text = event.delta?.text;
-            if (text) {
-              if (piiSession) {
-                const result = rehydrateChunk(text, piiSession, piiAnthropicCarry);
-                piiAnthropicCarry = result.carry;
-                text = result.output;
-                if (!text && result.carry) continue; // carry absorbed everything
+            if (event.type === "content_block_stop") {
+              insideThinking = false;
+              currentBlockType = null;
+              continue;
+            }
+
+            if (event.type === "content_block_delta") {
+              if (insideThinking) continue;
+
+              // Handle tool_use argument streaming (carry-buffered for PII)
+              if (currentBlockType === "tool_use" && event.delta?.type === "input_json_delta") {
+                let args = event.delta.partial_json ?? "";
+                if (piiSession && args) {
+                  const carry = piiAnthropicToolCarries.get(currentToolIndex) ?? "";
+                  const result = rehydrateChunk(args, piiSession, carry);
+                  piiAnthropicToolCarries.set(currentToolIndex, result.carry);
+                  args = result.output;
+                  if (!args && result.carry) continue; // carry absorbed everything
+                }
+                const chunk = makeChunk({
+                  tool_calls: [
+                    {
+                      index: currentToolIndex,
+                      function: { arguments: args },
+                    },
+                  ],
+                });
+                res.write(`data: ${JSON.stringify(chunk)}\n\n`);
+                continue;
               }
-              res.write(`data: ${JSON.stringify(makeChunk({ content: text }))}\n\n`);
-            }
-          }
 
-          if (event.type === "message_delta") {
-            stopReason = event.delta?.stop_reason ?? null;
-            // Anthropic sends usage in message_delta
-            if (event.usage) {
-              const sPrompt = event.usage.input_tokens ?? 0;
-              const sComp = event.usage.output_tokens ?? 0;
-              recordUsage(modelName, tier, {
-                prompt_tokens: sPrompt,
-                completion_tokens: sComp,
-                baselineCost: computeBaselineCost(sPrompt, sComp),
-              }, _currentCategory);
+              // Regular text delta (carry-buffered for PII)
+              let text = event.delta?.text;
+              if (text) {
+                if (piiSession) {
+                  const result = rehydrateChunk(text, piiSession, piiAnthropicCarry);
+                  piiAnthropicCarry = result.carry;
+                  text = result.output;
+                  if (!text && result.carry) continue; // carry absorbed everything
+                }
+                res.write(`data: ${JSON.stringify(makeChunk({ content: text }))}\n\n`);
+              }
             }
-          }
 
-          if (event.type === "message_stop") {
-            const finish = stopReason === "tool_use" ? "tool_calls" : "stop";
-            res.write(`data: ${JSON.stringify(makeChunk({}, finish))}\n\n`);
+            if (event.type === "message_delta") {
+              stopReason = event.delta?.stop_reason ?? null;
+              // Anthropic sends usage in message_delta
+              if (event.usage) {
+                const sPrompt = event.usage.input_tokens ?? 0;
+                const sComp = event.usage.output_tokens ?? 0;
+                recordUsage(
+                  modelName,
+                  tier,
+                  {
+                    prompt_tokens: sPrompt,
+                    completion_tokens: sComp,
+                    baselineCost: computeBaselineCost(sPrompt, sComp),
+                  },
+                  _currentCategory,
+                );
+              }
+            }
+
+            if (event.type === "message_stop") {
+              const finish = stopReason === "tool_use" ? "tool_calls" : "stop";
+              res.write(`data: ${JSON.stringify(makeChunk({}, finish))}\n\n`);
+            }
+          } catch {
+            // skip unparseable lines
           }
-        } catch {
-          // skip unparseable lines
         }
-      }
-    }, abortController);
+      },
+      abortController,
+    );
   } catch (err) {
     if (err instanceof TimeoutError) {
       logger.error(`\u23f1 STREAM STALL: Anthropic ${modelName} - ${(err as Error).message}`);
@@ -593,9 +671,13 @@ async function forwardToAnthropic(
       for (const [idx, carry] of piiAnthropicToolCarries) {
         if (carry) {
           const flushed = piiSession ? rehydrateText(carry, piiSession) : carry;
-          res.write(`data: ${JSON.stringify(makeChunk({
-            tool_calls: [{ index: idx, function: { arguments: flushed } }],
-          }))}\n\n`);
+          res.write(
+            `data: ${JSON.stringify(
+              makeChunk({
+                tool_calls: [{ index: idx, function: { arguments: flushed } }],
+              }),
+            )}\n\n`,
+          );
         }
       }
     }
@@ -643,7 +725,7 @@ async function forwardToOpenAI(
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    "Authorization": `Bearer ${auth.apiKey}`,
+    Authorization: `Bearer ${auth.apiKey}`,
     ...config.headers,
   };
 
@@ -662,8 +744,12 @@ async function forwardToOpenAI(
   } catch (err: any) {
     clearTimeout(timeoutId);
     if (err?.name === "AbortError" || abortController.signal.aborted) {
-      logger.error(`\u23f1 TIMEOUT: ${provider} ${modelName} after ${timeoutMs / 1000}s (tier=${tier})`);
-      throw new TimeoutError(`${provider} request timed out after ${timeoutMs / 1000}s (model=${modelName}, tier=${tier})`);
+      logger.error(
+        `\u23f1 TIMEOUT: ${provider} ${modelName} after ${timeoutMs / 1000}s (tier=${tier})`,
+      );
+      throw new TimeoutError(
+        `${provider} request timed out after ${timeoutMs / 1000}s (model=${modelName}, tier=${tier})`,
+      );
     }
     throw err;
   }
@@ -678,7 +764,7 @@ async function forwardToOpenAI(
   clearTimeout(timeoutId);
 
   if (!stream) {
-    const data = await response.json() as Record<string, unknown>;
+    const data = (await response.json()) as Record<string, unknown>;
     if (data.model) data.model = `clawrouter/${modelName}`;
 
     // Normalize non-standard fields from providers (e.g. Gemini via OpenRouter)
@@ -696,7 +782,14 @@ async function forwardToOpenAI(
     // PII Rehydration — non-streaming (content + tool_calls arguments)
     if (piiSession) {
       try {
-        const choices = (data as any).choices as Array<{ message?: { content?: string; tool_calls?: Array<{ function?: { arguments?: string } }> } }> | undefined;
+        const choices = (data as any).choices as
+          | Array<{
+              message?: {
+                content?: string;
+                tool_calls?: Array<{ function?: { arguments?: string } }>;
+              };
+            }>
+          | undefined;
         for (const choice of choices ?? []) {
           if (choice.message?.content) {
             choice.message.content = rehydrateText(choice.message.content, piiSession);
@@ -714,7 +807,9 @@ async function forwardToOpenAI(
         logger.error(`[PII] Rehydrate failed: ${msg}`);
         if (piiMode === "strict") {
           res.writeHead(502, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ error: { message: "PII rehydrate failed", type: "pii_error" } }));
+          res.end(
+            JSON.stringify({ error: { message: "PII rehydrate failed", type: "pii_error" } }),
+          );
           return;
         }
         // standard mode: pass through with warning header
@@ -727,15 +822,23 @@ async function forwardToOpenAI(
     if (respUsage) {
       const oPrompt = respUsage.prompt_tokens ?? 0;
       const oComp = respUsage.completion_tokens ?? 0;
-      recordUsage(modelName, tier, {
-        ...respUsage,
-        baselineCost: computeBaselineCost(oPrompt, oComp),
-      }, _currentCategory);
+      recordUsage(
+        modelName,
+        tier,
+        {
+          ...respUsage,
+          baselineCost: computeBaselineCost(oPrompt, oComp),
+        },
+        _currentCategory,
+      );
     }
 
     // Recalculate Content-Length after rehydration (placeholder ≠ original value length)
     const responseBody = JSON.stringify(data);
-    res.writeHead(200, { "Content-Type": "application/json", "Content-Length": String(Buffer.byteLength(responseBody)) });
+    res.writeHead(200, {
+      "Content-Type": "application/json",
+      "Content-Length": String(Buffer.byteLength(responseBody)),
+    });
     res.end(responseBody);
     return;
   }
@@ -744,7 +847,7 @@ async function forwardToOpenAI(
   res.writeHead(200, {
     "Content-Type": "text/event-stream",
     "Cache-Control": "no-cache",
-    "Connection": "keep-alive",
+    Connection: "keep-alive",
   });
 
   const reader = response.body?.getReader();
@@ -758,104 +861,118 @@ async function forwardToOpenAI(
   let streamUsage: any = null; // Capture usage from final streaming chunk
 
   try {
-    await readStreamWithStallDetection(reader, (value) => {
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split("\n");
-      buffer = lines.pop() ?? "";
+    await readStreamWithStallDetection(
+      reader,
+      (value) => {
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
 
-      for (const line of lines) {
-        if (line.startsWith("data: ")) {
-          const jsonStr = line.slice(6).trim();
-          if (jsonStr === "[DONE]") {
-            if (!sentDone) {
-              res.write("data: [DONE]\n\n");
-              sentDone = true;
-            }
-            continue;
-          }
-          try {
-            const chunk = JSON.parse(jsonStr);
-            if (chunk.model) chunk.model = `clawrouter/${modelName}`;
-
-            // Capture usage from streaming chunk (OpenRouter sends it in the last chunk)
-            if (chunk.usage) streamUsage = chunk.usage;
-
-            // Normalize non-standard fields from providers (e.g. Gemini via OpenRouter)
-            delete chunk.provider;
-            const choice = chunk.choices?.[0];
-            if (choice) {
-              delete choice.native_finish_reason;
-              delete choice.logprobs;
-              const delta = choice.delta;
-              if (delta) {
-                delete delta.reasoning;
-                delete delta.reasoning_details;
-                delete delta.refusal;
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            const jsonStr = line.slice(6).trim();
+            if (jsonStr === "[DONE]") {
+              if (!sentDone) {
+                res.write("data: [DONE]\n\n");
+                sentDone = true;
               }
+              continue;
             }
+            try {
+              const chunk = JSON.parse(jsonStr);
+              if (chunk.model) chunk.model = `clawrouter/${modelName}`;
 
-            // PII Rehydration — streaming: tool_calls arguments (carry-buffered)
-            let skipToolChunk = false;
-            if (piiSession && chunk.choices?.[0]?.delta?.tool_calls) {
-              for (const tc of chunk.choices[0].delta.tool_calls) {
-                if (tc.function?.arguments) {
-                  const idx = tc.index ?? 0;
-                  const carry = piiToolCarries.get(idx) ?? "";
-                  logger.debug(`[PII] stream tool arg: raw="${tc.function.arguments}" carry="${carry}"`);
-                  const { output, carry: newCarry } = rehydrateChunk(
-                    tc.function.arguments,
+              // Capture usage from streaming chunk (OpenRouter sends it in the last chunk)
+              if (chunk.usage) streamUsage = chunk.usage;
+
+              // Normalize non-standard fields from providers (e.g. Gemini via OpenRouter)
+              delete chunk.provider;
+              const choice = chunk.choices?.[0];
+              if (choice) {
+                delete choice.native_finish_reason;
+                delete choice.logprobs;
+                const delta = choice.delta;
+                if (delta) {
+                  delete delta.reasoning;
+                  delete delta.reasoning_details;
+                  delete delta.refusal;
+                }
+              }
+
+              // PII Rehydration — streaming: tool_calls arguments (carry-buffered)
+              let skipToolChunk = false;
+              if (piiSession && chunk.choices?.[0]?.delta?.tool_calls) {
+                for (const tc of chunk.choices[0].delta.tool_calls) {
+                  if (tc.function?.arguments) {
+                    const idx = tc.index ?? 0;
+                    const carry = piiToolCarries.get(idx) ?? "";
+                    logger.debug(
+                      `[PII] stream tool arg: raw="${tc.function.arguments}" carry="${carry}"`,
+                    );
+                    const { output, carry: newCarry } = rehydrateChunk(
+                      tc.function.arguments,
+                      piiSession,
+                      carry,
+                    );
+                    logger.debug(
+                      `[PII] stream tool arg: output="${output}" newCarry="${newCarry}"`,
+                    );
+                    piiToolCarries.set(idx, newCarry);
+                    tc.function.arguments = output;
+                  }
+                }
+                // Skip emitting chunk if all tool_calls have empty arguments (carry absorbed everything)
+                skipToolChunk =
+                  chunk.choices[0].delta.tool_calls.every(
+                    (tc: any) =>
+                      tc.function?.arguments === "" || tc.function?.arguments === undefined,
+                  ) &&
+                  piiToolCarries.size > 0 &&
+                  [...piiToolCarries.values()].some((c) => c.length > 0);
+                if (skipToolChunk) logger.debug(`[PII] stream tool chunk suppressed (in carry)`);
+              }
+              if (skipToolChunk) continue;
+
+              // PII Rehydration — streaming: text content
+              if (piiSession && chunk.choices?.[0]?.delta?.content) {
+                try {
+                  const { output, carry } = rehydrateChunk(
+                    chunk.choices[0].delta.content,
                     piiSession,
-                    carry,
+                    piiCarry,
                   );
-                  logger.debug(`[PII] stream tool arg: output="${output}" newCarry="${newCarry}"`);
-                  piiToolCarries.set(idx, newCarry);
-                  tc.function.arguments = output;
+                  piiCarry = carry;
+                  chunk.choices[0].delta.content = output;
+                  // Skip emitting empty content chunks (carry absorbed everything)
+                  if (!output && carry) continue;
+                } catch (err) {
+                  const msg = err instanceof Error ? err.message : String(err);
+                  logger.error(`[PII] Streaming rehydrate error: ${msg}`);
+                  if (piiMode === "strict") {
+                    res.write(
+                      `data: ${JSON.stringify({ error: { message: "PII rehydrate failed" } })}\n\n`,
+                    );
+                    res.write("data: [DONE]\n\n");
+                    res.end();
+                    return;
+                  }
+                  // standard mode: pass chunk with placeholders intact
                 }
               }
-              // Skip emitting chunk if all tool_calls have empty arguments (carry absorbed everything)
-              skipToolChunk = chunk.choices[0].delta.tool_calls.every(
-                (tc: any) => tc.function?.arguments === "" || tc.function?.arguments === undefined
-              ) && piiToolCarries.size > 0 && [...piiToolCarries.values()].some(c => c.length > 0);
-              if (skipToolChunk) logger.debug(`[PII] stream tool chunk suppressed (in carry)`);
-            }
-            if (skipToolChunk) continue;
 
-            // PII Rehydration — streaming: text content
-            if (piiSession && chunk.choices?.[0]?.delta?.content) {
-              try {
-                const { output, carry } = rehydrateChunk(
-                  chunk.choices[0].delta.content,
-                  piiSession,
-                  piiCarry,
-                );
-                piiCarry = carry;
-                chunk.choices[0].delta.content = output;
-                // Skip emitting empty content chunks (carry absorbed everything)
-                if (!output && carry) continue;
-              } catch (err) {
-                const msg = err instanceof Error ? err.message : String(err);
-                logger.error(`[PII] Streaming rehydrate error: ${msg}`);
-                if (piiMode === "strict") {
-                  res.write(`data: ${JSON.stringify({ error: { message: "PII rehydrate failed" } })}\n\n`);
-                  res.write("data: [DONE]\n\n");
-                  res.end();
-                  return;
-                }
-                // standard mode: pass chunk with placeholders intact
-              }
+              res.write(`data: ${JSON.stringify(chunk)}\n\n`);
+            } catch {
+              res.write(line + "\n");
             }
-
-            res.write(`data: ${JSON.stringify(chunk)}\n\n`);
-          } catch {
+          } else if (line.trim()) {
             res.write(line + "\n");
+          } else {
+            res.write("\n");
           }
-        } else if (line.trim()) {
-          res.write(line + "\n");
-        } else {
-          res.write("\n");
         }
-      }
-    }, abortController);
+      },
+      abortController,
+    );
   } catch (err) {
     if (err instanceof TimeoutError) {
       logger.error(`\u23f1 STREAM STALL: ${provider} ${modelName} - ${(err as Error).message}`);
@@ -884,7 +1001,13 @@ async function forwardToOpenAI(
             object: "chat.completion.chunk",
             created: Math.floor(Date.now() / 1000),
             model: `clawrouter/${modelName}`,
-            choices: [{ index: 0, delta: { tool_calls: [{ index: idx, function: { arguments: flushed } }] }, finish_reason: null }],
+            choices: [
+              {
+                index: 0,
+                delta: { tool_calls: [{ index: idx, function: { arguments: flushed } }] },
+                finish_reason: null,
+              },
+            ],
           };
           res.write(`data: ${JSON.stringify(flushChunk)}\n\n`);
         }
@@ -894,10 +1017,15 @@ async function forwardToOpenAI(
     if (streamUsage) {
       const suPrompt = streamUsage.prompt_tokens ?? 0;
       const suComp = streamUsage.completion_tokens ?? 0;
-      recordUsage(modelName, tier, {
-        ...streamUsage,
-        baselineCost: computeBaselineCost(suPrompt, suComp),
-      }, _currentCategory);
+      recordUsage(
+        modelName,
+        tier,
+        {
+          ...streamUsage,
+          baselineCost: computeBaselineCost(suPrompt, suComp),
+        },
+        _currentCategory,
+      );
     }
 
     if (!res.writableEnded) {
@@ -912,7 +1040,9 @@ async function forwardToOpenAI(
  */
 // Request-scoped category for usage tracking (set by server.ts before forwarding)
 let _currentCategory: string | undefined;
-export function setCurrentCategory(cat: string | undefined) { _currentCategory = cat; }
+export function setCurrentCategory(cat: string | undefined) {
+  _currentCategory = cat;
+}
 
 export async function forwardRequest(
   chatReq: ChatRequest,

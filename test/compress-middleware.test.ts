@@ -29,7 +29,8 @@ function assert(condition: boolean, msg: string) {
 }
 
 function assertEqual<T>(actual: T, expected: T, msg?: string) {
-  if (actual !== expected) throw new Error(msg || `Expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+  if (actual !== expected)
+    throw new Error(msg || `Expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
 }
 
 function assertIncludes(haystack: string, needle: string, msg?: string) {
@@ -93,18 +94,14 @@ async function systemMessageTests() {
   });
 
   await test("compresses system messages when opted in", () => {
-    const msgs: ChatMessage[] = [
-      { role: "system", content: "\x1b[31msystem with ANSI\x1b[0m   " },
-    ];
+    const msgs: ChatMessage[] = [{ role: "system", content: "\x1b[31msystem with ANSI\x1b[0m   " }];
     const result = compressMessages(msgs, undefined, true);
     const content = result.messages[0].content as string;
     assertNotIncludes(content, "\x1b", "System should be cleaned when opted in");
   });
 
   await test("skips developer messages by default", () => {
-    const msgs: ChatMessage[] = [
-      { role: "developer", content: "\x1b[31mdev with ANSI\x1b[0m" },
-    ];
+    const msgs: ChatMessage[] = [{ role: "developer", content: "\x1b[31mdev with ANSI\x1b[0m" }];
     const result = compressMessages(msgs);
     assertIncludes(result.messages[0].content as string, "\x1b");
   });
@@ -118,9 +115,7 @@ async function contentFormatTests() {
   console.log("\n=== compressMessages() — Content Formats ===\n");
 
   await test("handles string content", () => {
-    const msgs: ChatMessage[] = [
-      { role: "user", content: "hello\n\n\n\nworld   " },
-    ];
+    const msgs: ChatMessage[] = [{ role: "user", content: "hello\n\n\n\nworld   " }];
     const result = compressMessages(msgs);
     const content = result.messages[0].content as string;
     assertEqual(content, "hello\n\nworld");
@@ -144,9 +139,7 @@ async function contentFormatTests() {
   });
 
   await test("handles null content", () => {
-    const msgs: ChatMessage[] = [
-      { role: "assistant", content: null },
-    ];
+    const msgs: ChatMessage[] = [{ role: "assistant", content: null }];
     const result = compressMessages(msgs);
     assertEqual(result.messages[0].content, null);
     assert(!result.compressed, "Null content should not count as compressed");
@@ -157,14 +150,16 @@ async function contentFormatTests() {
       {
         role: "assistant",
         content: null,
-        tool_calls: [{
-          id: "call_1",
-          type: "function" as const,
-          function: {
-            name: "test",
-            arguments: '{\n  "key": "value",\n  "num": 42\n}',
+        tool_calls: [
+          {
+            id: "call_1",
+            type: "function" as const,
+            function: {
+              name: "test",
+              arguments: '{\n  "key": "value",\n  "num": 42\n}',
+            },
           },
-        }],
+        ],
       },
     ];
     const result = compressMessages(msgs);
@@ -196,9 +191,7 @@ async function savingsTests() {
   });
 
   await test("does not mutate original messages", () => {
-    const original: ChatMessage[] = [
-      { role: "user", content: "\x1b[31mred\x1b[0m" },
-    ];
+    const original: ChatMessage[] = [{ role: "user", content: "\x1b[31mred\x1b[0m" }];
     const originalContent = original[0].content;
     compressMessages(original);
     assertEqual(original[0].content, originalContent, "Original should be unchanged");
@@ -231,7 +224,8 @@ async function realWorldTests() {
   });
 
   await test("compresses pretty-printed JSON response", () => {
-    const json = '```json\n{\n  "users": [\n    {\n      "id": 1,\n      "name": "Alice"\n    }\n  ]\n}\n```';
+    const json =
+      '```json\n{\n  "users": [\n    {\n      "id": 1,\n      "name": "Alice"\n    }\n  ]\n}\n```';
     const msgs: ChatMessage[] = [{ role: "user", content: json }];
     const result = compressMessages(msgs);
     const content = result.messages[0].content as string;
@@ -239,7 +233,8 @@ async function realWorldTests() {
   });
 
   await test("compresses code with comments", () => {
-    const code = "```js\n// Initialize the app\nconst app = express();\n// Set up routes\napp.get('/', handler);\n```";
+    const code =
+      "```js\n// Initialize the app\nconst app = express();\n// Set up routes\napp.get('/', handler);\n```";
     const msgs: ChatMessage[] = [{ role: "user", content: code }];
     const result = compressMessages(msgs);
     const content = result.messages[0].content as string;
@@ -261,7 +256,7 @@ async function realWorldTests() {
       { role: "system", content: "You are a helper." },
       { role: "user", content: "\x1b[31mHello\x1b[0m\n\n\n\n" },
       { role: "assistant", content: "Hi there!" },
-      { role: "user", content: "```json\n{\n  \"a\": 1\n}\n```" },
+      { role: "user", content: '```json\n{\n  "a": 1\n}\n```' },
     ];
     const result = compressMessages(msgs);
     // System untouched

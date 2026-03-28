@@ -37,33 +37,62 @@ describe("usage tracking", () => {
   });
 
   test("accumulates baselineCost across requests", () => {
-    recordUsage("model-a", "SIMPLE", { prompt_tokens: 100, completion_tokens: 50, baselineCost: 0.005 });
-    recordUsage("model-b", "COMPLEX", { prompt_tokens: 200, completion_tokens: 100, baselineCost: 0.010 });
+    recordUsage("model-a", "SIMPLE", {
+      prompt_tokens: 100,
+      completion_tokens: 50,
+      baselineCost: 0.005,
+    });
+    recordUsage("model-b", "COMPLEX", {
+      prompt_tokens: 200,
+      completion_tokens: 100,
+      baselineCost: 0.01,
+    });
     const stats = getUsageStats();
     assert.equal(stats.allTime.baselineCost, 0.015);
   });
 
   test("tracks baselineCost per model", () => {
-    recordUsage("model-a", "SIMPLE", { prompt_tokens: 100, completion_tokens: 50, baselineCost: 0.005 });
-    recordUsage("model-a", "SIMPLE", { prompt_tokens: 100, completion_tokens: 50, baselineCost: 0.005 });
+    recordUsage("model-a", "SIMPLE", {
+      prompt_tokens: 100,
+      completion_tokens: 50,
+      baselineCost: 0.005,
+    });
+    recordUsage("model-a", "SIMPLE", {
+      prompt_tokens: 100,
+      completion_tokens: 50,
+      baselineCost: 0.005,
+    });
     const stats = getUsageStats();
-    assert.equal(stats.byModel["model-a"].baselineCost, 0.010);
+    assert.equal(stats.byModel["model-a"].baselineCost, 0.01);
   });
 
   test("tracks baselineCost per tier", () => {
-    recordUsage("model-a", "SIMPLE", { prompt_tokens: 100, completion_tokens: 50, baselineCost: 0.005 });
+    recordUsage("model-a", "SIMPLE", {
+      prompt_tokens: 100,
+      completion_tokens: 50,
+      baselineCost: 0.005,
+    });
     const stats = getUsageStats();
     assert.equal(stats.byTier["SIMPLE"].baselineCost, 0.005);
   });
 
   test("tracks baselineCost per category", () => {
-    recordUsage("model-a", "SIMPLE", { prompt_tokens: 100, completion_tokens: 50, baselineCost: 0.005 }, "coding");
+    recordUsage(
+      "model-a",
+      "SIMPLE",
+      { prompt_tokens: 100, completion_tokens: 50, baselineCost: 0.005 },
+      "coding",
+    );
     const stats = getUsageStats();
     assert.equal(stats.byCategory["coding"].baselineCost, 0.005);
   });
 
   test("tracks baselineCost in hourly buckets", () => {
-    recordUsage("model-a", "SIMPLE", { prompt_tokens: 100, completion_tokens: 50, baselineCost: 0.005 });
+    recordUsage("model-a", "SIMPLE", {
+      prompt_tokens: 100,
+      completion_tokens: 50,
+      baselineCost: 0.005,
+    });
     const stats = getUsageStats();
     assert.ok(stats.hourly.length > 0);
     assert.equal(stats.hourly[0].baselineCost, 0.005);
@@ -76,14 +105,23 @@ describe("usage tracking", () => {
   });
 
   test("resetUsage clears baselineCost", () => {
-    recordUsage("model-a", "SIMPLE", { prompt_tokens: 100, completion_tokens: 50, baselineCost: 0.005 });
+    recordUsage("model-a", "SIMPLE", {
+      prompt_tokens: 100,
+      completion_tokens: 50,
+      baselineCost: 0.005,
+    });
     resetUsage();
     const stats = getUsageStats();
     assert.equal(stats.allTime.baselineCost, 0);
   });
 
   test("savings can be computed from cost vs baselineCost", () => {
-    recordUsage("model-a", "SIMPLE", { prompt_tokens: 1000, completion_tokens: 500, cost: 0.001, baselineCost: 0.050 });
+    recordUsage("model-a", "SIMPLE", {
+      prompt_tokens: 1000,
+      completion_tokens: 500,
+      cost: 0.001,
+      baselineCost: 0.05,
+    });
     const stats = getUsageStats();
     const savings = stats.allTime.baselineCost - stats.allTime.cost;
     const savingsPct = (savings / stats.allTime.baselineCost) * 100;
@@ -92,17 +130,32 @@ describe("usage tracking", () => {
   });
 
   test("skips recording when total=0 and cost=0", () => {
-    recordUsage("model-a", "SIMPLE", { prompt_tokens: 0, completion_tokens: 0, cost: 0, baselineCost: 0.005 });
+    recordUsage("model-a", "SIMPLE", {
+      prompt_tokens: 0,
+      completion_tokens: 0,
+      cost: 0,
+      baselineCost: 0.005,
+    });
     const stats = getUsageStats();
     assert.equal(stats.allTime.requests, 0);
   });
 
   test("tracks multiple categories independently", () => {
-    recordUsage("model-a", "SIMPLE", { prompt_tokens: 100, completion_tokens: 50, baselineCost: 0.005 }, "coding");
-    recordUsage("model-b", "COMPLEX", { prompt_tokens: 200, completion_tokens: 100, baselineCost: 0.010 }, "reasoning");
+    recordUsage(
+      "model-a",
+      "SIMPLE",
+      { prompt_tokens: 100, completion_tokens: 50, baselineCost: 0.005 },
+      "coding",
+    );
+    recordUsage(
+      "model-b",
+      "COMPLEX",
+      { prompt_tokens: 200, completion_tokens: 100, baselineCost: 0.01 },
+      "reasoning",
+    );
     const stats = getUsageStats();
     assert.equal(stats.byCategory["coding"].baselineCost, 0.005);
-    assert.equal(stats.byCategory["reasoning"].baselineCost, 0.010);
+    assert.equal(stats.byCategory["reasoning"].baselineCost, 0.01);
     assert.equal(Object.keys(stats.byCategory).length, 2);
   });
 });

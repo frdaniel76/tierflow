@@ -4,16 +4,16 @@
 
 8-category classification via external ML service (LLMRouter):
 
-| Category | Typical Use | Default Model |
-|----------|-------------|---------------|
-| simple_chat | Greetings, factual Q&A | Gemini Flash Lite (cheap) |
-| general | Explanations, summaries | DeepSeek V3 (balanced) |
-| coding | Write/fix/refactor code | Qwen3 Coder (free) |
-| reasoning | Math proofs, logic puzzles | GPT-oss / DeepSeek R1 |
-| creative | Poetry, stories, scripts | Step 3.5 Flash (free) |
-| data | Analysis, charts, ETL | Gemini Flash Lite (cheap) |
-| agentic | Tool calls, multi-step tasks | DeepSeek V3 (tool-capable) |
-| transcription | Audio processing | Gemini Flash Lite |
+| Category      | Typical Use                  | Default Model              |
+| ------------- | ---------------------------- | -------------------------- |
+| simple_chat   | Greetings, factual Q&A       | Gemini Flash Lite (cheap)  |
+| general       | Explanations, summaries      | DeepSeek V3 (balanced)     |
+| coding        | Write/fix/refactor code      | Qwen3 Coder (free)         |
+| reasoning     | Math proofs, logic puzzles   | GPT-oss / DeepSeek R1      |
+| creative      | Poetry, stories, scripts     | Step 3.5 Flash (free)      |
+| data          | Analysis, charts, ETL        | Gemini Flash Lite (cheap)  |
+| agentic       | Tool calls, multi-step tasks | DeepSeek V3 (tool-capable) |
+| transcription | Audio processing             | Gemini Flash Lite          |
 
 All model assignments are configurable via `categories` in config.
 
@@ -25,11 +25,11 @@ Auto-detects tool calls (`tools` array in request) and routes to agentic-capable
 
 Force a category with prompt prefixes:
 
-| Prefix Style | Example |
-|-------------|---------|
-| Slash | `/code Write a parser` |
-| Bracket | `[reasoning] Prove this theorem` |
-| Word | `deep mode: Analyze for race conditions` |
+| Prefix Style | Example                                  |
+| ------------ | ---------------------------------------- |
+| Slash        | `/code Write a parser`                   |
+| Bracket      | `[reasoning] Prove this theorem`         |
+| Word         | `deep mode: Analyze for race conditions` |
 
 Aliases: `simple`, `basic`, `cheap`, `medium`, `balanced`, `complex`, `code`, `max`, `reasoning`, `think`, `deep`, `creative`, `data`
 
@@ -39,7 +39,7 @@ The prefix is stripped before forwarding.
 
 Per-provider opt-in (`"pii": true`). 15 detection patterns across 5 ordered passes:
 
-1. High-confidence: PEM blocks, API keys (sk-ant-, ghp_, etc.), connection strings, Bearer tokens
+1. High-confidence: PEM blocks, API keys (sk-ant-, ghp\_, etc.), connection strings, Bearer tokens
 2. Structured IDs: emails, credit cards, SSNs, UK NINOs
 3. Semi-structured: phone numbers, IPv4/IPv6, UK postcodes, file paths
 4. PEM headers (stray BEGIN lines)
@@ -59,14 +59,14 @@ Zero overhead when disabled.
 
 6 algorithmic passes applied to message content:
 
-| Pass | What It Does |
-|------|-------------|
-| `ansi` | Strip ANSI escape codes |
+| Pass         | What It Does                                   |
+| ------------ | ---------------------------------------------- |
+| `ansi`       | Strip ANSI escape codes                        |
 | `whitespace` | Collapse blank lines, trim trailing whitespace |
-| `json` | Minify fenced JSON blocks |
-| `dedup` | Replace 3+ identical lines with `line (xN)` |
-| `comments` | Strip single-line comments from code fences |
-| `verbose` | Collapse long stack traces, shorten home paths |
+| `json`       | Minify fenced JSON blocks                      |
+| `dedup`      | Replace 3+ identical lines with `line (xN)`    |
+| `comments`   | Strip single-line comments from code fences    |
+| `verbose`    | Collapse long stack traces, shorten home paths |
 
 30-70% token savings on typical messages. Per-provider opt-in (`"compress": true`).
 
@@ -87,6 +87,7 @@ On timeout or provider error, automatically tries fallback models from the tier/
 ## Web Dashboard
 
 Built-in monitoring at `GET /dashboard`:
+
 - Request counts, error rates, cache hit rate
 - Tier distribution bar chart
 - Category and model usage tables
@@ -108,6 +109,7 @@ npx tierflow --debug      # verbose logging
 ## Tool Call Translation
 
 Bidirectional Anthropic ↔ OpenAI format:
+
 - `tool_use` blocks ↔ `tool_calls` array
 - `input_json_delta` ↔ `arguments` (streaming)
 - Thinking block handling per provider

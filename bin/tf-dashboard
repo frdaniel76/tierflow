@@ -6,75 +6,109 @@
  * Usage: tf-dashboard [--port 18800] [--interval 5]
  */
 
-const PORT = process.argv.includes('--port') ? process.argv[process.argv.indexOf('--port') + 1] : '18800';
-const INTERVAL = process.argv.includes('--interval') ? parseInt(process.argv[process.argv.indexOf('--interval') + 1]) * 1000 : 5000;
+const PORT = process.argv.includes("--port")
+  ? process.argv[process.argv.indexOf("--port") + 1]
+  : "18800";
+const INTERVAL = process.argv.includes("--interval")
+  ? parseInt(process.argv[process.argv.indexOf("--interval") + 1]) * 1000
+  : 5000;
 const BASE = `http://127.0.0.1:${PORT}`;
 
 // ANSI helpers
-const ESC = '\x1b[';
-const CLEAR = ESC + '2J' + ESC + 'H';
-const BOLD = ESC + '1m';
-const DIM = ESC + '2m';
-const RESET = ESC + '0m';
-const GREEN = ESC + '32m';
-const YELLOW = ESC + '33m';
-const BLUE = ESC + '34m';
-const MAGENTA = ESC + '35m';
-const CYAN = ESC + '36m';
-const RED = ESC + '31m';
-const WHITE = ESC + '37m';
-const BG_GREEN = ESC + '42m';
-const BG_BLUE = ESC + '44m';
-const BG_YELLOW = ESC + '43m';
-const BG_MAGENTA = ESC + '45m';
+const ESC = "\x1b[";
+const CLEAR = ESC + "2J" + ESC + "H";
+const BOLD = ESC + "1m";
+const DIM = ESC + "2m";
+const RESET = ESC + "0m";
+const GREEN = ESC + "32m";
+const YELLOW = ESC + "33m";
+const BLUE = ESC + "34m";
+const MAGENTA = ESC + "35m";
+const CYAN = ESC + "36m";
+const RED = ESC + "31m";
+const WHITE = ESC + "37m";
+const BG_GREEN = ESC + "42m";
+const BG_BLUE = ESC + "44m";
+const BG_YELLOW = ESC + "43m";
+const BG_MAGENTA = ESC + "45m";
 
-const HIDE_CURSOR = ESC + '?25l';
-const SHOW_CURSOR = ESC + '?25h';
+const HIDE_CURSOR = ESC + "?25l";
+const SHOW_CURSOR = ESC + "?25h";
 
 // Box drawing
-const TL = '╔', TR = '╗', BL = '╚', BR = '╝', H = '═', V = '║', ML = '╠', MR = '╣';
+const TL = "╔",
+  TR = "╗",
+  BL = "╚",
+  BR = "╝",
+  H = "═",
+  V = "║",
+  ML = "╠",
+  MR = "╣";
 
 const W = Math.min(process.stdout.columns || 80, 80);
 
-function hline(left, right) { return left + H.repeat(W - 2) + right; }
+function hline(left, right) {
+  return left + H.repeat(W - 2) + right;
+}
 function row(content) {
-  const stripped = content.replace(/\x1b\[[0-9;]*m/g, '');
+  const stripped = content.replace(/\x1b\[[0-9;]*m/g, "");
   const inner = W - 4; // 2 for borders + 2 for padding
   if (stripped.length > inner) {
     // Truncate content (tricky with ANSI — just pad with nothing)
-    return V + ' ' + content + ' ' + V;
+    return V + " " + content + " " + V;
   }
   const pad = inner - stripped.length;
-  return V + ' ' + content + ' '.repeat(pad) + ' ' + V;
+  return V + " " + content + " ".repeat(pad) + " " + V;
 }
-function emptyRow() { return V + ' '.repeat(W - 2) + V; }
+function emptyRow() {
+  return V + " ".repeat(W - 2) + V;
+}
 
-function fmt(n) { return n >= 1e6 ? (n/1e6).toFixed(1)+'M' : n >= 1e3 ? (n/1e3).toFixed(1)+'k' : String(n); }
-function fmtCost(n) { return n === 0 ? '$0' : n < 0.01 ? '$'+n.toFixed(4) : '$'+n.toFixed(2); }
-function fmtUptime(s) { const d=Math.floor(s/86400),h=Math.floor((s%86400)/3600),m=Math.floor((s%3600)/60); return d>0?d+'d '+h+'h':h>0?h+'h '+m+'m':m+'m '+Math.floor(s%60)+'s'; }
+function fmt(n) {
+  return n >= 1e6 ? (n / 1e6).toFixed(1) + "M" : n >= 1e3 ? (n / 1e3).toFixed(1) + "k" : String(n);
+}
+function fmtCost(n) {
+  return n === 0 ? "$0" : n < 0.01 ? "$" + n.toFixed(4) : "$" + n.toFixed(2);
+}
+function fmtUptime(s) {
+  const d = Math.floor(s / 86400),
+    h = Math.floor((s % 86400) / 3600),
+    m = Math.floor((s % 3600) / 60);
+  return d > 0
+    ? d + "d " + h + "h"
+    : h > 0
+      ? h + "h " + m + "m"
+      : m + "m " + Math.floor(s % 60) + "s";
+}
 
 function bar(pct, width, color) {
-  const filled = Math.round(pct / 100 * width);
+  const filled = Math.round((pct / 100) * width);
   const empty = width - filled;
-  return color + '█'.repeat(filled) + RESET + DIM + '░'.repeat(empty) + RESET;
+  return color + "█".repeat(filled) + RESET + DIM + "░".repeat(empty) + RESET;
 }
 
-function padRight(s, len) { return s.length >= len ? s.slice(0, len) : s + ' '.repeat(len - s.length); }
-function padLeft(s, len) { return s.length >= len ? s.slice(0, len) : ' '.repeat(len - s.length) + s; }
+function padRight(s, len) {
+  return s.length >= len ? s.slice(0, len) : s + " ".repeat(len - s.length);
+}
+function padLeft(s, len) {
+  return s.length >= len ? s.slice(0, len) : " ".repeat(len - s.length) + s;
+}
 
 async function fetchJSON(path) {
   try {
     const res = await fetch(BASE + path, { signal: AbortSignal.timeout(3000) });
     if (!res.ok) return null;
     return await res.json();
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
 
 async function render() {
   const [stats, health, quality] = await Promise.all([
-    fetchJSON('/stats'),
-    fetchJSON('/health'),
-    fetchJSON('/quality-tiers'),
+    fetchJSON("/stats"),
+    fetchJSON("/health"),
+    fetchJSON("/quality-tiers"),
   ]);
 
   if (!stats || !health) {
@@ -95,68 +129,92 @@ async function render() {
   const actual = tu.cost || 0;
   const baseline = tu.baselineCost || 0;
   const saved = Math.max(0, baseline - actual);
-  const savPct = baseline > 0 ? (saved / baseline * 100) : 0;
+  const savPct = baseline > 0 ? (saved / baseline) * 100 : 0;
   const tierTotal = Object.values(bt).reduce((a, b) => a + Number(b), 0) || 1;
-  const preset = quality?.activePreset || 'unknown';
+  const preset = quality?.activePreset || "unknown";
 
   const lines = [];
 
   // Header
   lines.push(hline(TL, TR));
-  lines.push(row(`${BOLD}${GREEN}Tier${WHITE}Flow Dashboard${RESET}${DIM}  v${health.version}  ${fmtUptime(health.uptime)}${RESET}`));
+  lines.push(
+    row(
+      `${BOLD}${GREEN}Tier${WHITE}Flow Dashboard${RESET}${DIM}  v${health.version}  ${fmtUptime(health.uptime)}${RESET}`,
+    ),
+  );
   lines.push(hline(ML, MR));
 
   // Top stats
-  lines.push(row(`Requests: ${BOLD}${fmt(stats.requests)}${RESET}  Errors: ${stats.errors}  Timeouts: ${stats.timeouts}`));
-  lines.push(row(`Cost: ${BOLD}${GREEN}${fmtCost(actual)}${RESET}  Baseline: ${DIM}${fmtCost(baseline)}${RESET}  Saved: ${BOLD}${GREEN}${savPct.toFixed(1)}%${RESET} (${fmtCost(saved)})`));
+  lines.push(
+    row(
+      `Requests: ${BOLD}${fmt(stats.requests)}${RESET}  Errors: ${stats.errors}  Timeouts: ${stats.timeouts}`,
+    ),
+  );
+  lines.push(
+    row(
+      `Cost: ${BOLD}${GREEN}${fmtCost(actual)}${RESET}  Baseline: ${DIM}${fmtCost(baseline)}${RESET}  Saved: ${BOLD}${GREEN}${savPct.toFixed(1)}%${RESET} (${fmtCost(saved)})`,
+    ),
+  );
   lines.push(hline(ML, MR));
 
   // Tier distribution
   const tierW = W - 32;
   const tierData = [
-    { name: 'SIMPLE', color: GREEN, count: bt.SIMPLE || 0 },
-    { name: 'MEDIUM', color: BLUE, count: bt.MEDIUM || 0 },
-    { name: 'COMPLEX', color: YELLOW, count: bt.COMPLEX || 0 },
-    { name: 'REASONING', color: MAGENTA, count: bt.REASONING || 0 },
+    { name: "SIMPLE", color: GREEN, count: bt.SIMPLE || 0 },
+    { name: "MEDIUM", color: BLUE, count: bt.MEDIUM || 0 },
+    { name: "COMPLEX", color: YELLOW, count: bt.COMPLEX || 0 },
+    { name: "REASONING", color: MAGENTA, count: bt.REASONING || 0 },
   ];
   for (const t of tierData) {
-    const pct = tierTotal > 0 ? (t.count / tierTotal * 100) : 0;
-    lines.push(row(`${padRight(t.name, 10)} ${bar(pct, tierW, t.color)} ${padLeft(pct.toFixed(0) + '%', 4)} ${padLeft(String(t.count), 5)}`));
+    const pct = tierTotal > 0 ? (t.count / tierTotal) * 100 : 0;
+    lines.push(
+      row(
+        `${padRight(t.name, 10)} ${bar(pct, tierW, t.color)} ${padLeft(pct.toFixed(0) + "%", 4)} ${padLeft(String(t.count), 5)}`,
+      ),
+    );
   }
   lines.push(hline(ML, MR));
 
   // Category breakdown
   lines.push(row(`${DIM}Category        Reqs    Cost      Saved${RESET}`));
-  const catKeys = Object.keys(bc).sort((a, b) => bc[b].requests - bc[a].requests).slice(0, 8);
+  const catKeys = Object.keys(bc)
+    .sort((a, b) => bc[b].requests - bc[a].requests)
+    .slice(0, 8);
   if (catKeys.length === 0) {
     lines.push(row(`${DIM}No category data yet${RESET}`));
   }
   for (const k of catKeys) {
     const sv = Math.max(0, (bc[k].baselineCost || 0) - bc[k].cost);
-    lines.push(row(
-      `${padRight(k, 16)}${padLeft(String(bc[k].requests), 5)}  ${padLeft(fmtCost(bc[k].cost), 8)}  ${GREEN}${padLeft(fmtCost(sv), 8)}${RESET}`
-    ));
+    lines.push(
+      row(
+        `${padRight(k, 16)}${padLeft(String(bc[k].requests), 5)}  ${padLeft(fmtCost(bc[k].cost), 8)}  ${GREEN}${padLeft(fmtCost(sv), 8)}${RESET}`,
+      ),
+    );
   }
   lines.push(hline(ML, MR));
 
   // Model breakdown
   lines.push(row(`${DIM}Model                 Reqs   Tokens    Cost${RESET}`));
-  const modKeys = Object.keys(bm).sort((a, b) => bm[b].requests - bm[a].requests).slice(0, 6);
+  const modKeys = Object.keys(bm)
+    .sort((a, b) => bm[b].requests - bm[a].requests)
+    .slice(0, 6);
   if (modKeys.length === 0) {
     lines.push(row(`${DIM}No model data yet${RESET}`));
   }
   for (const k of modKeys) {
-    const short = k.split('/').pop().slice(0, 20);
-    lines.push(row(
-      `${padRight(short, 22)}${padLeft(String(bm[k].requests), 5)} ${padLeft(fmt(bm[k].tokens), 8)}  ${padLeft(fmtCost(bm[k].cost), 8)}`
-    ));
+    const short = k.split("/").pop().slice(0, 20);
+    lines.push(
+      row(
+        `${padRight(short, 22)}${padLeft(String(bm[k].requests), 5)} ${padLeft(fmt(bm[k].tokens), 8)}  ${padLeft(fmtCost(bm[k].cost), 8)}`,
+      ),
+    );
   }
   lines.push(hline(ML, MR));
 
   // Bottom stats
-  const cacheStr = `Cache: ${cache.hitRate || '0%'} hit (${cache.hits || 0}/${(cache.hits || 0) + (cache.misses || 0)})`;
+  const cacheStr = `Cache: ${cache.hitRate || "0%"} hit (${cache.hits || 0}/${(cache.hits || 0) + (cache.misses || 0)})`;
   const piiStr = `PII: ${pii.scrubbed || 0} scrubbed`;
-  const compStr = comp.compressed > 0 ? `CtxPack: ${fmt(comp.tokensSaved)} saved` : '';
+  const compStr = comp.compressed > 0 ? `CtxPack: ${fmt(comp.tokensSaved)} saved` : "";
   const presetStr = `Preset: ${CYAN}${preset}${RESET}`;
   lines.push(row(`${cacheStr}  ${DIM}│${RESET}  ${piiStr}  ${DIM}│${RESET}  ${presetStr}`));
   lines.push(hline(ML, MR));
@@ -165,30 +223,36 @@ async function render() {
   lines.push(row(`${DIM}[c]onfig  [q]uit  [r]efresh  [1-4] preset  [t]est providers${RESET}`));
   lines.push(hline(BL, BR));
 
-  process.stdout.write(CLEAR + lines.join('\n') + '\n');
+  process.stdout.write(CLEAR + lines.join("\n") + "\n");
 }
 
 // ─── Keyboard Controls ───
 
 let timer = null;
-let viewMode = 'stats'; // 'stats' or 'config'
-const presetNames = ['free', 'smart_saver', 'quality_first', 'maximum'];
-const catIcons = { simple_chat:'💬', general:'🌐', coding:'⚙ ', reasoning:'🧮', creative:'✍ ', data:'📊', agentic:'🤖', transcription:'🎤' };
+let viewMode = "stats"; // 'stats' or 'config'
+const presetNames = ["free", "smart_saver", "quality_first", "maximum"];
+const catIcons = {
+  simple_chat: "💬",
+  general: "🌐",
+  coding: "⚙ ",
+  reasoning: "🧮",
+  creative: "✍ ",
+  data: "📊",
+  agentic: "🤖",
+  transcription: "🎤",
+};
 
-function levelBar(level, max=5) {
-  let s = '';
+function levelBar(level, max = 5) {
+  let s = "";
   for (let i = 1; i <= max; i++) {
-    if (i <= level) s += GREEN + '●' + RESET;
-    else s += DIM + '○' + RESET;
+    if (i <= level) s += GREEN + "●" + RESET;
+    else s += DIM + "○" + RESET;
   }
   return s;
 }
 
 async function renderConfig() {
-  const [quality, cfg] = await Promise.all([
-    fetchJSON('/quality-tiers'),
-    fetchJSON('/config'),
-  ]);
+  const [quality, cfg] = await Promise.all([fetchJSON("/quality-tiers"), fetchJSON("/config")]);
 
   if (!cfg) {
     process.stdout.write(CLEAR);
@@ -199,10 +263,10 @@ async function renderConfig() {
   // If /quality-tiers doesn't exist (old server), build from /config
   const hasQuality = quality && quality.categories;
   const config = cfg.config || {};
-  const preset = hasQuality ? (quality.activePreset || 'custom') : 'unknown';
+  const preset = hasQuality ? quality.activePreset || "custom" : "unknown";
   const presetLabel = hasQuality
-    ? (quality.presets?.find(p => p.name === preset)?.label || preset)
-    : 'Restart server to enable';
+    ? quality.presets?.find((p) => p.name === preset)?.label || preset
+    : "Restart server to enable";
 
   const lines = [];
 
@@ -212,21 +276,29 @@ async function renderConfig() {
   lines.push(hline(ML, MR));
 
   // Active preset
-  lines.push(row(`Active Preset: ${BOLD}${CYAN}${presetLabel}${RESET}  (Global Level: ${BOLD}${quality.globalLevel}${RESET}/5)`));
+  lines.push(
+    row(
+      `Active Preset: ${BOLD}${CYAN}${presetLabel}${RESET}  (Global Level: ${BOLD}${quality.globalLevel}${RESET}/5)`,
+    ),
+  );
   lines.push(emptyRow());
 
   // Preset selector
-  const presetLine = quality.presets.map(p => {
-    const active = p.name === preset;
-    const num = presetNames.indexOf(p.name) + 1;
-    if (active) return `${BG_GREEN}${WHITE}${BOLD} ${num}:${p.label} ${RESET}`;
-    return `${DIM}[${num}]${p.label}${RESET}`;
-  }).join('  ');
+  const presetLine = quality.presets
+    .map((p) => {
+      const active = p.name === preset;
+      const num = presetNames.indexOf(p.name) + 1;
+      if (active) return `${BG_GREEN}${WHITE}${BOLD} ${num}:${p.label} ${RESET}`;
+      return `${DIM}[${num}]${p.label}${RESET}`;
+    })
+    .join("  ");
   lines.push(row(presetLine));
   lines.push(hline(ML, MR));
 
   // Column headers
-  lines.push(row(`${DIM}   Category       Level   Model                        $/M out  Ctx${RESET}`));
+  lines.push(
+    row(`${DIM}   Category       Level   Model                        $/M out  Ctx${RESET}`),
+  );
   lines.push(hline(ML, MR));
 
   // Per-category rows — use quality tiers if available, else fall back to config
@@ -235,7 +307,7 @@ async function renderConfig() {
   const catKeys = categories ? Object.keys(categories) : Object.keys(configCats);
 
   for (const cat of catKeys) {
-    const icon = catIcons[cat] || '◆ ';
+    const icon = catIcons[cat] || "◆ ";
     const catName = padRight(cat, 14);
 
     if (categories && categories[cat]) {
@@ -244,22 +316,29 @@ async function renderConfig() {
       const level = lv > 0 && lv <= 5 ? info.levels[lv - 1] : null;
       const levelStr = lv > 0 ? levelBar(lv) : `${DIM}--${RESET}   `;
       const modelShort = level
-        ? padRight(level.model.replace('openrouter/', '').slice(0, 28), 28)
-        : padRight(info.currentModel.replace('openrouter/', '').slice(0, 28), 28);
+        ? padRight(level.model.replace("openrouter/", "").slice(0, 28), 28)
+        : padRight(info.currentModel.replace("openrouter/", "").slice(0, 28), 28);
       const price = level
-        ? (level.inputPrice === 0 && level.outputPrice === 0
-            ? `${GREEN}Free${RESET}   `
-            : padLeft('$' + level.outputPrice.toFixed(2), 7))
+        ? level.inputPrice === 0 && level.outputPrice === 0
+          ? `${GREEN}Free${RESET}   `
+          : padLeft("$" + level.outputPrice.toFixed(2), 7)
         : `${DIM}  --${RESET}   `;
       const ctx = level
-        ? padLeft(level.contextWindow >= 1e6 ? (level.contextWindow/1e6).toFixed(0)+'M' : (level.contextWindow/1e3).toFixed(0)+'k', 5)
+        ? padLeft(
+            level.contextWindow >= 1e6
+              ? (level.contextWindow / 1e6).toFixed(0) + "M"
+              : (level.contextWindow / 1e3).toFixed(0) + "k",
+            5,
+          )
         : `${DIM}   --${RESET}`;
       lines.push(row(`${icon} ${catName} ${levelStr}  ${modelShort} ${price} ${ctx}`));
     } else {
       // Fallback: just show model from config
-      const model = configCats[cat]?.primary || 'not set';
-      const modelShort = padRight(model.replace('openrouter/', '').slice(0, 28), 28);
-      lines.push(row(`${icon} ${catName} ${DIM}--${RESET}    ${modelShort} ${DIM}  --     --${RESET}`));
+      const model = configCats[cat]?.primary || "not set";
+      const modelShort = padRight(model.replace("openrouter/", "").slice(0, 28), 28);
+      lines.push(
+        row(`${icon} ${catName} ${DIM}--${RESET}    ${modelShort} ${DIM}  --     --${RESET}`),
+      );
     }
   }
 
@@ -272,20 +351,31 @@ async function renderConfig() {
 
     for (const [cat, info] of Object.entries(categories)) {
       const lv = info.overrideLevel || 0;
-      const icon = catIcons[cat] || '◆ ';
+      const icon = catIcons[cat] || "◆ ";
       lines.push(row(`${icon} ${BOLD}${cat}${RESET}`));
 
       for (const level of info.levels) {
         const active = level.level === lv;
-        const marker = active ? `${GREEN}▸${RESET}` : ' ';
-        const lvNum = active ? `${BOLD}${GREEN}${level.level}${RESET}` : `${DIM}${level.level}${RESET}`;
+        const marker = active ? `${GREEN}▸${RESET}` : " ";
+        const lvNum = active
+          ? `${BOLD}${GREEN}${level.level}${RESET}`
+          : `${DIM}${level.level}${RESET}`;
         const label = padRight(level.label, 9);
-        const model = padRight(level.model.replace('openrouter/', '').slice(0, 25), 25);
-        const price = level.inputPrice === 0 && level.outputPrice === 0
-          ? `${GREEN}Free${RESET}     `
-          : `$${padLeft(level.inputPrice.toFixed(2), 5)}/${padLeft(level.outputPrice.toFixed(2), 5)}`;
-        const speed = level.speedTier === 'fast' ? `${GREEN}fast${RESET}` : level.speedTier === 'slow' ? `${YELLOW}slow${RESET}` : `${BLUE}med${RESET} `;
-        const benchStr = Object.entries(level.benchmarks || {}).slice(0, 2).map(([k,v]) => `${DIM}${k}:${v}${RESET}`).join(' ');
+        const model = padRight(level.model.replace("openrouter/", "").slice(0, 25), 25);
+        const price =
+          level.inputPrice === 0 && level.outputPrice === 0
+            ? `${GREEN}Free${RESET}     `
+            : `$${padLeft(level.inputPrice.toFixed(2), 5)}/${padLeft(level.outputPrice.toFixed(2), 5)}`;
+        const speed =
+          level.speedTier === "fast"
+            ? `${GREEN}fast${RESET}`
+            : level.speedTier === "slow"
+              ? `${YELLOW}slow${RESET}`
+              : `${BLUE}med${RESET} `;
+        const benchStr = Object.entries(level.benchmarks || {})
+          .slice(0, 2)
+          .map(([k, v]) => `${DIM}${k}:${v}${RESET}`)
+          .join(" ");
 
         lines.push(row(`${marker}${lvNum} ${label} ${model} ${price}  ${speed} ${benchStr}`));
       }
@@ -301,11 +391,11 @@ async function renderConfig() {
   lines.push(row(`${DIM}[s]tats  [q]uit  [r]efresh  [1-4] apply preset  [5] set level${RESET}`));
   lines.push(hline(BL, BR));
 
-  process.stdout.write(CLEAR + lines.join('\n') + '\n');
+  process.stdout.write(CLEAR + lines.join("\n") + "\n");
 }
 
 async function renderCurrent() {
-  if (viewMode === 'config') await renderConfig();
+  if (viewMode === "config") await renderConfig();
   else await render();
 }
 
@@ -317,54 +407,55 @@ function startPolling() {
 if (process.stdin.isTTY) {
   process.stdin.setRawMode(true);
   process.stdin.resume();
-  process.stdin.setEncoding('utf8');
+  process.stdin.setEncoding("utf8");
   process.stdout.write(HIDE_CURSOR);
 
-  process.stdin.on('data', async (key) => {
-    if (key === 'q' || key === '\x03') { // q or Ctrl+C
-      process.stdout.write(SHOW_CURSOR + '\n');
+  process.stdin.on("data", async (key) => {
+    if (key === "q" || key === "\x03") {
+      // q or Ctrl+C
+      process.stdout.write(SHOW_CURSOR + "\n");
       process.exit(0);
     }
-    if (key === 'r') {
+    if (key === "r") {
       await renderCurrent();
     }
-    if (key === 'c') {
-      viewMode = 'config';
+    if (key === "c") {
+      viewMode = "config";
       await renderConfig();
     }
-    if (key === 's') {
-      viewMode = 'stats';
+    if (key === "s") {
+      viewMode = "stats";
       await render();
     }
-    if (key >= '1' && key <= '4') {
+    if (key >= "1" && key <= "4") {
       const preset = presetNames[parseInt(key) - 1];
       try {
-        await fetch(BASE + '/quality-preset', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+        await fetch(BASE + "/quality-preset", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ preset }),
         });
         await render();
       } catch {}
     }
-    if (key === '5') {
+    if (key === "5") {
       // Set individual category level
       process.stdout.write(CLEAR + SHOW_CURSOR);
-      console.log('\n  Set category quality level\n');
-      const quality = await fetchJSON('/quality-tiers');
+      console.log("\n  Set category quality level\n");
+      const quality = await fetchJSON("/quality-tiers");
       if (quality?.categories) {
         const cats = Object.keys(quality.categories);
         cats.forEach((c, i) => {
-          const lv = quality.categories[c].overrideLevel || '?';
-          const icon = catIcons[c] || '  ';
-          console.log(`  ${i+1}. ${icon} ${padRight(c, 15)} Level ${lv}/5`);
+          const lv = quality.categories[c].overrideLevel || "?";
+          const icon = catIcons[c] || "  ";
+          console.log(`  ${i + 1}. ${icon} ${padRight(c, 15)} Level ${lv}/5`);
         });
         console.log(`\n  Enter: category# level (e.g. "3 4" = coding level 4)`);
         console.log(`  Or press Enter to cancel.\n`);
-        process.stdout.write('  > ');
+        process.stdout.write("  > ");
         process.stdin.setRawMode(false);
-        const line = await new Promise(resolve => {
-          process.stdin.once('data', d => resolve(d.toString().trim()));
+        const line = await new Promise((resolve) => {
+          process.stdin.once("data", (d) => resolve(d.toString().trim()));
         });
         process.stdin.setRawMode(true);
         const parts = line.split(/\s+/);
@@ -372,41 +463,43 @@ if (process.stdin.isTTY) {
           const catIdx = parseInt(parts[0]) - 1;
           const level = parseInt(parts[1]);
           if (catIdx >= 0 && catIdx < cats.length && level >= 1 && level <= 5) {
-            await fetch(BASE + '/quality-level', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+            await fetch(BASE + "/quality-level", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ category: cats[catIdx], level }),
             });
             console.log(`  ${GREEN}Set ${cats[catIdx]} to level ${level}${RESET}`);
           } else {
             console.log(`  ${RED}Invalid input${RESET}`);
           }
-          await new Promise(r => setTimeout(r, 1000));
+          await new Promise((r) => setTimeout(r, 1000));
         }
         process.stdout.write(HIDE_CURSOR);
         await renderCurrent();
       }
     }
-    if (key === 't') {
+    if (key === "t") {
       // Test all providers
       process.stdout.write(CLEAR);
-      console.log('\n  Testing providers...\n');
+      console.log("\n  Testing providers...\n");
       try {
-        const cfg = await fetchJSON('/config');
+        const cfg = await fetchJSON("/config");
         const providers = Object.keys(cfg?.config?.providers || {});
         for (const name of providers) {
-          const result = await fetchJSON('/test-provider'); // need POST
-          const res = await fetch(BASE + '/test-provider', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+          const result = await fetchJSON("/test-provider"); // need POST
+          const res = await fetch(BASE + "/test-provider", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ provider: name }),
           });
           const data = await res.json();
-          const status = data.ok ? `${GREEN}OK${RESET} (${data.latency_ms}ms)` : `${RED}FAIL${RESET} ${data.error}`;
+          const status = data.ok
+            ? `${GREEN}OK${RESET} (${data.latency_ms}ms)`
+            : `${RED}FAIL${RESET} ${data.error}`;
           console.log(`  ${padRight(name, 15)} ${status}`);
         }
         console.log(`\n  Press any key to continue...`);
-        await new Promise(r => process.stdin.once('data', r));
+        await new Promise((r) => process.stdin.once("data", r));
         await render();
       } catch (e) {
         console.log(`  ${RED}Error: ${e.message}${RESET}`);
@@ -416,9 +509,12 @@ if (process.stdin.isTTY) {
 }
 
 // ─── Start ───
-process.on('exit', () => process.stdout.write(SHOW_CURSOR));
-process.on('SIGINT', () => { process.stdout.write(SHOW_CURSOR + '\n'); process.exit(0); });
+process.on("exit", () => process.stdout.write(SHOW_CURSOR));
+process.on("SIGINT", () => {
+  process.stdout.write(SHOW_CURSOR + "\n");
+  process.exit(0);
+});
 
-console.log(`  TierFlow Terminal Dashboard — polling ${BASE} every ${INTERVAL/1000}s\n`);
+console.log(`  TierFlow Terminal Dashboard — polling ${BASE} every ${INTERVAL / 1000}s\n`);
 await render();
 startPolling();

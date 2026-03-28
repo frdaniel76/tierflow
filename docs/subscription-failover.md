@@ -30,6 +30,7 @@ Request → Primary Model
 ```
 
 **Stops when:**
+
 - A model succeeds
 - All models exhausted (returns error to client)
 - Streaming already started (`res.headersSent`) — can't switch mid-stream
@@ -38,14 +39,15 @@ Request → Primary Model
 
 Per-tier defaults (in milliseconds):
 
-| Tier | Default Timeout |
-|------|----------------|
-| SIMPLE | 30,000 (30s) |
-| MEDIUM | 60,000 (60s) |
-| COMPLEX | 120,000 (120s) |
-| REASONING | 120,000 (120s) |
+| Tier      | Default Timeout |
+| --------- | --------------- |
+| SIMPLE    | 30,000 (30s)    |
+| MEDIUM    | 60,000 (60s)    |
+| COMPLEX   | 120,000 (120s)  |
+| REASONING | 120,000 (120s)  |
 
 Per-category override:
+
 ```json
 "reasoning": {
   "primary": "anthropic/claude-opus-4-6",
@@ -95,6 +97,7 @@ The dashboard at `/dashboard` also shows error rates and model usage distributio
 3. **Fallback 2:** Cheaper/local model (availability guarantee)
 
 Example:
+
 ```json
 "coding": {
   "primary": "anthropic/claude-sonnet-4-5",

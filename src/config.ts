@@ -17,25 +17,25 @@ import { logger } from "./logger.js";
 
 export type AuthConfig = {
   type: "openclaw" | "env" | "file" | "keychain" | "none";
-  key?: string;           // env var name for type=env
-  profilesPath?: string;  // for type=openclaw
-  filePath?: string;      // for type=file
-  service?: string;       // for type=keychain
-  account?: string;       // for type=keychain
+  key?: string; // env var name for type=env
+  profilesPath?: string; // for type=openclaw
+  filePath?: string; // for type=file
+  service?: string; // for type=keychain
+  account?: string; // for type=keychain
 };
 
 export type PiiConfig = {
   enabled: boolean;
-  mode?: "strict" | "standard";       // strict = fail-closed, standard = log + pass
-  exclude?: string[];                 // categories to skip (e.g. ["postcode", "phone"])
-  scrub_system?: boolean;             // opt-in: scrub system/developer messages (default: false)
-  debug_log_scrubbed?: boolean;       // TEMPORARY — logs scrubbed payload for verification
+  mode?: "strict" | "standard"; // strict = fail-closed, standard = log + pass
+  exclude?: string[]; // categories to skip (e.g. ["postcode", "phone"])
+  scrub_system?: boolean; // opt-in: scrub system/developer messages (default: false)
+  debug_log_scrubbed?: boolean; // TEMPORARY — logs scrubbed payload for verification
 };
 
 export type CompressConfig = {
   enabled: boolean;
-  passes?: string[];                   // subset of: ansi, whitespace, json, dedup, comments, verbose
-  compress_system?: boolean;           // opt-in: compress system messages (default: false)
+  passes?: string[]; // subset of: ansi, whitespace, json, dedup, comments, verbose
+  compress_system?: boolean; // opt-in: compress system messages (default: false)
 };
 
 export type ProviderConfigEntry = {
@@ -43,11 +43,11 @@ export type ProviderConfigEntry = {
   api: "anthropic" | "openai";
   headers?: Record<string, string>;
   auth?: AuthConfig;
-  pii?: boolean | PiiConfig;          // PII scrubbing — default: false (no overhead)
+  pii?: boolean | PiiConfig; // PII scrubbing — default: false (no overhead)
   compress?: boolean | CompressConfig; // CtxPack compression — default: false (no overhead)
-  timeout_ms?: number;                 // per-provider timeout override
-  models?: string[];                   // hint: models this provider supports (for /v1/models)
-  disabled?: boolean;                  // soft-disable without deleting config
+  timeout_ms?: number; // per-provider timeout override
+  models?: string[]; // hint: models this provider supports (for /v1/models)
+  disabled?: boolean; // soft-disable without deleting config
 };
 
 export type TierMapping = {
@@ -74,10 +74,10 @@ export type MLClassifierConfig = {
 
 export type CacheGlobalConfig = {
   enabled: boolean;
-  ttl_seconds?: number;          // default: 300 (5 min)
-  max_entries?: number;          // default: 5000
-  exclude_streaming?: boolean;   // default: true
-  exclude_tools?: boolean;       // default: true
+  ttl_seconds?: number; // default: 300 (5 min)
+  max_entries?: number; // default: 5000
+  exclude_streaming?: boolean; // default: true
+  exclude_tools?: boolean; // default: true
 };
 
 export type FreeRouterConfig = {
@@ -88,7 +88,7 @@ export type FreeRouterConfig = {
   agenticTiers?: Record<string, TierMapping>;
   categories?: Record<string, CategoryMapping>;
   mlClassifier?: MLClassifierConfig;
-  cache?: CacheGlobalConfig;     // Response cache — default: disabled
+  cache?: CacheGlobalConfig; // Response cache — default: disabled
   modeOverrides?: Record<string, string>; // v2: mode → category mapping
   tierBoundaries?: {
     simpleMedium: number;
@@ -120,15 +120,15 @@ const DEFAULT_CONFIG: FreeRouterConfig = {
     },
   },
   tiers: {
-    SIMPLE:    { primary: "kimi-coding/kimi-for-coding", fallback: ["anthropic/claude-haiku-4-5"] },
-    MEDIUM:    { primary: "anthropic/claude-sonnet-4-5", fallback: ["anthropic/claude-opus-4-6"] },
-    COMPLEX:   { primary: "anthropic/claude-opus-4-6", fallback: ["anthropic/claude-haiku-4-5"] },
+    SIMPLE: { primary: "kimi-coding/kimi-for-coding", fallback: ["anthropic/claude-haiku-4-5"] },
+    MEDIUM: { primary: "anthropic/claude-sonnet-4-5", fallback: ["anthropic/claude-opus-4-6"] },
+    COMPLEX: { primary: "anthropic/claude-opus-4-6", fallback: ["anthropic/claude-haiku-4-5"] },
     REASONING: { primary: "anthropic/claude-opus-4-6", fallback: ["anthropic/claude-haiku-4-5"] },
   },
   agenticTiers: {
-    SIMPLE:    { primary: "kimi-coding/kimi-for-coding", fallback: ["anthropic/claude-haiku-4-5"] },
-    MEDIUM:    { primary: "anthropic/claude-sonnet-4-5", fallback: ["anthropic/claude-opus-4-6"] },
-    COMPLEX:   { primary: "anthropic/claude-opus-4-6", fallback: ["anthropic/claude-haiku-4-5"] },
+    SIMPLE: { primary: "kimi-coding/kimi-for-coding", fallback: ["anthropic/claude-haiku-4-5"] },
+    MEDIUM: { primary: "anthropic/claude-sonnet-4-5", fallback: ["anthropic/claude-opus-4-6"] },
+    COMPLEX: { primary: "anthropic/claude-opus-4-6", fallback: ["anthropic/claude-haiku-4-5"] },
     REASONING: { primary: "anthropic/claude-opus-4-6", fallback: ["anthropic/claude-haiku-4-5"] },
   },
   thinking: {
@@ -171,12 +171,22 @@ function resolveEnvVars(value: string): string {
 /**
  * Deep-merge source into target (source wins). Arrays are replaced, not merged.
  */
-function deepMerge(target: Record<string, unknown>, source: Record<string, unknown>): Record<string, unknown> {
+function deepMerge(
+  target: Record<string, unknown>,
+  source: Record<string, unknown>,
+): Record<string, unknown> {
   const result = { ...target };
   for (const key of Object.keys(source)) {
     const sv = source[key];
     const tv = target[key];
-    if (sv && typeof sv === "object" && !Array.isArray(sv) && tv && typeof tv === "object" && !Array.isArray(tv)) {
+    if (
+      sv &&
+      typeof sv === "object" &&
+      !Array.isArray(sv) &&
+      tv &&
+      typeof tv === "object" &&
+      !Array.isArray(tv)
+    ) {
       result[key] = deepMerge(tv as Record<string, unknown>, sv as Record<string, unknown>);
     } else {
       result[key] = sv;
@@ -226,7 +236,10 @@ export function loadConfig(): FreeRouterConfig {
     const fileConfig = JSON.parse(raw) as Partial<FreeRouterConfig>;
 
     // Deep-merge file config over defaults
-    _config = deepMerge(DEFAULT_CONFIG as unknown as Record<string, unknown>, fileConfig as unknown as Record<string, unknown>) as unknown as FreeRouterConfig;
+    _config = deepMerge(
+      DEFAULT_CONFIG as unknown as Record<string, unknown>,
+      fileConfig as unknown as Record<string, unknown>,
+    ) as unknown as FreeRouterConfig;
     _configPath = configPath;
 
     logger.info(`Loaded config from ${configPath}`);
@@ -296,7 +309,9 @@ export function getSanitizedConfig(): Record<string, unknown> {
 /**
  * Convert config api type to internal provider api type.
  */
-export function toInternalApiType(api: "anthropic" | "openai"): "anthropic-messages" | "openai-completions" {
+export function toInternalApiType(
+  api: "anthropic" | "openai",
+): "anthropic-messages" | "openai-completions" {
   return api === "anthropic" ? "anthropic-messages" : "openai-completions";
 }
 
@@ -306,7 +321,7 @@ export function toInternalApiType(api: "anthropic" | "openai"): "anthropic-messa
 export function supportsAdaptiveThinking(modelId: string): boolean {
   const cfg = getConfig();
   const patterns = cfg.thinking?.adaptive ?? ["claude-opus-4-6", "claude-opus-4.6"];
-  return patterns.some(p => modelId.includes(p));
+  return patterns.some((p) => modelId.includes(p));
 }
 
 /**
@@ -316,7 +331,7 @@ export function getThinkingBudget(modelId: string): number | null {
   const cfg = getConfig();
   const enabled = cfg.thinking?.enabled;
   if (!enabled) return null;
-  if (enabled.models.some(m => modelId.includes(m))) {
+  if (enabled.models.some((m) => modelId.includes(m))) {
     return enabled.budget;
   }
   return null;

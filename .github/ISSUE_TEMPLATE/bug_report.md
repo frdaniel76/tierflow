@@ -8,6 +8,7 @@ labels: bug
 A clear description of what happened.
 
 **To Reproduce**
+
 1. Step one
 2. Step two
 
@@ -15,6 +16,7 @@ A clear description of what happened.
 What should have happened.
 
 **Environment**
+
 - TierFlow version: (`npx tierflow --version`)
 - Node.js version: (`node --version`)
 - OS:

@@ -35,12 +35,14 @@ docker compose up -d
 ## Configuration
 
 Generate a config template:
+
 ```powershell
 npx tierflow --init
 # Creates: %USERPROFILE%\.config\tierflow\config.json
 ```
 
 Set API keys:
+
 ```powershell
 $env:ANTHROPIC_API_KEY = "sk-ant-..."
 $env:OPENROUTER_API_KEY = "sk-or-..."

@@ -74,9 +74,9 @@ TierFlow falls back to the 14-dimension keyword scorer when the ML classifier is
 
 ## Image Sizes
 
-| Image | Size | Why |
-|-------|------|-----|
-| tierflow | ~180MB | Node.js slim + built JS |
+| Image              | Size   | Why                                                  |
+| ------------------ | ------ | ---------------------------------------------------- |
+| tierflow           | ~180MB | Node.js slim + built JS                              |
 | tierflow-llmrouter | ~600MB | Python + sentence-transformers model (80MB) baked in |
 
 The ML model is baked into the image to avoid downloading at runtime.

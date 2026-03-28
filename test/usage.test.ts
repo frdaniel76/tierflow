@@ -24,7 +24,8 @@ async function test(name: string, fn: () => void | Promise<void>) {
 }
 
 function assertEqual<T>(actual: T, expected: T, msg?: string) {
-  if (actual !== expected) throw new Error(msg || `Expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+  if (actual !== expected)
+    throw new Error(msg || `Expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
 }
 
 function assert(condition: boolean, msg: string) {
@@ -62,7 +63,10 @@ async function allTimeTests() {
     assertEqual(s.allTime.promptTokens, 130);
     assertEqual(s.allTime.completionTokens, 65);
     assertEqual(s.allTime.requests, 3);
-    assert(Math.abs(s.allTime.cost - 0.013) < 0.0001, `Expected cost ~0.013, got ${s.allTime.cost}`);
+    assert(
+      Math.abs(s.allTime.cost - 0.013) < 0.0001,
+      `Expected cost ~0.013, got ${s.allTime.cost}`,
+    );
   });
 
   await test("skips zero-usage records", () => {
@@ -113,10 +117,10 @@ async function byModelTests() {
   await test("tracks cost per model", () => {
     resetUsage();
     recordUsage("model-a", "SIMPLE", { total_tokens: 100, cost: 0.005 });
-    recordUsage("model-b", "COMPLEX", { total_tokens: 200, cost: 0.050 });
+    recordUsage("model-b", "COMPLEX", { total_tokens: 200, cost: 0.05 });
     const s = getUsageStats();
     assert(Math.abs(s.byModel["model-a"].cost - 0.005) < 0.0001, "model-a cost");
-    assert(Math.abs(s.byModel["model-b"].cost - 0.050) < 0.0001, "model-b cost");
+    assert(Math.abs(s.byModel["model-b"].cost - 0.05) < 0.0001, "model-b cost");
   });
 }
 

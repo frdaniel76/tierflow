@@ -12,7 +12,13 @@
  *   npx tsx test/pii-gaps.test.ts
  */
 
-import { scrubMessages, rehydrateText, rehydrateChunk, destroySession, piiVaultStore } from "../src/pii/index.js";
+import {
+  scrubMessages,
+  rehydrateText,
+  rehydrateChunk,
+  destroySession,
+  piiVaultStore,
+} from "../src/pii/index.js";
 import { SecretVault } from "../src/pii/vault.js";
 import { VaultStore } from "../src/pii/vault-store.js";
 import { isPiiScrubSystem, type ProviderConfigEntry } from "../src/config.js";
@@ -39,15 +45,18 @@ function assert(condition: boolean, msg: string) {
 }
 
 function assertEqual<T>(actual: T, expected: T, msg?: string) {
-  if (actual !== expected) throw new Error(msg || `Expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+  if (actual !== expected)
+    throw new Error(msg || `Expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
 }
 
 function assertIncludes(haystack: string, needle: string, msg?: string) {
-  if (!haystack.includes(needle)) throw new Error(msg || `Expected "${haystack}" to include "${needle}"`);
+  if (!haystack.includes(needle))
+    throw new Error(msg || `Expected "${haystack}" to include "${needle}"`);
 }
 
 function assertNotIncludes(haystack: string, needle: string, msg?: string) {
-  if (haystack.includes(needle)) throw new Error(msg || `Expected "${haystack}" NOT to include "${needle}"`);
+  if (haystack.includes(needle))
+    throw new Error(msg || `Expected "${haystack}" NOT to include "${needle}"`);
 }
 
 function assertMatch(text: string, regex: RegExp, msg?: string) {
@@ -177,18 +186,25 @@ async function streamingToolCallCarryTests() {
 
   await test("tool call arg: email placeholder split mid-way", () => {
     const scrubbed = scrubMessages([{ role: "user", content: "Email john@acme.com" }]);
-    const placeholder = (scrubbed.messages[0].content as string).match(/p0[0-9a-f]{12}@maildomain\.com/)![0];
+    const placeholder = (scrubbed.messages[0].content as string).match(
+      /p0[0-9a-f]{12}@maildomain\.com/,
+    )![0];
     const argStr = `{"to":"${placeholder}"}`;
 
     const splitIdx = argStr.indexOf("p0") + 5;
-    const result = feedToolArgChunks([argStr.slice(0, splitIdx), argStr.slice(splitIdx)], scrubbed.sessionId);
+    const result = feedToolArgChunks(
+      [argStr.slice(0, splitIdx), argStr.slice(splitIdx)],
+      scrubbed.sessionId,
+    );
     assertIncludes(result, "john@acme.com");
     destroySession(scrubbed.sessionId);
   });
 
   await test("tool call arg: single character chunking (extreme fragmentation)", () => {
     const scrubbed = scrubMessages([{ role: "user", content: "Email john@acme.com" }]);
-    const placeholder = (scrubbed.messages[0].content as string).match(/p0[0-9a-f]{12}@maildomain\.com/)![0];
+    const placeholder = (scrubbed.messages[0].content as string).match(
+      /p0[0-9a-f]{12}@maildomain\.com/,
+    )![0];
     const argStr = `{"to":"${placeholder}"}`;
 
     const chunks = argStr.split("");
@@ -206,7 +222,9 @@ async function streamingToolCallCarryTests() {
 
   await test("tool call arg: fuzz — 200 iterations, random 2-chunk split", () => {
     const scrubbed = scrubMessages([{ role: "user", content: "Email john@acme.com" }]);
-    const placeholder = (scrubbed.messages[0].content as string).match(/p0[0-9a-f]{12}@maildomain\.com/)![0];
+    const placeholder = (scrubbed.messages[0].content as string).match(
+      /p0[0-9a-f]{12}@maildomain\.com/,
+    )![0];
     const argStr = `{"to":"${placeholder}","msg":"hello"}`;
 
     for (let i = 0; i < 200; i++) {
@@ -253,9 +271,7 @@ async function toolResultArrayContentTests() {
     const messages: ChatMessage[] = [
       {
         role: "user",
-        content: [
-          { type: "tool_result" as any, content: "Email: john@acme.com" } as any,
-        ],
+        content: [{ type: "tool_result" as any, content: "Email: john@acme.com" } as any],
       },
     ];
     const result = scrubMessages(messages);
@@ -283,7 +299,10 @@ async function systemMessageScrubTests() {
 
   await test("scrubSystem=true: scrubs system message string content", () => {
     const messages: ChatMessage[] = [
-      { role: "system", content: "Admin email: admin@internal.com, key: sk-ant-abcdefghijklmnopqrstuvwxyz" },
+      {
+        role: "system",
+        content: "Admin email: admin@internal.com, key: sk-ant-abcdefghijklmnopqrstuvwxyz",
+      },
       { role: "user", content: "Hello" },
     ];
     const result = scrubMessages(messages, undefined, true);
@@ -334,8 +353,15 @@ async function dedupConsistencyTests() {
     const messages: ChatMessage[] = [
       { role: "user", content: `Search ${email}` },
       {
-        role: "assistant", content: null,
-        tool_calls: [{ id: "call_1", type: "function", function: { name: "search", arguments: `{"q":"${email}"}` } }],
+        role: "assistant",
+        content: null,
+        tool_calls: [
+          {
+            id: "call_1",
+            type: "function",
+            function: { name: "search", arguments: `{"q":"${email}"}` },
+          },
+        ],
       },
       { role: "tool" as any, content: `Found: ${email}`, tool_call_id: "call_1" },
       { role: "user", content: `Now email ${email}` },
@@ -345,7 +371,7 @@ async function dedupConsistencyTests() {
     // Extract all p0 IDs for email placeholders
     const allText = JSON.stringify(result.messages);
     const idMatches = [...allText.matchAll(/p0([0-9a-f]{12})/g)];
-    const uniqueIds = new Set(idMatches.map(m => m[1]));
+    const uniqueIds = new Set(idMatches.map((m) => m[1]));
 
     // Should have exactly 1 unique ID for the same email
     assertEqual(uniqueIds.size, 1, `Expected 1 unique ID, got ${uniqueIds.size}`);
@@ -457,11 +483,18 @@ async function securityTests() {
     const messages: ChatMessage[] = [
       { role: "user", content: piiValues.join(" | ") },
       {
-        role: "assistant", content: null,
-        tool_calls: [{
-          id: "call_1", type: "function",
-          function: { name: "process", arguments: JSON.stringify({ data: piiValues.join(", ") }) },
-        }],
+        role: "assistant",
+        content: null,
+        tool_calls: [
+          {
+            id: "call_1",
+            type: "function",
+            function: {
+              name: "process",
+              arguments: JSON.stringify({ data: piiValues.join(", ") }),
+            },
+          },
+        ],
       },
       { role: "tool" as any, content: `Result: ${piiValues.join("; ")}`, tool_call_id: "call_1" },
     ];
@@ -479,7 +512,9 @@ async function securityTests() {
     const session1 = scrubMessages([{ role: "user", content: "Email john@acme.com" }]);
     const session2 = scrubMessages([{ role: "user", content: "Email jane@corp.org" }]);
 
-    const ph1 = (session1.messages[0].content as string).match(/p0[0-9a-f]{12}@maildomain\.com/)![0];
+    const ph1 = (session1.messages[0].content as string).match(
+      /p0[0-9a-f]{12}@maildomain\.com/,
+    )![0];
     const result = rehydrateText(`Found ${ph1}`, session2.sessionId);
     assertNotIncludes(result, "john@acme.com");
 
@@ -544,7 +579,9 @@ async function missingRoundtripTests() {
 
   await test("cred (Bearer): redact → rehydrate roundtrip", () => {
     const vault = new SecretVault();
-    const r = vault.redact("Auth: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0");
+    const r = vault.redact(
+      "Auth: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0",
+    );
     assertMatch(r.text, /p0[0-9a-f]{12}-placeholder-token/);
     const rh = vault.rehydrate(r.text);
     assertIncludes(rh.text, "Bearer eyJhbGci");
@@ -593,12 +630,17 @@ async function streamingMultiTypeTests() {
   console.log("\n=== Streaming: Non-Email Types ===\n");
 
   await test("streaming: apikey placeholder split and rehydrated", () => {
-    const scrubbed = scrubMessages([{ role: "user", content: "Key: sk-ant-abcdefghijklmnopqrstuvwxyz" }]);
+    const scrubbed = scrubMessages([
+      { role: "user", content: "Key: sk-ant-abcdefghijklmnopqrstuvwxyz" },
+    ]);
     const content = scrubbed.messages[0].content as string;
     assertMatch(content, /p0[0-9a-f]{12}-placeholder-key/);
     // Split mid-way
     const mid = Math.floor(content.length / 2);
-    const result = feedToolArgChunks([content.slice(0, mid), content.slice(mid)], scrubbed.sessionId);
+    const result = feedToolArgChunks(
+      [content.slice(0, mid), content.slice(mid)],
+      scrubbed.sessionId,
+    );
     assertIncludes(result, "sk-ant-abcdefghijklmnopqrstuvwxyz");
     destroySession(scrubbed.sessionId);
   });
@@ -608,17 +650,25 @@ async function streamingMultiTypeTests() {
     const content = scrubbed.messages[0].content as string;
     assertMatch(content, /p0[0-9a-f]{12}\/pii\/redacted/);
     const mid = Math.floor(content.length / 2);
-    const result = feedToolArgChunks([content.slice(0, mid), content.slice(mid)], scrubbed.sessionId);
+    const result = feedToolArgChunks(
+      [content.slice(0, mid), content.slice(mid)],
+      scrubbed.sessionId,
+    );
     assertIncludes(result, "/Users/testuser/secret.txt");
     destroySession(scrubbed.sessionId);
   });
 
   await test("streaming: conn placeholder split and rehydrated", () => {
-    const scrubbed = scrubMessages([{ role: "user", content: "DB: postgres://admin:s3cret@localhost/mydb" }]);
+    const scrubbed = scrubMessages([
+      { role: "user", content: "DB: postgres://admin:s3cret@localhost/mydb" },
+    ]);
     const content = scrubbed.messages[0].content as string;
     assertMatch(content, /p0[0-9a-f]{12}:\/\/placeholder\/db/);
     const mid = Math.floor(content.length / 2);
-    const result = feedToolArgChunks([content.slice(0, mid), content.slice(mid)], scrubbed.sessionId);
+    const result = feedToolArgChunks(
+      [content.slice(0, mid), content.slice(mid)],
+      scrubbed.sessionId,
+    );
     assertIncludes(result, "postgres://admin:s3cret@localhost/mydb");
     destroySession(scrubbed.sessionId);
   });
@@ -628,7 +678,10 @@ async function streamingMultiTypeTests() {
     const content = scrubbed.messages[0].content as string;
     assertMatch(content, /p0[0-9a-f]{12}-password/);
     const mid = Math.floor(content.length / 2);
-    const result = feedToolArgChunks([content.slice(0, mid), content.slice(mid)], scrubbed.sessionId);
+    const result = feedToolArgChunks(
+      [content.slice(0, mid), content.slice(mid)],
+      scrubbed.sessionId,
+    );
     assertIncludes(result, "password=hunter2secret");
     destroySession(scrubbed.sessionId);
   });

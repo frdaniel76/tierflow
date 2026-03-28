@@ -9,8 +9,19 @@
  */
 
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import { scrubMessages, rehydrateText, rehydrateChunk, destroySession, piiVaultStore } from "../src/pii/index.js";
-import { isPiiEnabled, getPiiExclude, getPiiMode, type ProviderConfigEntry } from "../src/config.js";
+import {
+  scrubMessages,
+  rehydrateText,
+  rehydrateChunk,
+  destroySession,
+  piiVaultStore,
+} from "../src/pii/index.js";
+import {
+  isPiiEnabled,
+  getPiiExclude,
+  getPiiMode,
+  type ProviderConfigEntry,
+} from "../src/config.js";
 import type { ChatMessage } from "../src/provider.js";
 
 let passed = 0;
@@ -34,15 +45,18 @@ function assert(condition: boolean, msg: string) {
 }
 
 function assertEqual<T>(actual: T, expected: T, msg?: string) {
-  if (actual !== expected) throw new Error(msg || `Expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+  if (actual !== expected)
+    throw new Error(msg || `Expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
 }
 
 function assertIncludes(haystack: string, needle: string, msg?: string) {
-  if (!haystack.includes(needle)) throw new Error(msg || `Expected to include "${needle}" in "${haystack}"`);
+  if (!haystack.includes(needle))
+    throw new Error(msg || `Expected to include "${needle}" in "${haystack}"`);
 }
 
 function assertNotIncludes(haystack: string, needle: string, msg?: string) {
-  if (haystack.includes(needle)) throw new Error(msg || `Expected NOT to include "${needle}" in "${haystack}"`);
+  if (haystack.includes(needle))
+    throw new Error(msg || `Expected NOT to include "${needle}" in "${haystack}"`);
 }
 
 function assertMatch(text: string, regex: RegExp, msg?: string) {
@@ -51,7 +65,9 @@ function assertMatch(text: string, regex: RegExp, msg?: string) {
 
 // ─── Mock Server Helpers ───
 
-function createMockServer(handler: (req: IncomingMessage, res: ServerResponse) => void): Promise<{ port: number; close: () => Promise<void> }> {
+function createMockServer(
+  handler: (req: IncomingMessage, res: ServerResponse) => void,
+): Promise<{ port: number; close: () => Promise<void> }> {
   return new Promise((resolve) => {
     const server = createServer(handler);
     server.listen(0, "127.0.0.1", () => {
@@ -107,9 +123,7 @@ async function nonStreamingTests() {
   });
 
   await test("no PII in request → forwarded unchanged", () => {
-    const messages: ChatMessage[] = [
-      { role: "user", content: "What is the capital of France?" },
-    ];
+    const messages: ChatMessage[] = [{ role: "user", content: "What is the capital of France?" }];
     const scrubResult = scrubMessages(messages);
     assert(!scrubResult.scrubbed, "Should NOT scrub");
     assertEqual(scrubResult.messages[0].content as string, "What is the capital of France?");
@@ -124,9 +138,7 @@ async function nonStreamingTests() {
   });
 
   await test("fallback: external → local — rehydrate is no-op", () => {
-    const messages: ChatMessage[] = [
-      { role: "user", content: "Email john@acme.com for details" },
-    ];
+    const messages: ChatMessage[] = [{ role: "user", content: "Email john@acme.com for details" }];
     const scrubResult = scrubMessages(messages);
     assert(scrubResult.scrubbed, "Should scrub");
 
@@ -163,9 +175,7 @@ async function streamingTests() {
   });
 
   await test("streaming: split placeholder across SSE chunks", () => {
-    const messages: ChatMessage[] = [
-      { role: "user", content: "Email john@acme.com ok" },
-    ];
+    const messages: ChatMessage[] = [{ role: "user", content: "Email john@acme.com ok" }];
     const scrubResult = scrubMessages(messages);
     const scrubbedContent = scrubResult.messages[0].content as string;
     const placeholder = scrubbedContent.match(/p0[0-9a-f]{12}@maildomain\.com/)![0];
@@ -343,7 +353,11 @@ async function errorTests() {
 
       // Cleanup should still work
       destroySession(result.sessionId);
-      assertEqual(piiVaultStore.get(result.sessionId), undefined, "Session cleaned up despite error");
+      assertEqual(
+        piiVaultStore.get(result.sessionId),
+        undefined,
+        "Session cleaned up despite error",
+      );
     } finally {
       await mock.close();
     }
@@ -388,9 +402,7 @@ async function securityTests() {
         "192.168.1.100",
       ];
 
-      const result = scrubMessages([
-        { role: "user", content: `Data: ${piiData.join(", ")}` },
-      ]);
+      const result = scrubMessages([{ role: "user", content: `Data: ${piiData.join(", ")}` }]);
       assert(result.scrubbed, "Should scrub");
 
       await fetch(`http://127.0.0.1:${mock.port}/chat/completions`, {
@@ -414,8 +426,15 @@ async function securityTests() {
     const messages: ChatMessage[] = [
       { role: "user", content: "Email john@acme.com" },
       {
-        role: "assistant", content: "Found john@acme.com",
-        tool_calls: [{ id: "c1", type: "function", function: { name: "f", arguments: '{"e":"john@acme.com"}' } }],
+        role: "assistant",
+        content: "Found john@acme.com",
+        tool_calls: [
+          {
+            id: "c1",
+            type: "function",
+            function: { name: "f", arguments: '{"e":"john@acme.com"}' },
+          },
+        ],
       },
       { role: "tool" as any, content: "Result: john@acme.com", tool_call_id: "c1" },
     ];
@@ -459,9 +478,11 @@ async function mockServerTests() {
         return;
       }
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({
-        choices: [{ message: { role: "assistant", content: `Got it: ${content}` } }],
-      }));
+      res.end(
+        JSON.stringify({
+          choices: [{ message: { role: "assistant", content: `Got it: ${content}` } }],
+        }),
+      );
     });
 
     try {
@@ -475,7 +496,7 @@ async function mockServerTests() {
       });
       assertEqual(response.status, 200, "Mock should return 200 (no PII leaked)");
 
-      const data = await response.json() as any;
+      const data = (await response.json()) as any;
       const responseContent = data.choices[0].message.content;
       assertNotIncludes(responseContent, "john@acme.com");
       assertIncludes(responseContent, "@maildomain.com");
@@ -521,7 +542,7 @@ async function mockServerTests() {
       assertEqual(response.status, 200);
 
       const text = await response.text();
-      const lines = text.split("\n").filter(l => l.startsWith("data: "));
+      const lines = text.split("\n").filter((l) => l.startsWith("data: "));
 
       let carry = "";
       let fullOutput = "";
@@ -563,9 +584,7 @@ async function mockServerTests() {
         "postgres://root:hunter2@db.prod:5432/main",
       ];
 
-      const result = scrubMessages([
-        { role: "user", content: piiValues.join(" | ") },
-      ]);
+      const result = scrubMessages([{ role: "user", content: piiValues.join(" | ") }]);
 
       await fetch(`http://127.0.0.1:${mock.port}/chat/completions`, {
         method: "POST",
@@ -613,9 +632,7 @@ async function toolCallsRehydrationTests() {
   });
 
   await test("non-streaming: tool_calls with email in arguments are rehydrated", () => {
-    const messages: ChatMessage[] = [
-      { role: "user", content: "Send email to john@acme.com" },
-    ];
+    const messages: ChatMessage[] = [{ role: "user", content: "Send email to john@acme.com" }];
     const scrubResult = scrubMessages(messages);
     assert(scrubResult.scrubbed, "Should scrub email");
     const scrubbedContent = scrubResult.messages[0].content as string;
@@ -648,9 +665,7 @@ async function toolCallsRehydrationTests() {
   });
 
   await test("streaming: tool_calls arguments rehydrated across chunks", () => {
-    const messages: ChatMessage[] = [
-      { role: "user", content: "Read /Users/testuser/data.json" },
-    ];
+    const messages: ChatMessage[] = [{ role: "user", content: "Read /Users/testuser/data.json" }];
     const scrubResult = scrubMessages(messages);
     assert(scrubResult.scrubbed, "Should scrub");
     const scrubbedContent = scrubResult.messages[0].content as string;
@@ -688,9 +703,7 @@ async function toolCallsRehydrationTests() {
   });
 
   await test("tool_calls with no PII in arguments — no change", () => {
-    const messages: ChatMessage[] = [
-      { role: "user", content: "What is 2 + 2?" },
-    ];
+    const messages: ChatMessage[] = [{ role: "user", content: "What is 2 + 2?" }];
     const scrubResult = scrubMessages(messages);
     assert(!scrubResult.scrubbed, "Should NOT scrub");
 

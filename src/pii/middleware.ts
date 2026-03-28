@@ -32,8 +32,8 @@ function getTextContent(content: ChatMessage["content"]): string {
   if (typeof content === "string") return content;
   if (content === null || content === undefined) return "";
   return content
-    .filter(b => b.type === "text")
-    .map(b => b.text ?? "")
+    .filter((b) => b.type === "text")
+    .map((b) => b.text ?? "")
     .join("\n");
 }
 
@@ -66,7 +66,8 @@ export function scrubMessages(
 
   // M-1: PII-like check for system messages (warn-only, no scrub)
   // Covers: emails, SSNs, phones, API keys, connection strings, Bearer tokens, PEM blocks
-  const piiHintRe = /[\w.+'-]+@[\w-]+\.[\w.]{2,}|\b\d{3}[- ]\d{2}[- ]\d{4}\b|\+\d{1,3}[\s.-]?\d|sk-ant-[A-Za-z0-9_-]{20,}|sk-[A-Za-z0-9_-]{20,}|ghp_[A-Za-z0-9]{20,}|(?:postgres|mysql|mongodb|redis):\/\/|Bearer\s+[A-Za-z0-9._~+\/=-]{20,}|-----BEGIN [A-Z ]+-----/;
+  const piiHintRe =
+    /[\w.+'-]+@[\w-]+\.[\w.]{2,}|\b\d{3}[- ]\d{2}[- ]\d{4}\b|\+\d{1,3}[\s.-]?\d|sk-ant-[A-Za-z0-9_-]{20,}|sk-[A-Za-z0-9_-]{20,}|ghp_[A-Za-z0-9]{20,}|(?:postgres|mysql|mongodb|redis):\/\/|Bearer\s+[A-Za-z0-9._~+\/=-]{20,}|-----BEGIN [A-Z ]+-----/;
 
   for (const msg of messages) {
     // System/developer messages: scrub if opt-in, otherwise warn-only
@@ -79,7 +80,7 @@ export function scrubMessages(
           if (result.count > 0) {
             clone.content = result.text;
             totalScrubbed = true;
-            result.categories.forEach(c => allCategories.add(c));
+            result.categories.forEach((c) => allCategories.add(c));
             logger.info(`[PII] Scrubbed ${result.count} items from ${msg.role} message`);
           }
         } else if (Array.isArray(clone.content)) {
@@ -89,8 +90,10 @@ export function scrubMessages(
               if (result.count > 0) {
                 block.text = result.text;
                 totalScrubbed = true;
-                result.categories.forEach(c => allCategories.add(c));
-                logger.info(`[PII] Scrubbed ${result.count} items from ${msg.role} message (array)`);
+                result.categories.forEach((c) => allCategories.add(c));
+                logger.info(
+                  `[PII] Scrubbed ${result.count} items from ${msg.role} message (array)`,
+                );
               }
             }
           }
@@ -99,7 +102,9 @@ export function scrubMessages(
       } else {
         const text = typeof msg.content === "string" ? msg.content : "";
         if (text && piiHintRe.test(text)) {
-          logger.warn(`[PII] WARNING: system/developer message may contain PII — not scrubbed (enable scrub_system to scrub)`);
+          logger.warn(
+            `[PII] WARNING: system/developer message may contain PII — not scrubbed (enable scrub_system to scrub)`,
+          );
         }
         scrubbedMessages.push(msg); // pass through unmodified
       }
@@ -114,7 +119,7 @@ export function scrubMessages(
       if (result.count > 0) {
         clone.content = result.text;
         totalScrubbed = true;
-        result.categories.forEach(c => allCategories.add(c));
+        result.categories.forEach((c) => allCategories.add(c));
       }
     } else if (Array.isArray(clone.content)) {
       for (const block of clone.content) {
@@ -123,7 +128,7 @@ export function scrubMessages(
           if (result.count > 0) {
             block.text = result.text;
             totalScrubbed = true;
-            result.categories.forEach(c => allCategories.add(c));
+            result.categories.forEach((c) => allCategories.add(c));
           }
         } else if (block.type === "tool_result" && (block as any).content) {
           // C-4 fix: scrub Anthropic tool_result content blocks (string or array)
@@ -133,7 +138,7 @@ export function scrubMessages(
             if (result.count > 0) {
               (block as any).content = result.text;
               totalScrubbed = true;
-              result.categories.forEach(c => allCategories.add(c));
+              result.categories.forEach((c) => allCategories.add(c));
             }
           } else if (Array.isArray(trContent)) {
             // Handle nested array content in tool_result (e.g. [{type:"text",text:"..."}])
@@ -143,7 +148,7 @@ export function scrubMessages(
                 if (result.count > 0) {
                   nested.text = result.text;
                   totalScrubbed = true;
-                  result.categories.forEach(c => allCategories.add(c));
+                  result.categories.forEach((c) => allCategories.add(c));
                 }
               }
             }
@@ -161,7 +166,7 @@ export function scrubMessages(
           if (result.count > 0) {
             tc.function.arguments = result.text;
             totalScrubbed = true;
-            result.categories.forEach(c => allCategories.add(c));
+            result.categories.forEach((c) => allCategories.add(c));
           }
         }
       }
@@ -177,7 +182,9 @@ export function scrubMessages(
 
   const categories = [...allCategories];
   if (totalScrubbed) {
-    logger.info(`[PII] Scrubbed ${vault.size} items (${categories.join(", ")}) for session ${sessionId.slice(0, 8)}`);
+    logger.info(
+      `[PII] Scrubbed ${vault.size} items (${categories.join(", ")}) for session ${sessionId.slice(0, 8)}`,
+    );
   }
 
   return {
@@ -193,10 +200,7 @@ export function scrubMessages(
 /**
  * Rehydrate a complete (non-streaming) response string.
  */
-export function rehydrateText(
-  text: string,
-  sessionId: string,
-): string {
+export function rehydrateText(text: string, sessionId: string): string {
   const vault = piiVaultStore.get(sessionId);
   if (!vault) {
     logger.warn(`[PII] WARNING: Rehydrate failed — session ${sessionId.slice(0, 8)} not found`);
@@ -307,18 +311,18 @@ function isPartialSuffix(s: string): boolean {
   if (s.length === 0) return true;
 
   const completeSuffixes = [
-    "@maildomain.com",      // email
-    "-placeholder-token",   // cred
-    "-placeholder-key",     // apikey
-    "://placeholder/db",    // conn
-    "-0000-card",           // cc
-    "/pii/redacted",        // path
-    "-postcode",            // post
-    "-PII-KEY",             // pem
-    "-phone",               // phone
-    "-nino",                // nino
-    ".0.0.1",               // ip
-    "-ssn",                 // ssn
+    "@maildomain.com", // email
+    "-placeholder-token", // cred
+    "-placeholder-key", // apikey
+    "://placeholder/db", // conn
+    "-0000-card", // cc
+    "/pii/redacted", // path
+    "-postcode", // post
+    "-PII-KEY", // pem
+    "-phone", // phone
+    "-nino", // nino
+    ".0.0.1", // ip
+    "-ssn", // ssn
   ];
   // secret: -keyword (variable suffix, matched by p0{hex}-\w+ regex)
 

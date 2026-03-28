@@ -4,11 +4,7 @@
 
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
-import {
-  getQualityMatrix,
-  getPresets,
-  getQualityTiersResponse,
-} from "../../src/quality.js";
+import { getQualityMatrix, getPresets, getQualityTiersResponse } from "../../src/quality.js";
 
 describe("getQualityMatrix", () => {
   test("returns 8 categories", () => {

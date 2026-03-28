@@ -10,18 +10,18 @@ import { createHash } from "node:crypto";
 // ─── Types ───
 
 export interface CacheEntry {
-  response: string;      // full JSON response body
-  model: string;         // model that generated the response
-  createdAt: number;     // Date.now() when stored
-  hits: number;          // times this entry was served
+  response: string; // full JSON response body
+  model: string; // model that generated the response
+  createdAt: number; // Date.now() when stored
+  hits: number; // times this entry was served
 }
 
 export interface CacheConfig {
   enabled: boolean;
-  ttl_seconds?: number;          // default: 300 (5 min)
-  max_entries?: number;          // default: 5000
-  exclude_streaming?: boolean;   // default: true
-  exclude_tools?: boolean;       // default: true (tool calls are context-dependent)
+  ttl_seconds?: number; // default: 300 (5 min)
+  max_entries?: number; // default: 5000
+  exclude_streaming?: boolean; // default: true
+  exclude_tools?: boolean; // default: true (tool calls are context-dependent)
 }
 
 export interface CacheStats {
@@ -57,11 +57,12 @@ export function buildCacheKey(
   const parts: string[] = [model];
 
   for (const msg of messages) {
-    const content = typeof msg.content === "string"
-      ? normalizePrompt(msg.content)
-      : msg.content === null
-        ? ""
-        : JSON.stringify(msg.content);
+    const content =
+      typeof msg.content === "string"
+        ? normalizePrompt(msg.content)
+        : msg.content === null
+          ? ""
+          : JSON.stringify(msg.content);
     parts.push(`${msg.role}:${content}`);
   }
 

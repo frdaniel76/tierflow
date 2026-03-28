@@ -5,7 +5,7 @@
  */
 
 export interface HourlyBucket {
-  hour: string;     // ISO hour: "2026-03-22T14:00:00Z"
+  hour: string; // ISO hour: "2026-03-22T14:00:00Z"
   tokens: number;
   cost: number;
   baselineCost: number;
@@ -35,7 +35,14 @@ export interface TokenUsageStats {
 }
 
 const usage: TokenUsageStats = {
-  allTime: { promptTokens: 0, completionTokens: 0, totalTokens: 0, cost: 0, baselineCost: 0, requests: 0 },
+  allTime: {
+    promptTokens: 0,
+    completionTokens: 0,
+    totalTokens: 0,
+    cost: 0,
+    baselineCost: 0,
+    requests: 0,
+  },
   byModel: {},
   byTier: {},
   byCategory: {},
@@ -59,7 +66,7 @@ export function recordUsage(
 ): void {
   const prompt = data.prompt_tokens ?? 0;
   const completion = data.completion_tokens ?? 0;
-  const total = data.total_tokens ?? (prompt + completion);
+  const total = data.total_tokens ?? prompt + completion;
   const cost = data.cost ?? 0;
   const baselineCost = data.baselineCost ?? 0;
 
@@ -105,7 +112,7 @@ export function recordUsage(
   // Hourly bucket
   const now = new Date();
   const hourKey = now.toISOString().slice(0, 13) + ":00:00Z";
-  let bucket = usage.hourly.find(b => b.hour === hourKey);
+  let bucket = usage.hourly.find((b) => b.hour === hourKey);
   if (!bucket) {
     bucket = { hour: hourKey, tokens: 0, cost: 0, baselineCost: 0, requests: 0 };
     usage.hourly.push(bucket);
@@ -116,8 +123,9 @@ export function recordUsage(
   bucket.requests++;
 
   // Prune >24h
-  const cutoff = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString().slice(0, 13) + ":00:00Z";
-  usage.hourly = usage.hourly.filter(b => b.hour >= cutoff);
+  const cutoff =
+    new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString().slice(0, 13) + ":00:00Z";
+  usage.hourly = usage.hourly.filter((b) => b.hour >= cutoff);
 }
 
 /**
@@ -131,7 +139,14 @@ export function getUsageStats(): TokenUsageStats {
  * Reset usage stats (for testing).
  */
 export function resetUsage(): void {
-  usage.allTime = { promptTokens: 0, completionTokens: 0, totalTokens: 0, cost: 0, baselineCost: 0, requests: 0 };
+  usage.allTime = {
+    promptTokens: 0,
+    completionTokens: 0,
+    totalTokens: 0,
+    cost: 0,
+    baselineCost: 0,
+    requests: 0,
+  };
   usage.byModel = {};
   usage.byTier = {};
   usage.byCategory = {};

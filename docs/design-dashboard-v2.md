@@ -24,7 +24,7 @@ Enhance the TierFlow dashboard with three new sections: cost & savings tracking,
 export interface UsageByKey {
   tokens: number;
   cost: number;
-  baselineCost: number;   // what Opus would have cost
+  baselineCost: number; // what Opus would have cost
   requests: number;
 }
 
@@ -33,7 +33,7 @@ export interface HourlyBucket {
   hour: string;
   tokens: number;
   cost: number;
-  baselineCost: number;   // ADD
+  baselineCost: number; // ADD
   requests: number;
 }
 
@@ -43,9 +43,9 @@ allTime: {
   completionTokens: number;
   totalTokens: number;
   cost: number;
-  baselineCost: number;   // ADD
+  baselineCost: number; // ADD
   requests: number;
-};
+}
 
 // Extend recordUsage signature
 export function recordUsage(
@@ -56,20 +56,20 @@ export function recordUsage(
     completion_tokens?: number;
     total_tokens?: number;
     cost?: number;
-    baselineCost?: number;   // ADD
+    baselineCost?: number; // ADD
   },
   category?: string,
-): void
+): void;
 ```
 
 ### provider.ts — Compute baseline at each recordUsage call site
 
 ```typescript
-const OPUS_INPUT_PRICE  = 15 / 1_000_000;  // $15/M
-const OPUS_OUTPUT_PRICE = 75 / 1_000_000;  // $75/M
+const OPUS_INPUT_PRICE = 15 / 1_000_000; // $15/M
+const OPUS_OUTPUT_PRICE = 75 / 1_000_000; // $75/M
 
 // At each recordUsage call (3 sites):
-const baselineCost = (promptTokens * OPUS_INPUT_PRICE) + (completionTokens * OPUS_OUTPUT_PRICE);
+const baselineCost = promptTokens * OPUS_INPUT_PRICE + completionTokens * OPUS_OUTPUT_PRICE;
 recordUsage(model, tier, { prompt_tokens, completion_tokens, baselineCost }, category);
 ```
 
@@ -115,6 +115,7 @@ recordUsage(model, tier, { prompt_tokens, completion_tokens, baselineCost }, cat
 **Data source:** `GET /config` → `{ configPath, config }` (fetched once on load, not on poll)
 
 **Tabbed interface:**
+
 - **Providers tab:** Cards per provider showing baseUrl, API type, PII/compress status, enabled/disabled
 - **Routing tab:** Category → Model mapping table + Tier → Model table (with fallbacks)
 - **Features tab:** Grid of enabled/disabled features (Cache, ML Classifier, PII, Compression, Agentic Tiers)
@@ -126,6 +127,7 @@ recordUsage(model, tier, { prompt_tokens, completion_tokens, baselineCost }, cat
 ## E. Config Editor (Phase 2 — Design Only)
 
 Not implemented yet. Would require:
+
 - New `POST /config` endpoint accepting partial config patch
 - Dashboard form with dropdowns for category → model
 - Checkboxes for cache/PII/compress
@@ -136,13 +138,13 @@ Not implemented yet. Would require:
 
 ## Implementation Sequence
 
-| Phase | What | Files |
-|-------|------|-------|
-| 1 | Data pipeline — baselineCost tracking | `usage.ts`, `provider.ts` |
-| 2 | Cost & Savings dashboard section | `dashboard.ts` |
-| 3 | Token consumption section | `dashboard.ts` |
-| 4 | Config viewer | `dashboard.ts` |
-| 5 | Test & verify | manual browser test |
+| Phase | What                                  | Files                     |
+| ----- | ------------------------------------- | ------------------------- |
+| 1     | Data pipeline — baselineCost tracking | `usage.ts`, `provider.ts` |
+| 2     | Cost & Savings dashboard section      | `dashboard.ts`            |
+| 3     | Token consumption section             | `dashboard.ts`            |
+| 4     | Config viewer                         | `dashboard.ts`            |
+| 5     | Test & verify                         | manual browser test       |
 
 **All changes are in 3 files:** `usage.ts`, `provider.ts`, `dashboard.ts`.
 

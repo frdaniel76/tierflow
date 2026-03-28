@@ -11,7 +11,13 @@ services:
       - "127.0.0.1:18801:18801"
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:18801/health')"]
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:18801/health')",
+        ]
       interval: 10s
       timeout: 5s
       start_period: 20s
@@ -39,7 +45,13 @@ services:
       - "127.0.0.1:18800:18800"
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://localhost:18800/health').then(r=>r.ok?process.exit(0):process.exit(1)).catch(()=>process.exit(1))"]
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:18800/health').then(r=>r.ok?process.exit(0):process.exit(1)).catch(()=>process.exit(1))",
+        ]
       interval: 10s
       timeout: 5s
       start_period: 10s

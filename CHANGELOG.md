@@ -7,24 +7,27 @@
 Replaced the 15-dimension keyword scorer as primary routing engine with an ML classifier service.
 
 #### Architecture
+
 - LLMRouter microservice (Python FastAPI) on localhost:18801
 - KNN classifier with sentence-transformers embeddings (all-MiniLM-L6-v2, 80MB)
 - 160 curated training examples across 8 categories
 - ~40ms classification latency, graceful fallback to keyword scorer when ML is down
 
 #### 8 Categories (models configurable per deployment)
-| Category | Default Model | Cost |
-|----------|---------------|------|
-| simple_chat | Gemini Flash Lite | ~$0.50/M |
-| general | DeepSeek V3.2 | ~$2.74/M |
-| coding | Qwen3 Coder | Free |
-| reasoning | GPT-oss / DeepSeek R1 | ~$4/M |
-| creative | Step 3.5 Flash | Free |
-| data | Gemini Flash Lite | ~$0.50/M |
-| agentic | DeepSeek V3.2 | ~$2.74/M |
-| transcription | Gemini Flash Lite | ~$0.50/M |
+
+| Category      | Default Model         | Cost     |
+| ------------- | --------------------- | -------- |
+| simple_chat   | Gemini Flash Lite     | ~$0.50/M |
+| general       | DeepSeek V3.2         | ~$2.74/M |
+| coding        | Qwen3 Coder           | Free     |
+| reasoning     | GPT-oss / DeepSeek R1 | ~$4/M    |
+| creative      | Step 3.5 Flash        | Free     |
+| data          | Gemini Flash Lite     | ~$0.50/M |
+| agentic       | DeepSeek V3.2         | ~$2.74/M |
+| transcription | Gemini Flash Lite     | ~$0.50/M |
 
 #### Community Release Features (v2.0.0)
+
 - **Web dashboard** at `GET /dashboard` — tier distribution, model usage, cache stats, hourly chart, auto-refresh
 - **Docker Compose** — `docker compose up` for router + ML classifier
 - **CLI** — `npx tierflow --init`, `--check`, `--port`, `--version`
@@ -34,17 +37,20 @@ Replaced the 15-dimension keyword scorer as primary routing engine with an ML cl
 - **npm package** — `bin` entry, publishable to npm
 
 #### CtxPack Compression
+
 - 6 algorithmic passes: ANSI strip, whitespace collapse, JSON compact, line dedup, comment strip, stack trace trim
 - Per-provider opt-in (`"compress": true`)
 - 30-70% token savings on typical messages
 
 #### Response Cache
+
 - LRU with TTL (default 300s, max 5000 entries)
 - SHA-256 exact-match keying
 - `X-Cache: HIT/MISS` headers
 - Excludes streaming and tool calls by default
 
 #### Key Improvements
+
 - "Tell me a joke" → simple_chat (was REASONING due to keyword matching)
 - Voice messages → transcription (was REASONING due to session context bleed)
 - Code queries → specialized coding model (free, better quality)
@@ -60,21 +66,22 @@ Replaced the 15-dimension keyword scorer as primary routing engine with an ML cl
 Placeholders now look like the original data type — LLMs understand what the data IS and echo it correctly in tool calls.
 
 #### Placeholder Templates (actual from `src/pii/vault.ts`)
-| Category | Template | Example |
-|----------|----------|---------|
-| email | `p0{hex}@maildomain.com` | `p0a1b2c3d4e5f6@maildomain.com` |
-| apikey | `p0{hex}-placeholder-key` | `p0a1b2c3d4e5f6-placeholder-key` |
-| conn | `p0{hex}://placeholder/db` | `p0a1b2c3d4e5f6://placeholder/db` |
-| cred | `p0{hex}-placeholder-token` | `p0a1b2c3d4e5f6-placeholder-token` |
-| cc | `p0{hex}-0000-card` | `p0a1b2c3d4e5f6-0000-card` |
-| ssn | `p0{hex}-ssn` | `p0a1b2c3d4e5f6-ssn` |
-| phone | `p0{hex}-phone` | `p0a1b2c3d4e5f6-phone` |
-| ip | `p0{hex}.0.0.1` | `p0a1b2c3d4e5f6.0.0.1` |
-| path | `p0{hex}/pii/redacted` | `p0a1b2c3d4e5f6/pii/redacted` |
-| pem | `p0{hex}-PII-KEY` | `p0a1b2c3d4e5f6-PII-KEY` |
-| nino | `p0{hex}-nino` | `p0a1b2c3d4e5f6-nino` |
-| post | `p0{hex}-postcode` | `p0a1b2c3d4e5f6-postcode` |
-| secret | `p0{hex}-{keyword}` | `p0a1b2c3d4e5f6-password` |
+
+| Category | Template                    | Example                            |
+| -------- | --------------------------- | ---------------------------------- |
+| email    | `p0{hex}@maildomain.com`    | `p0a1b2c3d4e5f6@maildomain.com`    |
+| apikey   | `p0{hex}-placeholder-key`   | `p0a1b2c3d4e5f6-placeholder-key`   |
+| conn     | `p0{hex}://placeholder/db`  | `p0a1b2c3d4e5f6://placeholder/db`  |
+| cred     | `p0{hex}-placeholder-token` | `p0a1b2c3d4e5f6-placeholder-token` |
+| cc       | `p0{hex}-0000-card`         | `p0a1b2c3d4e5f6-0000-card`         |
+| ssn      | `p0{hex}-ssn`               | `p0a1b2c3d4e5f6-ssn`               |
+| phone    | `p0{hex}-phone`             | `p0a1b2c3d4e5f6-phone`             |
+| ip       | `p0{hex}.0.0.1`             | `p0a1b2c3d4e5f6.0.0.1`             |
+| path     | `p0{hex}/pii/redacted`      | `p0a1b2c3d4e5f6/pii/redacted`      |
+| pem      | `p0{hex}-PII-KEY`           | `p0a1b2c3d4e5f6-PII-KEY`           |
+| nino     | `p0{hex}-nino`              | `p0a1b2c3d4e5f6-nino`              |
+| post     | `p0{hex}-postcode`          | `p0a1b2c3d4e5f6-postcode`          |
+| secret   | `p0{hex}-{keyword}`         | `p0a1b2c3d4e5f6-password`          |
 
 - Universal ID marker: `p0[0-9a-f]{12}` — present in every placeholder
 - `secret` category preserves the keyword prefix (password, token, api_key, etc.)
@@ -88,32 +95,38 @@ Placeholders now look like the original data type — LLMs understand what the d
 ### PII Tool Call Hardening & Placeholder Format Change
 
 #### Placeholder Format (intermediate — superseded by v1.5.0)
+
 - Changed from `<<category:hexid>>` to `__PII_category_hexid__`
 - Old format was parsed/stripped by LLMs (especially DeepSeek) which broke tool call rehydration
 - New format treated as an opaque identifier — LLMs echo it verbatim
-- *Note: This format was replaced in v1.5.0 by type-preserving `p0{hex}` placeholders*
+- _Note: This format was replaced in v1.5.0 by type-preserving `p0{hex}` placeholders_
 
 #### Streaming Tool Call Carry Buffer
+
 - Added per-tool-call carry buffers for streaming argument deltas (OpenAI + Anthropic paths)
 - Previously used `rehydrateText()` which couldn't handle placeholders split across SSE chunks
 - Now uses `rehydrateChunk()` with proper carry buffer per tool index
 - Carry buffers flushed in `finally` blocks on stream end
 
 #### Tool Result Array Content
+
 - `tool_result` blocks with nested array content (e.g. `[{type:"text",text:"..."}]`) are now scrubbed
 - Previously only string content was handled
 
 #### System Message Scrubbing (opt-in)
+
 - New `scrub_system: true` config option in PII config
 - When enabled, scrubs system/developer messages (both string and array content)
 - Default: false (backward compatible)
 
 #### Fallback Provider Rehydration
+
 - Always rehydrate if data was scrubbed, even when falling back to a non-PII provider (e.g. Ollama)
 - Previously, fallback to a provider without `pii: true` returned raw placeholders to the client
 - `piiMode` now consistently uses the primary provider's config, not the fallback's
 
 #### Tests
+
 - 41 new tests across `pii-gaps.test.ts` (33) and updated streaming tests (8)
 - **166/166 tests passing** (up from 125/125)
 
@@ -124,9 +137,11 @@ Placeholders now look like the original data type — LLMs understand what the d
 ### 🎛️ Mode Overrides — Take Control When You Want It
 
 #### Mode Override Prefixes
+
 Users can now force a specific routing tier by prefixing their prompt. The directive is stripped before forwarding to the LLM.
 
 **Three syntax styles supported:**
+
 - **Slash:** `/simple`, `/medium`, `/complex`, `/max`, `/reasoning`, `/think`, `/deep`, `/basic`, `/cheap`, `/balanced`, `/advanced`
 - **Word prefix:** `complex mode: ...`, `deep mode, ...`
 - **Bracket:** `[reasoning] ...`, `[simple] ...`
@@ -134,14 +149,16 @@ Users can now force a specific routing tier by prefixing their prompt. The direc
 When no prefix is detected, falls back to normal 14-dimension classification — fully backward compatible.
 
 #### Alias Mapping
-| Input | Routes to |
-|-------|-----------|
-| `/simple`, `/basic`, `/cheap` | SIMPLE |
-| `/medium`, `/balanced` | MEDIUM |
-| `/complex`, `/advanced` | COMPLEX |
+
+| Input                                   | Routes to |
+| --------------------------------------- | --------- |
+| `/simple`, `/basic`, `/cheap`           | SIMPLE    |
+| `/medium`, `/balanced`                  | MEDIUM    |
+| `/complex`, `/advanced`                 | COMPLEX   |
 | `/max`, `/reasoning`, `/think`, `/deep` | REASONING |
 
 #### Tests
+
 - 5 new mode override tests added
 - **75/75 tests passing** (up from 70/70)
 
@@ -152,6 +169,7 @@ When no prefix is detected, falls back to normal 14-dimension classification —
 ### 🔧 External Config + Reliability Improvements
 
 #### Config-Driven Architecture
+
 - **New: `tierflow.config.json`** — all providers, tiers, boundaries, thinking, and auth are now configurable without editing source code
 - **New: `src/config.ts`** — config loader with file search priority: `TIERFLOW_CONFIG` env → `./tierflow.config.json` → `~/.config/tierflow/config.json`
 - Deep-merges file config over built-in defaults — fully backward compatible (works without config file)
@@ -160,6 +178,7 @@ When no prefix is detected, falls back to normal 14-dimension classification —
 - Auth types: `openclaw` (reads auth-profiles.json), `env` (environment variables), `file`, `keychain` (macOS), `none` (local providers), per-provider overrides
 
 #### Reliability
+
 - **Request timeouts** — `AbortSignal.timeout()` per tier: SIMPLE 30s, MEDIUM 60s, COMPLEX/REASONING 120s
 - **Streaming stall detection** — aborts if no data received for 30s mid-stream
 - **Auto-fallback on timeout** — if primary model times out, fallback model is tried automatically
@@ -167,17 +186,20 @@ When no prefix is detected, falls back to normal 14-dimension classification —
 - **`TimeoutError` class** — clean error identification for fallback logic
 
 #### Smarter Classification
+
 - **Token estimation fix** — complexity scoring now uses user prompt length only (not system+user). Long system prompts (AGENTS.md, SOUL.md) no longer inflate complexity scores. A "hello" with a 40K system prompt correctly routes to SIMPLE, not COMPLEX
 - **Structured output fix** — detection now checks user prompt only. System prompts mentioning "json" no longer force tier upgrades
 - Total token count still used for context window checks (large input → force COMPLEX)
 
 #### Provider Configuration
+
 - Providers defined in config with `baseUrl`, `api` type (`"anthropic"` or `"openai"`), optional `headers`
 - Any OpenAI-compatible provider works out of the box — just add baseUrl + API key
 - Anthropic gets automatic format translation (tool calls, streaming, thinking)
 - Thinking config is now data-driven: specify which models support adaptive thinking and budget amounts
 
 ### Migration
+
 No action needed — if no `tierflow.config.json` exists, all previous defaults apply. To customize:
 
 ```bash

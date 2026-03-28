@@ -30,6 +30,7 @@ The model ID format is `provider/model-name`. The `provider` part must match a k
   "openrouter": { "baseUrl": "https://openrouter.ai/api/v1", ... }
 }
 ```
+
 Model ID: `openrouter/google/gemini-2.5-flash-lite` → looks up `openrouter` provider.
 
 ### ML classifier unavailable
@@ -37,6 +38,7 @@ Model ID: `openrouter/google/gemini-2.5-flash-lite` → looks up `openrouter` pr
 If LLMRouter service isn't running on `:18801`, TierFlow falls back to the 15-dimension keyword scorer. This is intentional — routing still works, just less accurately.
 
 To start the ML classifier:
+
 ```bash
 cd llmrouter-service
 python server.py
@@ -47,9 +49,11 @@ Or with Docker: `docker compose up -d`
 ### API key not found
 
 Check your auth config matches your env vars:
+
 ```json
 "auth": { "type": "env", "key": "ANTHROPIC_API_KEY" }
 ```
+
 Then: `export ANTHROPIC_API_KEY=sk-ant-...`
 
 For local providers (Ollama), use `"auth": { "type": "none" }`.
@@ -68,6 +72,7 @@ npx tierflow --port 18900
 ### Config not loading
 
 Check the search order:
+
 1. `TIERFLOW_CONFIG` env var (explicit path)
 2. `./tierflow.config.json` (current directory)
 3. `~/.config/tierflow/config.json`
@@ -95,6 +100,7 @@ Default timeouts: SIMPLE 30s, MEDIUM 60s, COMPLEX/REASONING 120s.
 ### Cache not working
 
 Verify cache is enabled:
+
 ```json
 "cache": { "enabled": true, "ttl_seconds": 300, "max_entries": 5000 }
 ```
@@ -104,6 +110,7 @@ Cache skips: streaming requests, tool call requests (by default). Check `X-Cache
 ## Logs
 
 TierFlow logs to stdout. Each routed request shows:
+
 ```
 [N] Classified: tier=SIMPLE category=simple_chat model=openrouter/google/gemini-2.5-flash-lite confidence=0.98 | ml: simple_chat (conf=0.98, 35ms)
 ```

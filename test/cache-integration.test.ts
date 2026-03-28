@@ -30,7 +30,8 @@ function assert(condition: boolean, msg: string) {
 }
 
 function assertEqual<T>(actual: T, expected: T, msg?: string) {
-  if (actual !== expected) throw new Error(msg || `Expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+  if (actual !== expected)
+    throw new Error(msg || `Expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
 }
 
 // Unique suffix to prevent cross-test cache hits
@@ -157,10 +158,16 @@ async function exclusionTests() {
 
   await test("requests with tools are not cached (default)", async () => {
     const content = uniqueContent("What's the weather?");
-    const tools = [{
-      type: "function",
-      function: { name: "get_weather", description: "Get weather", parameters: { type: "object", properties: {} } },
-    }];
+    const tools = [
+      {
+        type: "function",
+        function: {
+          name: "get_weather",
+          description: "Get weather",
+          parameters: { type: "object", properties: {} },
+        },
+      },
+    ];
 
     // First request with tools
     const res1 = await chat(content, { tools });
@@ -184,14 +191,20 @@ async function cacheStatsTests() {
     await chat(content); // MISS
     await chat(content); // HIT
     const after = await getStats();
-    assert(after.cache.hits > before.cache.hits, `hits should increase: ${before.cache.hits} -> ${after.cache.hits}`);
+    assert(
+      after.cache.hits > before.cache.hits,
+      `hits should increase: ${before.cache.hits} -> ${after.cache.hits}`,
+    );
   });
 
   await test("stores counter increments on cache store", async () => {
     const before = await getStats();
     await chat(uniqueContent("Store test")); // new entry stored
     const after = await getStats();
-    assert(after.cache.stores > before.cache.stores, `stores should increase: ${before.cache.stores} -> ${after.cache.stores}`);
+    assert(
+      after.cache.stores > before.cache.stores,
+      `stores should increase: ${before.cache.stores} -> ${after.cache.stores}`,
+    );
   });
 
   await test("size reflects cached entries", async () => {
@@ -201,7 +214,10 @@ async function cacheStatsTests() {
 
   await test("hitRate is a valid percentage string", async () => {
     const stats = await getStats();
-    assert(stats.cache.hitRate.endsWith("%"), `hitRate should end with %, got: ${stats.cache.hitRate}`);
+    assert(
+      stats.cache.hitRate.endsWith("%"),
+      `hitRate should end with %, got: ${stats.cache.hitRate}`,
+    );
     const pct = parseFloat(stats.cache.hitRate);
     assert(!isNaN(pct), `hitRate should be a number, got: ${stats.cache.hitRate}`);
     assert(pct >= 0 && pct <= 100, `hitRate should be 0-100, got: ${pct}`);

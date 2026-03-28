@@ -36,6 +36,7 @@
 Route selected queries to cheap external models (e.g. DeepSeek-V3, Qwen-Plus) via OpenRouter, while automatically scrubbing PII before data leaves the machine and rehydrating it on the way back. Local Ollama models remain untouched — zero overhead for local traffic.
 
 **Design principles:**
+
 - PII protection is **per-provider**, controlled by a single config flag
 - Local traffic (Ollama) has **zero performance impact** — no scanning, no vault
 - The feature is **opt-in** — existing setups work unchanged
@@ -105,20 +106,21 @@ export type ProviderConfigEntry = {
   api: "anthropic" | "openai";
   headers?: Record<string, string>;
   auth?: AuthConfig;
-  pii?: boolean | PiiConfig;     // NEW — default: false
+  pii?: boolean | PiiConfig; // NEW — default: false
 };
 
 // NEW type
 export type PiiConfig = {
   enabled: boolean;
-  mode?: "strict" | "standard";       // strict (default) = fail-closed, standard = log + pass
-  exclude?: string[];                 // categories to skip (e.g. ["postcode", "phone"])
-  scrub_system?: boolean;             // opt-in: scrub system/developer messages (default: false)
-  debug_log_scrubbed?: boolean;       // TEMPORARY — logs scrubbed (safe) payload for verification
+  mode?: "strict" | "standard"; // strict (default) = fail-closed, standard = log + pass
+  exclude?: string[]; // categories to skip (e.g. ["postcode", "phone"])
+  scrub_system?: boolean; // opt-in: scrub system/developer messages (default: false)
+  debug_log_scrubbed?: boolean; // TEMPORARY — logs scrubbed (safe) payload for verification
 };
 ```
 
 **Why provider-level, not model-level?**
+
 - Simpler mental model: "this endpoint is external, protect it"
 - Avoids per-model config sprawl when adding new OpenRouter models
 - Can still be overridden per-model if needed later (model-level flag would override provider-level)
@@ -133,26 +135,27 @@ export type PiiConfig = {
     "ollama": {
       "baseUrl": "http://127.0.0.1:11434/v1",
       "api": "openai",
-      "auth": { "type": "env", "key": "OLLAMA_API_KEY" }
+      "auth": { "type": "env", "key": "OLLAMA_API_KEY" },
       // no pii key → defaults to false → zero overhead
     },
     "openrouter": {
       "baseUrl": "https://openrouter.ai/api/v1",
       "api": "openai",
       "auth": { "type": "env", "key": "OPENROUTER_API_KEY" },
-      "pii": true   // ← scrub all traffic to this provider
-    }
+      "pii": true, // ← scrub all traffic to this provider
+    },
   },
   "tiers": {
-    "SIMPLE":    { "primary": "ollama/gemma3:1b",           "fallback": [] },
-    "MEDIUM":    { "primary": "openrouter/deepseek/deepseek-chat", "fallback": ["ollama/qwen3:8b"] },
-    "COMPLEX":   { "primary": "openrouter/qwen/qwen-plus",  "fallback": ["ollama/qwen2.5-coder:7b"] },
-    "REASONING": { "primary": "ollama/deepseek-r1:7b",      "fallback": [] }
-  }
+    "SIMPLE": { "primary": "ollama/gemma3:1b", "fallback": [] },
+    "MEDIUM": { "primary": "openrouter/deepseek/deepseek-chat", "fallback": ["ollama/qwen3:8b"] },
+    "COMPLEX": { "primary": "openrouter/qwen/qwen-plus", "fallback": ["ollama/qwen2.5-coder:7b"] },
+    "REASONING": { "primary": "ollama/deepseek-r1:7b", "fallback": [] },
+  },
 }
 ```
 
 **What this achieves:**
+
 - Simple queries → local gemma3:1b (fast, no PII overhead)
 - Medium/Complex → OpenRouter's cheap Chinese models (PII-scrubbed automatically)
 - Reasoning → local deepseek-r1 (no PII overhead)
@@ -192,13 +195,14 @@ The existing `POST /reload-config` endpoint already reloads `tierflow.config.jso
 
 Three files from `github.com/frdaniel76/pii-vault`, placed under `src/pii/`:
 
-| Source file | Destination | Lines | Dependencies |
-|---|---|---|---|
-| `src/patterns.ts` | `src/pii/patterns.ts` | ~80 | None |
-| `src/vault.ts` | `src/pii/vault.ts` | ~300 | `node:crypto`, `patterns.ts` |
-| `src/vault-store.ts` | `src/pii/vault-store.ts` | ~70 | `vault.ts` |
+| Source file          | Destination              | Lines | Dependencies                 |
+| -------------------- | ------------------------ | ----- | ---------------------------- |
+| `src/patterns.ts`    | `src/pii/patterns.ts`    | ~80   | None                         |
+| `src/vault.ts`       | `src/pii/vault.ts`       | ~300  | `node:crypto`, `patterns.ts` |
+| `src/vault-store.ts` | `src/pii/vault-store.ts` | ~70   | `vault.ts`                   |
 
 **Not copied:**
+
 - `src/detector.ts` — the `scan()` function. We don't need a separate scan gate; we always scrub if `pii: true`.
 - `src/server.ts` — the MCP wrapper. We're calling vault directly, not via MCP.
 
@@ -219,10 +223,10 @@ import { VaultStore } from "./vault-store.js";
 export const piiVaultStore = new VaultStore();
 
 export interface ScrubResult {
-  messages: ChatMessage[];      // scrubbed messages
-  sessionId: string;            // vault session for rehydration
-  scrubbed: boolean;            // true if any PII was found and replaced
-  categories: string[];         // what types of PII were found
+  messages: ChatMessage[]; // scrubbed messages
+  sessionId: string; // vault session for rehydration
+  scrubbed: boolean; // true if any PII was found and replaced
+  categories: string[]; // what types of PII were found
 }
 
 /**
@@ -237,16 +241,13 @@ export interface ScrubResult {
 export function scrubMessages(
   messages: ChatMessage[],
   exclude?: string[],
-  scrubSystem?: boolean,    // opt-in: scrub system/developer messages
+  scrubSystem?: boolean, // opt-in: scrub system/developer messages
 ): ScrubResult;
 
 /**
  * Rehydrate a complete (non-streaming) response string.
  */
-export function rehydrateText(
-  text: string,
-  sessionId: string,
-): string;
+export function rehydrateText(text: string, sessionId: string): string;
 
 /**
  * Rehydrate a streaming chunk, handling split placeholders.
@@ -348,7 +349,10 @@ if (piiSession) {
 // (placeholders like <<email:a1b2c3d4e5f6>> are replaced with real values of
 // different length). Always re-serialize and let Node calculate the length.
 const responseBody = JSON.stringify(responseJson);
-res.writeHead(200, { "Content-Type": "application/json", "Content-Length": String(Buffer.byteLength(responseBody)) });
+res.writeHead(200, {
+  "Content-Type": "application/json",
+  "Content-Length": String(Buffer.byteLength(responseBody)),
+});
 res.end(responseBody);
 ```
 
@@ -393,12 +397,12 @@ Placeholder format: `<<type:hexid>>` (e.g. `<<email:a1b2c3d4e5f6>>`)
 
 An LLM generating token-by-token might split this across chunks:
 
-| Chunk | Content |
-|---|---|
-| 1 | `"Your address is "` |
-| 2 | `"<<"` |
-| 3 | `"email:a1"` |
-| 4 | `"b2c3d4e5f6>>"` |
+| Chunk | Content              |
+| ----- | -------------------- |
+| 1     | `"Your address is "` |
+| 2     | `"<<"`               |
+| 3     | `"email:a1"`         |
+| 4     | `"b2c3d4e5f6>>"`     |
 
 We can't rehydrate until we have the full placeholder. But we also can't buffer everything (defeats the purpose of streaming).
 
@@ -463,30 +467,31 @@ export function rehydrateChunk(
 
 ### 7.3 Carry Buffer Properties
 
-| Property | Value | Why |
-|---|---|---|
-| Max carry size | 24 bytes | Single `<` (1 char) or `<<` + up to 8 type chars + `:` + 12 hex chars = 23 chars. If carry exceeds 24 chars, it's not a placeholder — flush it. |
-| Carry timeout | None needed | SSE stall detection (30s) already handles dead connections. If the stream ends, the `finally` block flushes carry. |
-| Memory overhead | Negligible | One string ≤24 chars per active streaming request |
+| Property        | Value       | Why                                                                                                                                             |
+| --------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Max carry size  | 24 bytes    | Single `<` (1 char) or `<<` + up to 8 type chars + `:` + 12 hex chars = 23 chars. If carry exceeds 24 chars, it's not a placeholder — flush it. |
+| Carry timeout   | None needed | SSE stall detection (30s) already handles dead connections. If the stream ends, the `finally` block flushes carry.                              |
+| Memory overhead | Negligible  | One string ≤24 chars per active streaming request                                                                                               |
 
 ### 7.4 Edge Cases
 
-| Case | Handling |
-|---|---|
-| `<<` split across chunks (`<` + `<email:...>>`) | A trailing single `<` at chunk end is held in carry. Next chunk prepends it, forming `<<email:...>>` which matches the placeholder regex. If the next chunk doesn't form `<<`, the `<` is flushed as text. |
-| Placeholder fully within one chunk | Rehydrated immediately, no carry needed |
-| Multiple placeholders in one chunk | All complete ones rehydrated; only trailing partial held |
-| Chunk contains `<<` but it's not a placeholder (e.g. `<<important>>`) | Carry holds up to 25 chars. If `>>` arrives and regex doesn't match the full pattern, carry is flushed as-is. |
-| `<<` followed by `>>` with wrong format (e.g. `<<FOO:bar>>`) | Regex requires `[a-z]{2,8}` and `[0-9a-f]{12}` — uppercase/wrong-length won't match. Flushed as-is. |
-| Stream ends with non-empty carry | `finally` block flushes carry to client (it's just text, not a real placeholder) |
-| Model never outputs the placeholder (rewrites it) | No rehydration needed — the original PII was already scrubbed, so nothing leaks. User sees the rewritten text as-is. |
-| Nested or adjacent placeholders (`<<email:aaa>><<phone:bbb>>`) | Regex handles multiple non-overlapping matches. Both rehydrated. |
+| Case                                                                  | Handling                                                                                                                                                                                                   |
+| --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `<<` split across chunks (`<` + `<email:...>>`)                       | A trailing single `<` at chunk end is held in carry. Next chunk prepends it, forming `<<email:...>>` which matches the placeholder regex. If the next chunk doesn't form `<<`, the `<` is flushed as text. |
+| Placeholder fully within one chunk                                    | Rehydrated immediately, no carry needed                                                                                                                                                                    |
+| Multiple placeholders in one chunk                                    | All complete ones rehydrated; only trailing partial held                                                                                                                                                   |
+| Chunk contains `<<` but it's not a placeholder (e.g. `<<important>>`) | Carry holds up to 25 chars. If `>>` arrives and regex doesn't match the full pattern, carry is flushed as-is.                                                                                              |
+| `<<` followed by `>>` with wrong format (e.g. `<<FOO:bar>>`)          | Regex requires `[a-z]{2,8}` and `[0-9a-f]{12}` — uppercase/wrong-length won't match. Flushed as-is.                                                                                                        |
+| Stream ends with non-empty carry                                      | `finally` block flushes carry to client (it's just text, not a real placeholder)                                                                                                                           |
+| Model never outputs the placeholder (rewrites it)                     | No rehydration needed — the original PII was already scrubbed, so nothing leaks. User sees the rewritten text as-is.                                                                                       |
+| Nested or adjacent placeholders (`<<email:aaa>><<phone:bbb>>`)        | Regex handles multiple non-overlapping matches. Both rehydrated.                                                                                                                                           |
 
 ### 7.5 Carry Buffer Flush Safety
 
 The carry buffer introduces a **small delay** in streaming output — text that might be part of a placeholder is held back until the next chunk arrives. Worst case: ~24 characters delayed by one chunk interval.
 
 **This is safe because:**
+
 - LLM SSE chunks arrive every 10-100ms typically
 - 24 chars of delay is imperceptible to the user
 - The delay only occurs when the text actually contains `<<` — normal text streams at full speed
@@ -549,12 +554,12 @@ Each request gets its own session ID (`vaultStore.generateId()` → 16-char hex)
 
 ### 8.3 Memory Footprint
 
-| Metric | Value |
-|---|---|
-| Vault overhead per request | ~2-10 KB (depends on number of PII items) |
-| Session TTL | 30 minutes (safety net — normally destroyed in <1s) |
-| Sweep interval | 5 minutes (background, `.unref()`'d) |
-| Concurrent sessions | One per in-flight PII-scrubbed request |
+| Metric                     | Value                                               |
+| -------------------------- | --------------------------------------------------- |
+| Vault overhead per request | ~2-10 KB (depends on number of PII items)           |
+| Session TTL                | 30 minutes (safety net — normally destroyed in <1s) |
+| Sweep interval             | 5 minutes (background, `.unref()`'d)                |
+| Concurrent sessions        | One per in-flight PII-scrubbed request              |
 
 On a single-user server doing ~1 request at a time, this is effectively zero overhead.
 
@@ -568,25 +573,25 @@ On a single-user server doing ~1 request at a time, this is effectively zero ove
 
 Two modes controlled by `pii.mode`:
 
-| Mode | Behavior on scrub error |
-|---|---|
+| Mode               | Behavior on scrub error                          |
+| ------------------ | ------------------------------------------------ |
 | `strict` (default) | Return 500 to client. Log error. Do not forward. |
-| `standard` | Return 500 to client. Log error. Do not forward. |
+| `standard`         | Return 500 to client. Log error. Do not forward. |
 
 **Why both modes are identical for scrub failures:** Leaking real PII to an external provider is never acceptable, so both modes are fail-closed on the outbound path. The modes only differ on **rehydration failures** (inbound path), where showing a placeholder to the user is ugly but safe.
 
 ### 9.2 Error Scenarios
 
-| Scenario | Handling | Risk |
-|---|---|---|
-| **Scrub throws** (regex error, crypto failure) | `strict`/`standard`: Return `500 { error: "PII scrub failed" }`. Do NOT forward request. | None — request blocked |
-| **Rehydrate fails** (session expired, decrypt error) | `strict`: Return `502 { error: "PII rehydrate failed" }`. `standard`: Return response with placeholders intact + `X-PII-Warning` header. | `standard` mode: user sees `<<email:abc123>>` instead of real value. Ugly but safe. |
-| **Rehydrate fails mid-stream** | `strict`: Write error SSE event + `[DONE]`. `standard`: Continue stream with placeholders. | Same as above — placeholders visible but no PII leaked |
-| **Vault session not found** (shouldn't happen) | Same as rehydrate failure. Log as critical. | None — placeholder stays |
-| **External provider returns error** | Normal TierFlow fallback chain. If fallback is local (Ollama), PII layer auto-disengages for that attempt. Vault destroyed on request end. | None |
-| **Fallback from external → local mid-request** | PII scrub was applied to messages. Local Ollama sees scrubbed messages. **Rehydration must be conditional:** only run if the *actual responding provider* has `pii: true`. If the fallback lands on a local provider (no PII), skip rehydration — the local model's response won't contain placeholders. The `piiSession` is still destroyed on request end. | Slightly wasteful (Ollama gets scrubbed text) but safe and correct. |
-| **Request aborted by client** | `finally` block destroys vault session. | None — crypto keys zeroed |
-| **TierFlow crashes** | Vault keys are memory-only. No PII persisted to disk. | None |
+| Scenario                                             | Handling                                                                                                                                                                                                                                                                                                                                                     | Risk                                                                                |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------- |
+| **Scrub throws** (regex error, crypto failure)       | `strict`/`standard`: Return `500 { error: "PII scrub failed" }`. Do NOT forward request.                                                                                                                                                                                                                                                                     | None — request blocked                                                              |
+| **Rehydrate fails** (session expired, decrypt error) | `strict`: Return `502 { error: "PII rehydrate failed" }`. `standard`: Return response with placeholders intact + `X-PII-Warning` header.                                                                                                                                                                                                                     | `standard` mode: user sees `<<email:abc123>>` instead of real value. Ugly but safe. |
+| **Rehydrate fails mid-stream**                       | `strict`: Write error SSE event + `[DONE]`. `standard`: Continue stream with placeholders.                                                                                                                                                                                                                                                                   | Same as above — placeholders visible but no PII leaked                              |
+| **Vault session not found** (shouldn't happen)       | Same as rehydrate failure. Log as critical.                                                                                                                                                                                                                                                                                                                  | None — placeholder stays                                                            |
+| **External provider returns error**                  | Normal TierFlow fallback chain. If fallback is local (Ollama), PII layer auto-disengages for that attempt. Vault destroyed on request end.                                                                                                                                                                                                                   | None                                                                                |
+| **Fallback from external → local mid-request**       | PII scrub was applied to messages. Local Ollama sees scrubbed messages. **Rehydration must be conditional:** only run if the _actual responding provider_ has `pii: true`. If the fallback lands on a local provider (no PII), skip rehydration — the local model's response won't contain placeholders. The `piiSession` is still destroyed on request end. | Slightly wasteful (Ollama gets scrubbed text) but safe and correct.                 |
+| **Request aborted by client**                        | `finally` block destroys vault session.                                                                                                                                                                                                                                                                                                                      | None — crypto keys zeroed                                                           |
+| **TierFlow crashes**                                 | Vault keys are memory-only. No PII persisted to disk.                                                                                                                                                                                                                                                                                                        | None                                                                                |
 
 ### 9.3 Logging
 
@@ -604,12 +609,12 @@ PII-related events logged (never logging actual PII values):
 
 Every PII-scrubbed response gets metadata headers (these are proxy-internal, visible only to OpenClaw):
 
-| Header | Value |
-|---|---|
-| `X-PII-Scrubbed` | `true` |
-| `X-PII-Categories` | `email,phone,api_key` |
-| `X-PII-Count` | `3` |
-| `X-PII-Warning` | Only set if rehydration had issues |
+| Header             | Value                              |
+| ------------------ | ---------------------------------- |
+| `X-PII-Scrubbed`   | `true`                             |
+| `X-PII-Categories` | `email,phone,api_key`              |
+| `X-PII-Count`      | `3`                                |
+| `X-PII-Warning`    | Only set if rehydration had issues |
 
 These headers are written before the response body, so they work for both streaming and non-streaming.
 
@@ -619,25 +624,25 @@ These headers are written before the response body, so they work for both stream
 
 ### New Files
 
-| File | Purpose | Lines (est.) |
-|---|---|---|
-| `src/pii/patterns.ts` | PII regex definitions (from pii-vault) | ~80 |
-| `src/pii/vault.ts` | SecretVault class (from pii-vault) | ~300 |
-| `src/pii/vault-store.ts` | Session management (from pii-vault) | ~70 |
-| `src/pii/middleware.ts` | `scrubMessages()`, `rehydrateText()`, `rehydrateChunk()`, `destroySession()` | ~150 |
-| `src/pii/index.ts` | Barrel export | ~10 |
-| `test/pii-middleware.test.ts` | Unit tests for middleware | ~300 |
-| `test/pii-streaming.test.ts` | Streaming rehydration tests | ~200 |
-| `test/pii-integration.test.ts` | End-to-end with mock external provider | ~250 |
+| File                           | Purpose                                                                      | Lines (est.) |
+| ------------------------------ | ---------------------------------------------------------------------------- | ------------ |
+| `src/pii/patterns.ts`          | PII regex definitions (from pii-vault)                                       | ~80          |
+| `src/pii/vault.ts`             | SecretVault class (from pii-vault)                                           | ~300         |
+| `src/pii/vault-store.ts`       | Session management (from pii-vault)                                          | ~70          |
+| `src/pii/middleware.ts`        | `scrubMessages()`, `rehydrateText()`, `rehydrateChunk()`, `destroySession()` | ~150         |
+| `src/pii/index.ts`             | Barrel export                                                                | ~10          |
+| `test/pii-middleware.test.ts`  | Unit tests for middleware                                                    | ~300         |
+| `test/pii-streaming.test.ts`   | Streaming rehydration tests                                                  | ~200         |
+| `test/pii-integration.test.ts` | End-to-end with mock external provider                                       | ~250         |
 
 ### Modified Files
 
-| File | Change | Lines changed (est.) |
-|---|---|---|
-| `src/config.ts` | Add `PiiConfig` type, extend `ProviderConfigEntry` with `pii` field, add `isPiiEnabled()` + `getPiiExclude()` helpers | ~30 |
-| `src/server.ts` | Import PII middleware. Add scrub step in `handleChatCompletions()` between route and forward. Thread `piiSession` through to provider. | ~25 |
-| `src/provider.ts` | Accept `piiSession` parameter in `forwardRequest()` and `forwardToOpenAI()`. Add rehydration in non-streaming response path. Add carry-buffer rehydration in streaming SSE loop. Add `finally` carry flush. | ~60 |
-| `tierflow.config.json` | Add `openrouter` provider entry | ~10 |
+| File                   | Change                                                                                                                                                                                                      | Lines changed (est.) |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------- |
+| `src/config.ts`        | Add `PiiConfig` type, extend `ProviderConfigEntry` with `pii` field, add `isPiiEnabled()` + `getPiiExclude()` helpers                                                                                       | ~30                  |
+| `src/server.ts`        | Import PII middleware. Add scrub step in `handleChatCompletions()` between route and forward. Thread `piiSession` through to provider.                                                                      | ~25                  |
+| `src/provider.ts`      | Accept `piiSession` parameter in `forwardRequest()` and `forwardToOpenAI()`. Add rehydration in non-streaming response path. Add carry-buffer rehydration in streaming SSE loop. Add `finally` carry flush. | ~60                  |
+| `tierflow.config.json` | Add `openrouter` provider entry                                                                                                                                                                             | ~10                  |
 
 **Total new code:** ~610 lines (pii core) + ~150 lines (middleware) + ~750 lines (tests)
 **Total modified code:** ~115 lines across 3 existing files
@@ -650,14 +655,14 @@ These headers are written before the response body, so they work for both stream
 
 **Goal:** Get the pii-vault modules compiling and tested in TierFlow's build system.
 
-| Step | Task |
-|---|---|
-| 1.1 | Create `src/pii/` directory |
-| 1.2 | Copy `patterns.ts`, `vault.ts`, `vault-store.ts` from pii-vault |
-| 1.3 | Adapt imports to TierFlow's module style (ESM, `.js` extensions) |
-| 1.4 | Create `src/pii/index.ts` barrel export |
-| 1.5 | Verify `npm run build` succeeds |
-| 1.6 | Write unit tests for vault: redact, rehydrate, destroy, deduplication |
+| Step | Task                                                                  |
+| ---- | --------------------------------------------------------------------- |
+| 1.1  | Create `src/pii/` directory                                           |
+| 1.2  | Copy `patterns.ts`, `vault.ts`, `vault-store.ts` from pii-vault       |
+| 1.3  | Adapt imports to TierFlow's module style (ESM, `.js` extensions)      |
+| 1.4  | Create `src/pii/index.ts` barrel export                               |
+| 1.5  | Verify `npm run build` succeeds                                       |
+| 1.6  | Write unit tests for vault: redact, rehydrate, destroy, deduplication |
 
 **Checkpoint:** PII module compiles and passes unit tests independently.
 
@@ -665,12 +670,12 @@ These headers are written before the response body, so they work for both stream
 
 **Goal:** Build the message-level scrub/rehydrate functions and the streaming carry buffer.
 
-| Step | Task |
-|---|---|
-| 2.1 | Create `src/pii/middleware.ts` with `scrubMessages()`, `rehydrateText()`, `rehydrateChunk()`, `destroySession()` |
-| 2.2 | Write unit tests for `scrubMessages()` — multi-message, system/user/assistant roles, tool calls with PII |
-| 2.3 | Write unit tests for `rehydrateChunk()` — all edge cases from section 7.4 |
-| 2.4 | Write carry buffer stress test — random chunk boundary splits |
+| Step | Task                                                                                                             |
+| ---- | ---------------------------------------------------------------------------------------------------------------- |
+| 2.1  | Create `src/pii/middleware.ts` with `scrubMessages()`, `rehydrateText()`, `rehydrateChunk()`, `destroySession()` |
+| 2.2  | Write unit tests for `scrubMessages()` — multi-message, system/user/assistant roles, tool calls with PII         |
+| 2.3  | Write unit tests for `rehydrateChunk()` — all edge cases from section 7.4                                        |
+| 2.4  | Write carry buffer stress test — random chunk boundary splits                                                    |
 
 **Checkpoint:** Middleware passes all unit tests. No TierFlow files touched yet.
 
@@ -678,13 +683,13 @@ These headers are written before the response body, so they work for both stream
 
 **Goal:** Add PII config types and provider setup.
 
-| Step | Task |
-|---|---|
-| 3.1 | Add `PiiConfig` type and extend `ProviderConfigEntry` in `src/config.ts` |
-| 3.2 | Add `isPiiEnabled()` and `getPiiExclude()` helpers in `src/config.ts` |
-| 3.3 | Add `openrouter` provider to `tierflow.config.json` |
-| 3.4 | Set `OPENROUTER_API_KEY` in `~/.zprofile` |
-| 3.5 | Verify `POST /reload-config` picks up new provider |
+| Step | Task                                                                     |
+| ---- | ------------------------------------------------------------------------ |
+| 3.1  | Add `PiiConfig` type and extend `ProviderConfigEntry` in `src/config.ts` |
+| 3.2  | Add `isPiiEnabled()` and `getPiiExclude()` helpers in `src/config.ts`    |
+| 3.3  | Add `openrouter` provider to `tierflow.config.json`                      |
+| 3.4  | Set `OPENROUTER_API_KEY` in `~/.zprofile`                                |
+| 3.5  | Verify `POST /reload-config` picks up new provider                       |
 
 **Checkpoint:** Config loads correctly. `/config` endpoint shows new provider (key redacted).
 
@@ -692,14 +697,14 @@ These headers are written before the response body, so they work for both stream
 
 **Goal:** Wire PII into the request/response path.
 
-| Step | Task |
-|---|---|
-| 4.1 | Modify `handleChatCompletions()` — add scrub step after routing |
-| 4.2 | Thread `piiSession` parameter through `forwardRequest()` → `forwardToOpenAI()` |
-| 4.3 | Add non-streaming rehydration in `forwardToOpenAI()` — conditional on actual responding provider having `pii: true` (not just whether scrub happened, since fallback may switch to a local provider) |
-| 4.4 | Add streaming carry-buffer rehydration in `forwardToOpenAI()` SSE loop — same provider-conditional logic |
-| 4.5 | Add `finally` block for carry flush + session cleanup |
-| 4.6 | Add PII response headers |
+| Step | Task                                                                                                                                                                                                 |
+| ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 4.1  | Modify `handleChatCompletions()` — add scrub step after routing                                                                                                                                      |
+| 4.2  | Thread `piiSession` parameter through `forwardRequest()` → `forwardToOpenAI()`                                                                                                                       |
+| 4.3  | Add non-streaming rehydration in `forwardToOpenAI()` — conditional on actual responding provider having `pii: true` (not just whether scrub happened, since fallback may switch to a local provider) |
+| 4.4  | Add streaming carry-buffer rehydration in `forwardToOpenAI()` SSE loop — same provider-conditional logic                                                                                             |
+| 4.5  | Add `finally` block for carry flush + session cleanup                                                                                                                                                |
+| 4.6  | Add PII response headers                                                                                                                                                                             |
 
 **Checkpoint:** Full pipeline works. Ready for integration testing.
 
@@ -707,15 +712,15 @@ These headers are written before the response body, so they work for both stream
 
 **Goal:** End-to-end validation with real and mock providers.
 
-| Step | Task |
-|---|---|
-| 5.1 | Write integration test with mock SSE server (simulates OpenRouter) |
-| 5.2 | Test: message with PII → scrubbed → mock response with placeholders → rehydrated |
-| 5.3 | Test: streaming with split placeholders across chunk boundaries |
-| 5.4 | Test: fallback from external → local (PII disengages on local) |
-| 5.5 | Test: scrub failure → 500, request never forwarded |
-| 5.6 | Test: rehydrate failure → graceful degradation |
-| 5.7 | Manual test with real OpenRouter endpoint |
+| Step | Task                                                                             |
+| ---- | -------------------------------------------------------------------------------- |
+| 5.1  | Write integration test with mock SSE server (simulates OpenRouter)               |
+| 5.2  | Test: message with PII → scrubbed → mock response with placeholders → rehydrated |
+| 5.3  | Test: streaming with split placeholders across chunk boundaries                  |
+| 5.4  | Test: fallback from external → local (PII disengages on local)                   |
+| 5.5  | Test: scrub failure → 500, request never forwarded                               |
+| 5.6  | Test: rehydrate failure → graceful degradation                                   |
+| 5.7  | Manual test with real OpenRouter endpoint                                        |
 
 **Checkpoint:** All tests pass. Feature ready for daily use.
 
@@ -725,18 +730,18 @@ These headers are written before the response body, so they work for both stream
 
 ### 12.1 Test Levels
 
-| Level | What | How | Files |
-|---|---|---|---|
-| **Unit** | PII vault: redact, rehydrate, crypto | Direct function calls with known inputs | `test/pii-middleware.test.ts` |
-| **Unit** | Carry buffer: split handling, flush, edge cases | Feed chunks with artificial split points | `test/pii-streaming.test.ts` |
+| Level           | What                                                                           | How                                        | Files                          |
+| --------------- | ------------------------------------------------------------------------------ | ------------------------------------------ | ------------------------------ |
+| **Unit**        | PII vault: redact, rehydrate, crypto                                           | Direct function calls with known inputs    | `test/pii-middleware.test.ts`  |
+| **Unit**        | Carry buffer: split handling, flush, edge cases                                | Feed chunks with artificial split points   | `test/pii-streaming.test.ts`   |
 | **Integration** | Full pipeline: HTTP request → scrub → mock backend → rehydrate → HTTP response | Mock HTTP server simulating OpenRouter SSE | `test/pii-integration.test.ts` |
-| **Manual** | Real OpenRouter call | `curl` with PII-laden messages | Documented below |
+| **Manual**      | Real OpenRouter call                                                           | `curl` with PII-laden messages             | Documented below               |
 
 ### 12.2 Unit Test Cases — Vault Core (`test/pii-middleware.test.ts`)
 
 Tests the SecretVault class directly — pattern detection, encryption, dedup, lifecycle.
 
-```
+````
 SecretVault — Pattern Detection (per-category):
   ✓ redact detects email addresses
   ✓ redact detects API keys (sk-ant-*, sk-*, ghp_*, AKIA*, JWTs)
@@ -769,7 +774,7 @@ SecretVault — Lifecycle:
   ✓ destroyed vault throws on redact
   ✓ destroyed vault throws on rehydrate
   ✓ vault.size reflects number of unique PII items stored
-```
+````
 
 ### 12.3 Unit Test Cases — scrubMessages() (`test/pii-middleware.test.ts`)
 
@@ -977,6 +982,7 @@ This logs the **scrubbed** request body (which contains only placeholders, never
 The feature is fully opt-in. To disable:
 
 **Option A — Config only (no rebuild):**
+
 ```jsonc
 // Just remove the pii key or set it to false
 "openrouter": {
@@ -986,6 +992,7 @@ The feature is fully opt-in. To disable:
   // pii removed → traffic flows unscrubbed
 }
 ```
+
 Then `curl -X POST http://127.0.0.1:18800/reload-config`.
 
 **Option B — Remove OpenRouter entirely:**
@@ -1002,26 +1009,26 @@ The PII module is self-contained in `src/pii/`. Removing that directory + revert
 
 These were previously open questions, now resolved:
 
-| # | Decision | Rationale |
-|---|---|---|
-| 1 | **System prompts are NOT scrubbed.** `scrubMessages()` skips `role: "system"` messages. | OpenClaw's system prompt contains tool schemas and skill descriptions — unlikely to have user PII. Scrubbing adds latency for no benefit. A config option can be added later if needed. |
-| 2 | **Tool call arguments ARE scrubbed.** | Tool args can contain user data (e.g. email in a search query). |
-| 3 | **OpenRouter double-slash naming works as-is.** `openrouter/deepseek/deepseek-chat` → provider=`openrouter`, model=`deepseek/deepseek-chat`. | `parseModelId()` already splits on first `/` only (`provider.ts:98`). No changes needed. |
+| #   | Decision                                                                                                                                     | Rationale                                                                                                                                                                               |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | **System prompts are NOT scrubbed.** `scrubMessages()` skips `role: "system"` messages.                                                      | OpenClaw's system prompt contains tool schemas and skill descriptions — unlikely to have user PII. Scrubbing adds latency for no benefit. A config option can be added later if needed. |
+| 2   | **Tool call arguments ARE scrubbed.**                                                                                                        | Tool args can contain user data (e.g. email in a search query).                                                                                                                         |
+| 3   | **OpenRouter double-slash naming works as-is.** `openrouter/deepseek/deepseek-chat` → provider=`openrouter`, model=`deepseek/deepseek-chat`. | `parseModelId()` already splits on first `/` only (`provider.ts:98`). No changes needed.                                                                                                |
 
 ### Remaining Open Questions
 
-| # | Question | Options | Recommendation |
-|---|---|---|---|
-| 4 | **PII stats in /stats endpoint?** Track scrub/rehydrate counts. | A) Add PII section to stats. B) Skip for now. | **A — add it.** Low effort, high visibility for monitoring. |
-| 5 | **Rate limiting for OpenRouter?** External API calls cost money. | A) Add rate limiting now. B) Defer. | **B — defer.** Single-user server. Monitor costs manually via OpenRouter dashboard first. |
-| 6 | **Which OpenRouter models to start with?** | See below. | Start with 2 models, expand based on usage. |
+| #   | Question                                                         | Options                                       | Recommendation                                                                            |
+| --- | ---------------------------------------------------------------- | --------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| 4   | **PII stats in /stats endpoint?** Track scrub/rehydrate counts.  | A) Add PII section to stats. B) Skip for now. | **A — add it.** Low effort, high visibility for monitoring.                               |
+| 5   | **Rate limiting for OpenRouter?** External API calls cost money. | A) Add rate limiting now. B) Defer.           | **B — defer.** Single-user server. Monitor costs manually via OpenRouter dashboard first. |
+| 6   | **Which OpenRouter models to start with?**                       | See below.                                    | Start with 2 models, expand based on usage.                                               |
 
 ### Recommended Starting Models (OpenRouter)
 
-| Model | OpenRouter ID | Cost (input/output per 1M tokens) | Use Case |
-|---|---|---|---|
-| DeepSeek-V3 | `deepseek/deepseek-chat` | $0.14 / $0.28 | General chat, medium complexity |
-| Qwen3 235B A22B | `qwen/qwen3-235b-a22b` | $0.14 / $0.28 | Complex tasks, code |
+| Model           | OpenRouter ID            | Cost (input/output per 1M tokens) | Use Case                        |
+| --------------- | ------------------------ | --------------------------------- | ------------------------------- |
+| DeepSeek-V3     | `deepseek/deepseek-chat` | $0.14 / $0.28                     | General chat, medium complexity |
+| Qwen3 235B A22B | `qwen/qwen3-235b-a22b`   | $0.14 / $0.28                     | Complex tasks, code             |
 
 Both are ~100x cheaper than Claude and competitive on quality for many tasks. Route MEDIUM/COMPLEX tiers to these while keeping SIMPLE (local, fast) and REASONING (local, private) on Ollama.
 
@@ -1042,14 +1049,14 @@ Type values: apikey, cred, pem, conn, email, cc, nino, phone, ip, post, path, se
 
 ## Appendix B — Threat Model
 
-| Threat | Mitigation |
-|---|---|
-| PII sent to external model | Scrub layer intercepts. Fail-closed on error. |
-| PII in TierFlow logs | Never log raw PII. Log placeholder IDs and categories only. |
-| Placeholder leaks to user | Rehydration restores originals. On failure, `strict` mode blocks response. `standard` mode shows safe placeholder. |
-| Vault key extraction | Keys are memory-only, never serialized. `destroy()` zeros the buffer. Process crash = keys gone. |
-| Session hijacking | Sessions are request-scoped (created and destroyed within one HTTP request). No session ID exposed externally. |
-| OpenRouter logging our prompts | OpenRouter sees only scrubbed text. Even if they log everything, no real PII is present. |
-| Model reconstructs PII from context | Possible but unlikely. The scrubbed prompt lacks the actual values. Model might guess "this is an email" from `<<email:...>>` but can't recover `john@acme.com`. |
-| Placeholder collision (two PII items get same ID) | 12 hex chars = 48 bits = ~281 trillion possible IDs. Collision probability within a single request (typically <100 PII items) is astronomically low (~1 in 2.8 billion). No mitigation needed. |
-| Regex bypass (PII not detected) | Known limitation of regex-only detection (no NER). Mitigated by pii-vault's multi-pass detection pipeline which includes an entropy scanner (final pass) that catches unrecognised high-entropy secrets like tokens and keys. Names are explicitly not detected — this is a trade-off for precision over recall. |
+| Threat                                            | Mitigation                                                                                                                                                                                                                                                                                                       |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PII sent to external model                        | Scrub layer intercepts. Fail-closed on error.                                                                                                                                                                                                                                                                    |
+| PII in TierFlow logs                              | Never log raw PII. Log placeholder IDs and categories only.                                                                                                                                                                                                                                                      |
+| Placeholder leaks to user                         | Rehydration restores originals. On failure, `strict` mode blocks response. `standard` mode shows safe placeholder.                                                                                                                                                                                               |
+| Vault key extraction                              | Keys are memory-only, never serialized. `destroy()` zeros the buffer. Process crash = keys gone.                                                                                                                                                                                                                 |
+| Session hijacking                                 | Sessions are request-scoped (created and destroyed within one HTTP request). No session ID exposed externally.                                                                                                                                                                                                   |
+| OpenRouter logging our prompts                    | OpenRouter sees only scrubbed text. Even if they log everything, no real PII is present.                                                                                                                                                                                                                         |
+| Model reconstructs PII from context               | Possible but unlikely. The scrubbed prompt lacks the actual values. Model might guess "this is an email" from `<<email:...>>` but can't recover `john@acme.com`.                                                                                                                                                 |
+| Placeholder collision (two PII items get same ID) | 12 hex chars = 48 bits = ~281 trillion possible IDs. Collision probability within a single request (typically <100 PII items) is astronomically low (~1 in 2.8 billion). No mitigation needed.                                                                                                                   |
+| Regex bypass (PII not detected)                   | Known limitation of regex-only detection (no NER). Mitigated by pii-vault's multi-pass detection pipeline which includes an entropy scanner (final pass) that catches unrecognised high-entropy secrets like tokens and keys. Names are explicitly not detected — this is a trade-off for precision over recall. |

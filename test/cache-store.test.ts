@@ -28,7 +28,8 @@ function assert(condition: boolean, msg: string) {
 }
 
 function assertEqual<T>(actual: T, expected: T, msg?: string) {
-  if (actual !== expected) throw new Error(msg || `Expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+  if (actual !== expected)
+    throw new Error(msg || `Expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
 }
 
 // ═══════════════════════════════════════════
@@ -113,13 +114,15 @@ async function cacheKeyTests() {
   });
 
   await test("multi-message conversation included in key", () => {
-    const k1 = buildCacheKey("auto", [
-      { role: "system", content: "You are helpful" },
-      { role: "user", content: "hello" },
-    ], false);
-    const k2 = buildCacheKey("auto", [
-      { role: "user", content: "hello" },
-    ], false);
+    const k1 = buildCacheKey(
+      "auto",
+      [
+        { role: "system", content: "You are helpful" },
+        { role: "user", content: "hello" },
+      ],
+      false,
+    );
+    const k2 = buildCacheKey("auto", [{ role: "user", content: "hello" }], false);
     assert(k1 !== k2, "Different conversation history should produce different keys");
   });
 
@@ -177,7 +180,7 @@ async function ttlTests() {
     cache.set("key1", "data", "m");
     assertEqual(cache.get("key1"), "data"); // immediate: should exist
 
-    await new Promise(r => setTimeout(r, 1100)); // wait 1.1s
+    await new Promise((r) => setTimeout(r, 1100)); // wait 1.1s
     assertEqual(cache.get("key1"), null); // should be expired
   });
 
@@ -187,7 +190,7 @@ async function ttlTests() {
     cache.set("b", "2", "m");
     assertEqual(cache.getStats().size, 2);
 
-    await new Promise(r => setTimeout(r, 1100));
+    await new Promise((r) => setTimeout(r, 1100));
     const swept = cache.sweep();
     assertEqual(swept, 2);
     assertEqual(cache.getStats().size, 0);
@@ -257,9 +260,9 @@ async function statsTests() {
   await test("tracks hits and misses", () => {
     const cache = new LRUCache(300, 100);
     cache.set("a", "1", "m");
-    cache.get("a");     // hit
-    cache.get("a");     // hit
-    cache.get("miss");  // miss
+    cache.get("a"); // hit
+    cache.get("a"); // hit
+    cache.get("miss"); // miss
 
     const s = cache.getStats();
     assertEqual(s.hits, 2);
@@ -276,8 +279,8 @@ async function statsTests() {
   await test("hit rate calculation", () => {
     const cache = new LRUCache(300, 100);
     cache.set("a", "1", "m");
-    cache.get("a");     // hit
-    cache.get("miss");  // miss
+    cache.get("a"); // hit
+    cache.get("miss"); // miss
     assertEqual(cache.getStats().hitRate, "50.0%");
   });
 

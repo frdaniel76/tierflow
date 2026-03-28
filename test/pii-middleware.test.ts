@@ -30,15 +30,18 @@ function assert(condition: boolean, msg: string) {
 }
 
 function assertEqual<T>(actual: T, expected: T, msg?: string) {
-  if (actual !== expected) throw new Error(msg || `Expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+  if (actual !== expected)
+    throw new Error(msg || `Expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
 }
 
 function assertIncludes(haystack: string, needle: string, msg?: string) {
-  if (!haystack.includes(needle)) throw new Error(msg || `Expected "${haystack}" to include "${needle}"`);
+  if (!haystack.includes(needle))
+    throw new Error(msg || `Expected "${haystack}" to include "${needle}"`);
 }
 
 function assertNotIncludes(haystack: string, needle: string, msg?: string) {
-  if (haystack.includes(needle)) throw new Error(msg || `Expected "${haystack}" NOT to include "${needle}"`);
+  if (haystack.includes(needle))
+    throw new Error(msg || `Expected "${haystack}" NOT to include "${needle}"`);
 }
 
 function assertMatch(text: string, regex: RegExp, msg?: string) {
@@ -103,7 +106,8 @@ async function patternDetectionTests() {
 
   await test("detects PEM blocks", () => {
     const vault = new SecretVault();
-    const pem = "-----BEGIN RSA PRIVATE KEY-----\nMIIBogIBAAJBALRiMLAh\n-----END RSA PRIVATE KEY-----";
+    const pem =
+      "-----BEGIN RSA PRIVATE KEY-----\nMIIBogIBAAJBALRiMLAh\n-----END RSA PRIVATE KEY-----";
     const result = vault.redact(`Key: ${pem}`);
     assert(result.count >= 1, `Expected ≥1, got ${result.count}`);
     assertNotIncludes(result.text, "BEGIN RSA");
@@ -253,7 +257,8 @@ async function patternDetectionTests() {
   // H-4: JWT without signature
   await test("detects JWT with signature", () => {
     const vault = new SecretVault();
-    const jwt = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U";
+    const jwt =
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U";
     const result = vault.redact(`Token: ${jwt}`);
     assert(result.count >= 1, `Expected ≥1, got ${result.count}`);
     assertNotIncludes(result.text, "eyJhbGci");
@@ -262,7 +267,8 @@ async function patternDetectionTests() {
 
   await test("detects unsigned JWT (no signature segment)", () => {
     const vault = new SecretVault();
-    const jwt = "eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIn0";
+    const jwt =
+      "eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIn0";
     const result = vault.redact(`Token: ${jwt}`);
     assert(result.count >= 1, `Expected ≥1, got ${result.count}`);
     assertNotIncludes(result.text, "eyJhbGci");
@@ -352,7 +358,9 @@ async function vaultCoreTests() {
 
   await test("redact handles multiple PII types in single text", () => {
     const vault = new SecretVault();
-    const result = vault.redact("Email john@acme.com, key sk-ant-abcdefghijklmnopqrstuvwxyz, IP 10.0.0.1");
+    const result = vault.redact(
+      "Email john@acme.com, key sk-ant-abcdefghijklmnopqrstuvwxyz, IP 10.0.0.1",
+    );
     assert(result.count >= 3, `Expected ≥3, got ${result.count}`);
     assertNotIncludes(result.text, "john@acme.com");
     assertNotIncludes(result.text, "sk-ant-");
@@ -390,7 +398,8 @@ async function vaultCoreTests() {
 
   await test("redact → rehydrate round-trip produces identical original", () => {
     const vault = new SecretVault();
-    const original = "User john@acme.com at 192.168.1.1 with key sk-ant-abcdefghijklmnopqrstuvwxyz says hi";
+    const original =
+      "User john@acme.com at 192.168.1.1 with key sk-ant-abcdefghijklmnopqrstuvwxyz says hi";
     const redacted = vault.redact(original);
     const restored = vault.rehydrate(redacted.text);
     assertEqual(restored.text, original);
@@ -485,9 +494,7 @@ async function scrubMessagesTests() {
   // --- Content Handling ---
 
   await test("scrubs PII from user message content (string)", () => {
-    const messages: ChatMessage[] = [
-      { role: "user", content: "Email me at john@acme.com" },
-    ];
+    const messages: ChatMessage[] = [{ role: "user", content: "Email me at john@acme.com" }];
     const result = scrubMessages(messages);
     assert(result.scrubbed, "Should flag as scrubbed");
     assertNotIncludes(result.messages[0].content as string, "john@acme.com");
@@ -496,9 +503,7 @@ async function scrubMessagesTests() {
   });
 
   await test("scrubs PII from assistant message content", () => {
-    const messages: ChatMessage[] = [
-      { role: "assistant", content: "The email is john@acme.com" },
-    ];
+    const messages: ChatMessage[] = [{ role: "assistant", content: "The email is john@acme.com" }];
     const result = scrubMessages(messages);
     assert(result.scrubbed, "Should scrub assistant content");
     assertNotIncludes(result.messages[0].content as string, "john@acme.com");
@@ -558,9 +563,7 @@ async function scrubMessagesTests() {
     const messages: ChatMessage[] = [
       {
         role: "user",
-        content: [
-          { type: "image_url", image_url: { url: "data:image/png;base64,abc" } },
-        ],
+        content: [{ type: "image_url", image_url: { url: "data:image/png;base64,abc" } }],
       },
     ];
     const result = scrubMessages(messages);
@@ -573,11 +576,13 @@ async function scrubMessagesTests() {
       {
         role: "assistant",
         content: null,
-        tool_calls: [{
-          id: "call_1",
-          type: "function",
-          function: { name: "search", arguments: '{"query":"john@acme.com"}' },
-        }],
+        tool_calls: [
+          {
+            id: "call_1",
+            type: "function",
+            function: { name: "search", arguments: '{"query":"john@acme.com"}' },
+          },
+        ],
       },
     ];
     const result = scrubMessages(messages);
@@ -622,9 +627,7 @@ async function scrubMessagesTests() {
   // --- Edge Cases ---
 
   await test("handles messages with no PII (passthrough)", () => {
-    const messages: ChatMessage[] = [
-      { role: "user", content: "What is the capital of France?" },
-    ];
+    const messages: ChatMessage[] = [{ role: "user", content: "What is the capital of France?" }];
     const result = scrubMessages(messages);
     assert(!result.scrubbed, "Should NOT be scrubbed");
     assertEqual(result.messages[0].content as string, "What is the capital of France?");
@@ -637,17 +640,13 @@ async function scrubMessagesTests() {
   });
 
   await test("handles null content gracefully", () => {
-    const messages: ChatMessage[] = [
-      { role: "assistant", content: null },
-    ];
+    const messages: ChatMessage[] = [{ role: "assistant", content: null }];
     const result = scrubMessages(messages);
     assert(!result.scrubbed, "Should NOT be scrubbed");
   });
 
   await test("deep-copies messages (original untouched)", () => {
-    const original: ChatMessage[] = [
-      { role: "user", content: "Email john@acme.com" },
-    ];
+    const original: ChatMessage[] = [{ role: "user", content: "Email john@acme.com" }];
     const originalContent = original[0].content;
     const result = scrubMessages(original);
     assertEqual(original[0].content as string, originalContent as string);
@@ -661,21 +660,27 @@ async function scrubMessagesTests() {
       { role: "user", content: "Again john@acme.com" },
     ];
     const result = scrubMessages(messages);
-    const id1 = (result.messages[0].content as string).match(/p0([0-9a-f]{12})@maildomain\.com/)![1];
-    const id2 = (result.messages[1].content as string).match(/p0([0-9a-f]{12})@maildomain\.com/)![1];
+    const id1 = (result.messages[0].content as string).match(
+      /p0([0-9a-f]{12})@maildomain\.com/,
+    )![1];
+    const id2 = (result.messages[1].content as string).match(
+      /p0([0-9a-f]{12})@maildomain\.com/,
+    )![1];
     assertEqual(id1, id2, "Same email should produce same placeholder across messages");
     destroySession(result.sessionId);
   });
 
   await test("handles very long message content (10KB+)", () => {
     const longPrefix = "A".repeat(10_000);
-    const messages: ChatMessage[] = [
-      { role: "user", content: `${longPrefix} john@acme.com end` },
-    ];
+    const messages: ChatMessage[] = [{ role: "user", content: `${longPrefix} john@acme.com end` }];
     const result = scrubMessages(messages);
     assert(result.scrubbed, "Should scrub PII in long message");
     assertNotIncludes(result.messages[0].content as string, "john@acme.com");
-    assertEqual((result.messages[0].content as string).length > 10_000, true, "Content should still be long");
+    assertEqual(
+      (result.messages[0].content as string).length > 10_000,
+      true,
+      "Content should still be long",
+    );
     destroySession(result.sessionId);
   });
 
@@ -684,10 +689,21 @@ async function scrubMessagesTests() {
       { role: "system", content: "You are a helpful assistant." },
       { role: "user", content: "Search for john@acme.com" },
       {
-        role: "assistant", content: null,
-        tool_calls: [{ id: "call_1", type: "function", function: { name: "search", arguments: '{"q":"john@acme.com"}' } }],
+        role: "assistant",
+        content: null,
+        tool_calls: [
+          {
+            id: "call_1",
+            type: "function",
+            function: { name: "search", arguments: '{"q":"john@acme.com"}' },
+          },
+        ],
       },
-      { role: "tool" as any, content: "Found: john@acme.com, +44 7911 123456", tool_call_id: "call_1" },
+      {
+        role: "tool" as any,
+        content: "Found: john@acme.com, +44 7911 123456",
+        tool_call_id: "call_1",
+      },
       { role: "user", content: "Great, now email john@acme.com about it" },
     ];
     const result = scrubMessages(messages);
@@ -722,9 +738,7 @@ async function scrubMessagesTests() {
     const messages: ChatMessage[] = [
       {
         role: "user",
-        content: [
-          { type: "tool_result" as any, content: "Email: john@acme.com" } as any,
-        ],
+        content: [{ type: "tool_result" as any, content: "Email: john@acme.com" } as any],
       },
     ];
     const result = scrubMessages(messages);
@@ -736,9 +750,7 @@ async function scrubMessagesTests() {
 
   // SSN in integration context
   await test("scrubs SSN from user messages", () => {
-    const messages: ChatMessage[] = [
-      { role: "user", content: "My SSN is 123-45-6789" },
-    ];
+    const messages: ChatMessage[] = [{ role: "user", content: "My SSN is 123-45-6789" }];
     const result = scrubMessages(messages);
     assert(result.scrubbed, "Should scrub SSN");
     assertNotIncludes(result.messages[0].content as string, "123-45-6789");
@@ -779,9 +791,7 @@ async function rehydrateTextTests() {
   console.log("\n=== rehydrateText() ===\n");
 
   await test("restores single placeholder", () => {
-    const messages: ChatMessage[] = [
-      { role: "user", content: "Email john@acme.com" },
-    ];
+    const messages: ChatMessage[] = [{ role: "user", content: "Email john@acme.com" }];
     const scrubbed = scrubMessages(messages);
     const restored = rehydrateText(scrubbed.messages[0].content as string, scrubbed.sessionId);
     assertEqual(restored, "Email john@acme.com");
@@ -800,9 +810,7 @@ async function rehydrateTextTests() {
   });
 
   await test("handles text with no placeholders (passthrough)", () => {
-    const messages: ChatMessage[] = [
-      { role: "user", content: "Email john@acme.com" },
-    ];
+    const messages: ChatMessage[] = [{ role: "user", content: "Email john@acme.com" }];
     const scrubbed = scrubMessages(messages);
     const result = rehydrateText("Just normal text", scrubbed.sessionId);
     assertEqual(result, "Just normal text");
@@ -831,7 +839,9 @@ async function rehydrateTextTests() {
 
   await test("handles response with mixed model text + placeholders", () => {
     const scrubbed = scrubMessages([{ role: "user", content: "Find john@acme.com" }]);
-    const placeholder = (scrubbed.messages[0].content as string).match(/p0[0-9a-f]{12}@maildomain\.com/)![0];
+    const placeholder = (scrubbed.messages[0].content as string).match(
+      /p0[0-9a-f]{12}@maildomain\.com/,
+    )![0];
     const modelResponse = `I found the contact ${placeholder} in our database. They work at Acme Corp.`;
     const restored = rehydrateText(modelResponse, scrubbed.sessionId);
     assertIncludes(restored, "john@acme.com");
@@ -842,7 +852,9 @@ async function rehydrateTextTests() {
 
   await test("handles placeholder embedded in JSON structure", () => {
     const scrubbed = scrubMessages([{ role: "user", content: "Look up john@acme.com" }]);
-    const placeholder = (scrubbed.messages[0].content as string).match(/p0[0-9a-f]{12}@maildomain\.com/)![0];
+    const placeholder = (scrubbed.messages[0].content as string).match(
+      /p0[0-9a-f]{12}@maildomain\.com/,
+    )![0];
     const jsonResponse = `{"email": "${placeholder}", "found": true}`;
     const restored = rehydrateText(jsonResponse, scrubbed.sessionId);
     assertIncludes(restored, '"email": "john@acme.com"');

@@ -12,8 +12,8 @@ export type ModelDef = {
   /** OpenClaw model ID: "provider/model-id" */
   id: string;
   name: string;
-  inputPrice: number;   // $/1M input tokens
-  outputPrice: number;  // $/1M output tokens
+  inputPrice: number; // $/1M input tokens
+  outputPrice: number; // $/1M output tokens
   contextWindow: number;
   maxOutput: number;
   reasoning?: boolean;

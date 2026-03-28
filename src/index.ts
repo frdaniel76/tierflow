@@ -19,7 +19,11 @@
 
 // Router
 export { route, DEFAULT_ROUTING_CONFIG } from "./router/index.js";
-export { getFallbackChain, getFallbackChainFiltered, calculateModelCost } from "./router/selector.js";
+export {
+  getFallbackChain,
+  getFallbackChainFiltered,
+  calculateModelCost,
+} from "./router/selector.js";
 export { classifyByRules } from "./router/rules.js";
 
 // Types
@@ -34,4 +38,10 @@ export type {
 export type { ModelPricing } from "./router/selector.js";
 
 // Models
-export { MODELS, buildPricingMap, getContextWindow, isReasoningModel, isAgenticModel } from "./models.js";
+export {
+  MODELS,
+  buildPricingMap,
+  getContextWindow,
+  isReasoningModel,
+  isAgenticModel,
+} from "./models.js";

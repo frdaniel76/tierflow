@@ -7,10 +7,7 @@
 
 import { describe, test, before, after } from "node:test";
 import assert from "node:assert/strict";
-import {
-  startMockMLServer,
-  stopMockMLServer,
-} from "../fixtures/mock-ml-server.js";
+import { startMockMLServer, stopMockMLServer } from "../fixtures/mock-ml-server.js";
 import type { Server } from "node:http";
 
 let mlServer: Server;

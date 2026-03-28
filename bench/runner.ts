@@ -33,7 +33,9 @@ if (args.ml) {
     if (!res.ok) throw new Error("not ok");
     console.log("ML classifier: connected");
   } catch {
-    console.error("ERROR: ML classifier not available at :18801. Start llmrouter-service or omit --ml.");
+    console.error(
+      "ERROR: ML classifier not available at :18801. Start llmrouter-service or omit --ml.",
+    );
     process.exit(1);
   }
 }
@@ -95,9 +97,10 @@ for (const bp of BENCH_DATASET) {
   latencies.push(latency);
   methodCounts[decision.method] = (methodCounts[decision.method] || 0) + 1;
 
-  const savingsPct = decision.baselineCost > 0
-    ? ((decision.baselineCost - decision.costEstimate) / decision.baselineCost) * 100
-    : 0;
+  const savingsPct =
+    decision.baselineCost > 0
+      ? ((decision.baselineCost - decision.costEstimate) / decision.baselineCost) * 100
+      : 0;
 
   results.push({
     id: bp.id,
@@ -120,7 +123,9 @@ for (const bp of BENCH_DATASET) {
 
   if (args.verbose) {
     const mark = catCorrect ? "OK" : "MISS";
-    console.log(`  ${mark} ${bp.id}: ${bp.expected_category} -> ${decision.category ?? decision.tier} (${decision.method}, ${latency.toFixed(1)}ms)`);
+    console.log(
+      `  ${mark} ${bp.id}: ${bp.expected_category} -> ${decision.category ?? decision.tier} (${decision.method}, ${latency.toFixed(1)}ms)`,
+    );
   }
 }
 
@@ -129,9 +134,8 @@ const sortedLatencies = [...latencies].sort((a, b) => a - b);
 const p50 = sortedLatencies[Math.floor(sortedLatencies.length * 0.5)] ?? 0;
 const p95 = sortedLatencies[Math.floor(sortedLatencies.length * 0.95)] ?? 0;
 const p99 = sortedLatencies[Math.floor(sortedLatencies.length * 0.99)] ?? 0;
-const avgSavings = totalCostBaseline > 0
-  ? ((totalCostBaseline - totalCostRouted) / totalCostBaseline) * 100
-  : 0;
+const avgSavings =
+  totalCostBaseline > 0 ? ((totalCostBaseline - totalCostRouted) / totalCostBaseline) * 100 : 0;
 
 const summary: BenchResults = {
   generated: new Date().toISOString(),
@@ -169,7 +173,8 @@ console.log(`Report written to ${mdPath}`);
 function computeByCategory(results: BenchResult[]) {
   const cats: Record<string, { total: number; correct: number; accuracy: number }> = {};
   for (const r of results) {
-    if (!cats[r.expected_category]) cats[r.expected_category] = { total: 0, correct: 0, accuracy: 0 };
+    if (!cats[r.expected_category])
+      cats[r.expected_category] = { total: 0, correct: 0, accuracy: 0 };
     cats[r.expected_category].total++;
     if (r.category_correct) cats[r.expected_category].correct++;
   }

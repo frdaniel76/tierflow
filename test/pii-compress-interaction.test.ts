@@ -141,7 +141,8 @@ async function combinedPipelineTests() {
 
   await test("PII in prose + JSON: scrub then compact preserves placeholder", async () => {
     // PII outside code block (scrubbed) + JSON inside code block (compacted)
-    const content = 'Contact alice@example.com about:\n```json\n{\n  "task": "review",\n  "priority": "high"\n}\n```';
+    const content =
+      'Contact alice@example.com about:\n```json\n{\n  "task": "review",\n  "priority": "high"\n}\n```';
     const messages: ChatMessage[] = [{ role: "user", content: content }];
 
     const scrubResult = scrubMessages(messages);
@@ -162,7 +163,8 @@ async function combinedPipelineTests() {
   });
 
   await test("PII + ANSI codes + whitespace: all transforms chain correctly", async () => {
-    const content = "\x1b[32m✓\x1b[0m Email: bob@test.com\n\n\n\n\nPhone: +1 555 123 4567\n\n\n\n\nDone.";
+    const content =
+      "\x1b[32m✓\x1b[0m Email: bob@test.com\n\n\n\n\nPhone: +1 555 123 4567\n\n\n\n\nDone.";
     const messages: ChatMessage[] = [{ role: "user", content: content }];
 
     // PII scrub first

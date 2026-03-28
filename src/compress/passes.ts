@@ -105,7 +105,22 @@ export function stripComments(text: string): string {
     let stripped = body;
 
     // JS/TS/Java/C/Go/Rust style: // comments
-    if (["js", "ts", "javascript", "typescript", "java", "c", "cpp", "go", "rust", "swift", "kotlin", ""].includes(l)) {
+    if (
+      [
+        "js",
+        "ts",
+        "javascript",
+        "typescript",
+        "java",
+        "c",
+        "cpp",
+        "go",
+        "rust",
+        "swift",
+        "kotlin",
+        "",
+      ].includes(l)
+    ) {
       stripped = stripped.replace(LINE_COMMENT_RE, (m, indent: string) => {
         // Keep if it looks like a URL was on the line
         return "";
@@ -162,7 +177,14 @@ export function trimVerbose(text: string, homeDir?: string): string {
 
 export type PassName = "ansi" | "whitespace" | "json" | "dedup" | "comments" | "verbose";
 
-export const ALL_PASSES: PassName[] = ["ansi", "whitespace", "json", "dedup", "comments", "verbose"];
+export const ALL_PASSES: PassName[] = [
+  "ansi",
+  "whitespace",
+  "json",
+  "dedup",
+  "comments",
+  "verbose",
+];
 
 export const PASS_FNS: Record<PassName, (text: string) => string> = {
   ansi: stripAnsi,

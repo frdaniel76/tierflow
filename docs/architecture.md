@@ -57,6 +57,7 @@ When ML service is unavailable:
 ## Provider Translation
 
 Bidirectional Anthropic ↔ OpenAI format:
+
 - Tool calls: `tool_use` blocks ↔ `tool_calls` array
 - Thinking blocks: filtered/preserved based on provider
 - System messages: top-level param (Anthropic) ↔ system role message (OpenAI)
@@ -70,31 +71,31 @@ Stops on: success, or stream already started (`res.headersSent`).
 
 ## Timeouts
 
-| Tier | Timeout |
-|------|---------|
-| SIMPLE | 30s |
-| MEDIUM | 60s |
-| COMPLEX | 120s |
-| REASONING | 120s |
-| Stream stall | 60s |
+| Tier         | Timeout |
+| ------------ | ------- |
+| SIMPLE       | 30s     |
+| MEDIUM       | 60s     |
+| COMPLEX      | 120s    |
+| REASONING    | 120s    |
+| Stream stall | 60s     |
 
 ## Source Files
 
-| File | Purpose |
-|------|---------|
-| `src/server.ts` | HTTP server, route handlers, stats, dashboard |
-| `src/provider.ts` | Provider dispatch, API translation, streaming |
-| `src/router/index.ts` | ML classifier + legacy scorer integration |
-| `src/router/rules.ts` | 15-dimension keyword scorer |
-| `src/router/selector.ts` | Tier → model, cost estimation |
-| `src/router/config.ts` | Default config, dimension weights |
-| `src/pii/vault.ts` | AES-256-GCM encryption, placeholder templates |
-| `src/pii/middleware.ts` | Scrub/rehydrate, streaming carry buffer |
-| `src/pii/patterns.ts` | 15 PII regexes across 5 passes |
-| `src/compress/passes.ts` | 6 compression algorithms |
-| `src/cache/store.ts` | LRU cache, TTL, SHA-256 hashing |
-| `src/config.ts` | Config types, loading, validation |
-| `src/auth.ts` | Auth: env, file, keychain, openclaw, none |
-| `src/usage.ts` | Token/cost tracking (allTime, byModel, byTier, byCategory, hourly) |
-| `src/dashboard.ts` | Built-in HTML monitoring UI |
-| `src/cli.ts` | CLI entry (npx tierflow) |
+| File                     | Purpose                                                            |
+| ------------------------ | ------------------------------------------------------------------ |
+| `src/server.ts`          | HTTP server, route handlers, stats, dashboard                      |
+| `src/provider.ts`        | Provider dispatch, API translation, streaming                      |
+| `src/router/index.ts`    | ML classifier + legacy scorer integration                          |
+| `src/router/rules.ts`    | 15-dimension keyword scorer                                        |
+| `src/router/selector.ts` | Tier → model, cost estimation                                      |
+| `src/router/config.ts`   | Default config, dimension weights                                  |
+| `src/pii/vault.ts`       | AES-256-GCM encryption, placeholder templates                      |
+| `src/pii/middleware.ts`  | Scrub/rehydrate, streaming carry buffer                            |
+| `src/pii/patterns.ts`    | 15 PII regexes across 5 passes                                     |
+| `src/compress/passes.ts` | 6 compression algorithms                                           |
+| `src/cache/store.ts`     | LRU cache, TTL, SHA-256 hashing                                    |
+| `src/config.ts`          | Config types, loading, validation                                  |
+| `src/auth.ts`            | Auth: env, file, keychain, openclaw, none                          |
+| `src/usage.ts`           | Token/cost tracking (allTime, byModel, byTier, byCategory, hourly) |
+| `src/dashboard.ts`       | Built-in HTML monitoring UI                                        |
+| `src/cli.ts`             | CLI entry (npx tierflow)                                           |

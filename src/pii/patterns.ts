@@ -30,7 +30,8 @@ export const CREDIT_CARD =
 export const SSN = /\b\d{3}[- ]\d{2}[- ]\d{4}\b/g;
 
 // H-5 fix: tighter phone — require either + prefix or parenthesized area code to avoid matching dates/versions
-export const PHONE = /(?:\+\d{1,3}[\s.-]?\(?\d{2,4}\)?[\s.-]?\d{3,4}[\s.-]?\d{3,6}|\(\d{2,4}\)[\s.-]?\d{3,4}[\s.-]?\d{3,6})\b/g;
+export const PHONE =
+  /(?:\+\d{1,3}[\s.-]?\(?\d{2,4}\)?[\s.-]?\d{3,4}[\s.-]?\d{3,6}|\(\d{2,4}\)[\s.-]?\d{3,4}[\s.-]?\d{3,6})\b/g;
 
 export const API_KEY =
   /\b(sk-ant-[A-Za-z0-9_-]{20,}|sk-[A-Za-z0-9_-]{20,}|ghp_[A-Za-z0-9]{20,}|gho_[A-Za-z0-9]{20,}|xoxb-[A-Za-z0-9-]+|xoxp-[A-Za-z0-9-]+|AIza[A-Za-z0-9_-]{35}|AKIA[A-Z0-9]{16}|ey[A-Za-z0-9_-]{10,}\.ey[A-Za-z0-9_-]{10,}(?:\.[A-Za-z0-9_-]{10,})?)/g;
@@ -43,7 +44,8 @@ export const PEM_BLOCK = /-----BEGIN [A-Z ]{1,40}-----[\s\S]*?-----END [A-Z ]{1,
 export const PEM_HEADER = /-----BEGIN [A-Z ]{1,40}-----/g;
 
 // M-7 + H-6 fix: expanded keyword list, value captured more broadly
-export const CREDENTIALS = /(password|passwd|pwd|pass|secret|token|auth_token|access_key|private_key|client_secret|app_secret|api[_\s]?key|apikey)\s*[:=]\s*(\S{4,})/gi;
+export const CREDENTIALS =
+  /(password|passwd|pwd|pass|secret|token|auth_token|access_key|private_key|client_secret|app_secret|api[_\s]?key|apikey)\s*[:=]\s*(\S{4,})/gi;
 
 export const CONNECTION_STRING =
   /(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis|amqps?|ftps?|sftp):\/\/[^\s"'>]{8,}/gi;
@@ -79,27 +81,27 @@ export type PatternDef = {
 
 export const PATTERNS: PatternDef[] = [
   // Pass 1 — high confidence, structured
-  { name: "pem_block",    category: "pem",    regex: PEM_BLOCK,          pass: 1 },
-  { name: "api_key",      category: "apikey",  regex: API_KEY,            pass: 1 },
-  { name: "conn_string",  category: "conn",    regex: CONNECTION_STRING,  pass: 1 },
-  { name: "bearer",       category: "cred",    regex: BEARER,             pass: 1 },
+  { name: "pem_block", category: "pem", regex: PEM_BLOCK, pass: 1 },
+  { name: "api_key", category: "apikey", regex: API_KEY, pass: 1 },
+  { name: "conn_string", category: "conn", regex: CONNECTION_STRING, pass: 1 },
+  { name: "bearer", category: "cred", regex: BEARER, pass: 1 },
 
   // Pass 2 — structured identifiers
-  { name: "email",        category: "email",   regex: EMAIL,              pass: 2 },
-  { name: "credit_card",  category: "cc",      regex: CREDIT_CARD,        pass: 2 },
-  { name: "ssn",          category: "ssn",     regex: SSN,                pass: 2 },
-  { name: "uk_nino",      category: "nino",    regex: UK_NINO,            pass: 2 },
+  { name: "email", category: "email", regex: EMAIL, pass: 2 },
+  { name: "credit_card", category: "cc", regex: CREDIT_CARD, pass: 2 },
+  { name: "ssn", category: "ssn", regex: SSN, pass: 2 },
+  { name: "uk_nino", category: "nino", regex: UK_NINO, pass: 2 },
 
   // Pass 3 — semi-structured
-  { name: "phone",        category: "phone",   regex: PHONE,              pass: 3 },
-  { name: "ip_address",   category: "ip",      regex: IP_ADDRESS,         pass: 3 },
-  { name: "ipv6_address", category: "ip",      regex: IPV6_ADDRESS,       pass: 3 },
-  { name: "uk_postcode",  category: "post",    regex: UK_POSTCODE,        pass: 3 },
-  { name: "file_path",    category: "path",    regex: FILE_PATH,          pass: 3 },
+  { name: "phone", category: "phone", regex: PHONE, pass: 3 },
+  { name: "ip_address", category: "ip", regex: IP_ADDRESS, pass: 3 },
+  { name: "ipv6_address", category: "ip", regex: IPV6_ADDRESS, pass: 3 },
+  { name: "uk_postcode", category: "post", regex: UK_POSTCODE, pass: 3 },
+  { name: "file_path", category: "path", regex: FILE_PATH, pass: 3 },
 
   // Pass 4 — PEM headers (after full PEM blocks already matched)
-  { name: "pem_header",   category: "pem",     regex: PEM_HEADER,         pass: 4 },
+  { name: "pem_header", category: "pem", regex: PEM_HEADER, pass: 4 },
 
   // Pass 5 — entropy catch-all (key=value credentials)
-  { name: "credentials",  category: "secret",  regex: CREDENTIALS,        pass: 5 },
+  { name: "credentials", category: "secret", regex: CREDENTIALS, pass: 5 },
 ];

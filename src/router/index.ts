@@ -11,7 +11,14 @@
  * 4. Fall back to legacy scorer if ML is down
  */
 
-import type { Tier, Category, RoutingDecision, RoutingConfig, CategoryResult, CategoryConfig } from "./types.js";
+import type {
+  Tier,
+  Category,
+  RoutingDecision,
+  RoutingConfig,
+  CategoryResult,
+  CategoryConfig,
+} from "./types.js";
 import { CATEGORY_TO_TIER } from "./types.js";
 import { classifyByRules } from "./rules.js";
 import { selectModel, type ModelPricing } from "./selector.js";
@@ -41,7 +48,7 @@ export async function route(
   metadata?: RouteMetadata,
 ): Promise<RoutingDecision> {
   const { config, modelPricing } = options;
-  const estimatedTotalTokens = Math.ceil((`${systemPrompt ?? ""} ${prompt}`).length / 4);
+  const estimatedTotalTokens = Math.ceil(`${systemPrompt ?? ""} ${prompt}`.length / 4);
 
   // ─── v2: Category-based routing (if categories configured) ───
   if (config.categories && config.mlClassifier) {
@@ -70,14 +77,32 @@ async function routeByCategory(
 
   // Audio attachment → transcription
   if (metadata?.hasAudio) {
-    return buildCategoryDecision("transcription", 1.0, "shortcut", "audio-attachment", categories, modelPricing, estimatedTotalTokens, maxOutputTokens);
+    return buildCategoryDecision(
+      "transcription",
+      1.0,
+      "shortcut",
+      "audio-attachment",
+      categories,
+      modelPricing,
+      estimatedTotalTokens,
+      maxOutputTokens,
+    );
   }
 
   // Mode override (user typed /code, /max, etc.)
   if (config.modeOverrides) {
     const override = detectModeOverride(prompt, config.modeOverrides);
     if (override) {
-      return buildCategoryDecision(override as Category, 0.99, "shortcut", `user-mode: ${override}`, categories, modelPricing, estimatedTotalTokens, maxOutputTokens);
+      return buildCategoryDecision(
+        override as Category,
+        0.99,
+        "shortcut",
+        `user-mode: ${override}`,
+        categories,
+        modelPricing,
+        estimatedTotalTokens,
+        maxOutputTokens,
+      );
     }
   }
 
@@ -99,15 +124,35 @@ async function routeByCategory(
       }
     }
 
-    return buildCategoryDecision(category, result.confidence, "ml-classifier", reasoning, categories, modelPricing, estimatedTotalTokens, maxOutputTokens);
+    return buildCategoryDecision(
+      category,
+      result.confidence,
+      "ml-classifier",
+      reasoning,
+      categories,
+      modelPricing,
+      estimatedTotalTokens,
+      maxOutputTokens,
+    );
   } catch (err) {
     // ML service down — fall back to default category
     const fallback = (mlConfig.fallback_category ?? "general") as Category;
-    logger.warn(`[Router] ML classifier unavailable: ${err instanceof Error ? err.message : err} — using ${fallback}`);
+    logger.warn(
+      `[Router] ML classifier unavailable: ${err instanceof Error ? err.message : err} — using ${fallback}`,
+    );
 
     // If tools present, prefer agentic fallback
     const category = metadata?.hasTools ? "agentic" : fallback;
-    return buildCategoryDecision(category, 0.5, "shortcut", `ml-fallback: ${category}`, categories, modelPricing, estimatedTotalTokens, maxOutputTokens);
+    return buildCategoryDecision(
+      category,
+      0.5,
+      "shortcut",
+      `ml-fallback: ${category}`,
+      categories,
+      modelPricing,
+      estimatedTotalTokens,
+      maxOutputTokens,
+    );
   }
 }
 
@@ -138,7 +183,7 @@ async function callMLClassifier(
       throw new Error(`HTTP ${response.status}`);
     }
 
-    return await response.json() as CategoryResult;
+    return (await response.json()) as CategoryResult;
   } finally {
     clearTimeout(timeout);
   }
@@ -185,7 +230,10 @@ function buildCategoryDecision(
   const catConfig = categories[category];
   if (!catConfig) {
     // Unknown category — fall back to general
-    const fallbackConfig = categories["general"] ?? { primary: "openrouter/deepseek/deepseek-v3.2", fallback: [] };
+    const fallbackConfig = categories["general"] ?? {
+      primary: "openrouter/deepseek/deepseek-v3.2",
+      fallback: [],
+    };
     return {
       model: fallbackConfig.primary,
       tier: "MEDIUM",
@@ -205,7 +253,8 @@ function buildCategoryDecision(
   // Cost estimate
   const pricing = modelPricing.get(model);
   const costEstimate = pricing
-    ? (estimatedTokens / 1_000_000) * (pricing.inputPrice ?? 0) + (maxOutputTokens / 1_000_000) * (pricing.outputPrice ?? 0)
+    ? (estimatedTokens / 1_000_000) * (pricing.inputPrice ?? 0) +
+      (maxOutputTokens / 1_000_000) * (pricing.outputPrice ?? 0)
     : 0;
 
   return {
@@ -242,7 +291,16 @@ function routeByTier(
   const tierConfigs = useAgenticTiers ? config.agenticTiers! : config.tiers;
 
   if (estimatedTotalTokens > config.overrides.maxTokensForceComplex) {
-    return selectModel("COMPLEX", 0.95, "rules", `Input exceeds ${config.overrides.maxTokensForceComplex} tokens`, tierConfigs, modelPricing, estimatedTotalTokens, maxOutputTokens);
+    return selectModel(
+      "COMPLEX",
+      0.95,
+      "rules",
+      `Input exceeds ${config.overrides.maxTokensForceComplex} tokens`,
+      tierConfigs,
+      modelPricing,
+      estimatedTotalTokens,
+      maxOutputTokens,
+    );
   }
 
   let tier: Tier;
@@ -260,7 +318,16 @@ function routeByTier(
 
   if (isAutoAgentic) reasoning += " | auto-agentic";
 
-  return selectModel(tier, confidence, "rules", reasoning, tierConfigs, modelPricing, estimatedTotalTokens, maxOutputTokens);
+  return selectModel(
+    tier,
+    confidence,
+    "rules",
+    reasoning,
+    tierConfigs,
+    modelPricing,
+    estimatedTotalTokens,
+    maxOutputTokens,
+  );
 }
 
 export { getFallbackChain, getFallbackChainFiltered, calculateModelCost } from "./selector.js";

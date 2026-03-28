@@ -31,7 +31,8 @@ function assert(condition: boolean, msg: string) {
 }
 
 function assertEqual<T>(actual: T, expected: T, msg?: string) {
-  if (actual !== expected) throw new Error(msg || `Expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+  if (actual !== expected)
+    throw new Error(msg || `Expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
 }
 
 async function getStats(): Promise<Record<string, any>> {
@@ -63,13 +64,22 @@ async function schemaTests() {
   await test("/stats returns valid JSON", async () => {
     const res = await fetch(`${BASE}/stats`);
     assert(res.ok, `Expected 200, got ${res.status}`);
-    const data = await res.json() as any;
+    const data = (await res.json()) as any;
     assert(typeof data === "object", "Should return an object");
   });
 
   await test("stats has required top-level fields", async () => {
     const stats = await getStats();
-    const required = ["started", "requests", "errors", "timeouts", "byTier", "byModel", "pii", "compress"];
+    const required = [
+      "started",
+      "requests",
+      "errors",
+      "timeouts",
+      "byTier",
+      "byModel",
+      "pii",
+      "compress",
+    ];
     for (const field of required) {
       assert(field in stats, `Missing field: ${field}`);
     }
@@ -126,7 +136,11 @@ async function counterTests() {
     const before = await getStats();
     await chat("ping");
     const after = await getStats();
-    assertEqual(after.requests, before.requests + 1, `requests: ${before.requests} → ${after.requests}`);
+    assertEqual(
+      after.requests,
+      before.requests + 1,
+      `requests: ${before.requests} → ${after.requests}`,
+    );
   });
 
   await test("byModel counter increments for routed model", async () => {
@@ -135,8 +149,14 @@ async function counterTests() {
     const model = res.headers.get("x-clawrouter-model") ?? "";
     const after = await getStats();
     // The model in byModel might use a different key format
-    const totalModelCountBefore = Object.values(before.byModel as Record<string, number>).reduce((a, b) => a + b, 0);
-    const totalModelCountAfter = Object.values(after.byModel as Record<string, number>).reduce((a, b) => a + b, 0);
+    const totalModelCountBefore = Object.values(before.byModel as Record<string, number>).reduce(
+      (a, b) => a + b,
+      0,
+    );
+    const totalModelCountAfter = Object.values(after.byModel as Record<string, number>).reduce(
+      (a, b) => a + b,
+      0,
+    );
     assert(
       totalModelCountAfter > totalModelCountBefore,
       `Total model count should increase: ${totalModelCountBefore} → ${totalModelCountAfter}`,
@@ -145,10 +165,16 @@ async function counterTests() {
 
   await test("byTier counter increments", async () => {
     const before = await getStats();
-    const totalTierBefore = Object.values(before.byTier as Record<string, number>).reduce((a, b) => a + b, 0);
+    const totalTierBefore = Object.values(before.byTier as Record<string, number>).reduce(
+      (a, b) => a + b,
+      0,
+    );
     await chat("What time is it?");
     const after = await getStats();
-    const totalTierAfter = Object.values(after.byTier as Record<string, number>).reduce((a, b) => a + b, 0);
+    const totalTierAfter = Object.values(after.byTier as Record<string, number>).reduce(
+      (a, b) => a + b,
+      0,
+    );
     assert(
       totalTierAfter > totalTierBefore,
       `Total tier count should increase: ${totalTierBefore} → ${totalTierAfter}`,
@@ -185,7 +211,10 @@ async function tokenUsageTests() {
 
   await test("allTime.cost is non-negative", async () => {
     const stats = await getStats();
-    assert(stats.tokenUsage.allTime.cost >= 0, `Cost should be >= 0, got ${stats.tokenUsage.allTime.cost}`);
+    assert(
+      stats.tokenUsage.allTime.cost >= 0,
+      `Cost should be >= 0, got ${stats.tokenUsage.allTime.cost}`,
+    );
   });
 
   await test("byCategory has entries after requests", async () => {
@@ -231,7 +260,7 @@ async function configTests() {
   await test("/config returns sanitized config", async () => {
     const res = await fetch(`${BASE}/config`);
     assert(res.ok, `Expected 200, got ${res.status}`);
-    const data = await res.json() as any;
+    const data = (await res.json()) as any;
     assert("config" in data, "Should have config field");
     assert("providers" in data.config, "Should have providers");
   });
@@ -246,7 +275,7 @@ async function configTests() {
   await test("POST /reload-config succeeds", async () => {
     const res = await fetch(`${BASE}/reload-config`, { method: "POST" });
     assert(res.ok, `Expected 200, got ${res.status}`);
-    const data = await res.json() as any;
+    const data = (await res.json()) as any;
     assertEqual(data.status, "reloaded", "Should return status: reloaded");
   });
 }

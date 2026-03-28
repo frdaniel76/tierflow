@@ -9,7 +9,7 @@
 import { randomBytes } from "node:crypto";
 import { SecretVault } from "./vault.js";
 
-const DEFAULT_TTL_MS = 30 * 60 * 1000;  // 30 minutes
+const DEFAULT_TTL_MS = 30 * 60 * 1000; // 30 minutes
 const SWEEP_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 const MAX_SESSIONS = 1000; // M-5: cap to prevent unbounded memory growth
 

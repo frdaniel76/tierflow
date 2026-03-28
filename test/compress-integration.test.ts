@@ -33,7 +33,8 @@ function assert(condition: boolean, msg: string) {
 }
 
 function assertEqual<T>(actual: T, expected: T, msg?: string) {
-  if (actual !== expected) throw new Error(msg || `Expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+  if (actual !== expected)
+    throw new Error(msg || `Expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
 }
 
 async function chat(content: string, extraBody: Record<string, unknown> = {}): Promise<Response> {
@@ -84,7 +85,8 @@ async function compressionTriggerTests() {
   console.log("\n=== Compression Triggers ===\n");
 
   await test("repeated lines trigger compression with savings header", async () => {
-    const content = "Log output:\n" + "Processing item...\n".repeat(15) + "\n\n\n\nDone. Summarize.";
+    const content =
+      "Log output:\n" + "Processing item...\n".repeat(15) + "\n\n\n\nDone. Summarize.";
     const res = await chat(content);
     assert(res.ok, `Expected 200, got ${res.status}`);
     const savings = res.headers.get("x-ctxpack-savings");
@@ -94,7 +96,8 @@ async function compressionTriggerTests() {
   });
 
   await test("JSON in fenced block gets compacted", async () => {
-    const content = 'Parse this:\n```json\n{\n  "name": "Alice",\n  "age": 30,\n  "city": "London",\n  "email": "test@example.com"\n}\n```\nWhat fields are there?';
+    const content =
+      'Parse this:\n```json\n{\n  "name": "Alice",\n  "age": 30,\n  "city": "London",\n  "email": "test@example.com"\n}\n```\nWhat fields are there?';
     const res = await chat(content);
     assert(res.ok, `Expected 200, got ${res.status}`);
     const savings = res.headers.get("x-ctxpack-savings");
@@ -176,10 +179,13 @@ async function responseValidityTests() {
     const content = "Output:\n" + "ok\n".repeat(10) + "\n\n\n\nWhat was the output?";
     const res = await chat(content);
     assert(res.ok, `Expected 200, got ${res.status}`);
-    const data = await res.json() as any;
+    const data = (await res.json()) as any;
     assert(Array.isArray(data.choices), "Response should have choices array");
     assert(data.choices.length > 0, "Should have at least one choice");
-    assert(typeof data.choices[0].message.content === "string", "Choice should have string content");
+    assert(
+      typeof data.choices[0].message.content === "string",
+      "Choice should have string content",
+    );
   });
 
   await test("model header is set on compressed request", async () => {

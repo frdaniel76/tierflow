@@ -56,18 +56,18 @@ interface Match {
 // captures from the very beginning of the placeholder. Type-hinting suffixes
 // tell the LLM what kind of data this represents.
 const PLACEHOLDER_TEMPLATES: Record<string, (id: string, keyword?: string) => string> = {
-  email:  (id) => `p0${id}@maildomain.com`,
+  email: (id) => `p0${id}@maildomain.com`,
   apikey: (id) => `p0${id}-placeholder-key`,
-  conn:   (id) => `p0${id}://placeholder/db`,
-  cred:   (id) => `p0${id}-placeholder-token`,
-  cc:     (id) => `p0${id}-0000-card`,
-  ssn:    (id) => `p0${id}-ssn`,
-  phone:  (id) => `p0${id}-phone`,
-  ip:     (id) => `p0${id}.0.0.1`,
-  path:   (id) => `p0${id}/pii/redacted`,
-  pem:    (id) => `p0${id}-PII-KEY`,
-  nino:   (id) => `p0${id}-nino`,
-  post:   (id) => `p0${id}-postcode`,
+  conn: (id) => `p0${id}://placeholder/db`,
+  cred: (id) => `p0${id}-placeholder-token`,
+  cc: (id) => `p0${id}-0000-card`,
+  ssn: (id) => `p0${id}-ssn`,
+  phone: (id) => `p0${id}-phone`,
+  ip: (id) => `p0${id}.0.0.1`,
+  path: (id) => `p0${id}/pii/redacted`,
+  pem: (id) => `p0${id}-PII-KEY`,
+  nino: (id) => `p0${id}-nino`,
+  post: (id) => `p0${id}-postcode`,
   secret: (id, keyword) => `p0${id}-${keyword ?? "secret"}`,
 };
 
@@ -75,19 +75,19 @@ const PLACEHOLDER_TEMPLATES: Record<string, (id: string, keyword?: string) => st
 // All patterns start with p0, ordered longest-suffix-first to avoid
 // shorter patterns matching prematurely.
 const REHYDRATE_PATTERNS: Array<{ regex: RegExp; idGroup: number }> = [
-  { regex: /p0([0-9a-f]{12})@maildomain\.com/g,                 idGroup: 1 },  // email
-  { regex: /p0([0-9a-f]{12})-placeholder-token/g,               idGroup: 1 },  // cred
-  { regex: /p0([0-9a-f]{12})-placeholder-key/g,                 idGroup: 1 },  // apikey
-  { regex: /p0([0-9a-f]{12}):\/\/placeholder\/db/g,             idGroup: 1 },  // conn
-  { regex: /p0([0-9a-f]{12})-0000-card/g,                       idGroup: 1 },  // cc
-  { regex: /p0([0-9a-f]{12})\/pii\/redacted/g,                  idGroup: 1 },  // path
-  { regex: /p0([0-9a-f]{12})-postcode/g,                        idGroup: 1 },  // post
-  { regex: /p0([0-9a-f]{12})-PII-KEY/g,                         idGroup: 1 },  // pem
-  { regex: /p0([0-9a-f]{12})-phone/g,                           idGroup: 1 },  // phone
-  { regex: /p0([0-9a-f]{12})-nino/g,                            idGroup: 1 },  // nino
-  { regex: /p0([0-9a-f]{12})\.0\.0\.1/g,                        idGroup: 1 },  // ip
-  { regex: /p0([0-9a-f]{12})-ssn/g,                             idGroup: 1 },  // ssn
-  { regex: /p0([0-9a-f]{12})-\w+/g,                             idGroup: 1 },  // secret (keyword suffix)
+  { regex: /p0([0-9a-f]{12})@maildomain\.com/g, idGroup: 1 }, // email
+  { regex: /p0([0-9a-f]{12})-placeholder-token/g, idGroup: 1 }, // cred
+  { regex: /p0([0-9a-f]{12})-placeholder-key/g, idGroup: 1 }, // apikey
+  { regex: /p0([0-9a-f]{12}):\/\/placeholder\/db/g, idGroup: 1 }, // conn
+  { regex: /p0([0-9a-f]{12})-0000-card/g, idGroup: 1 }, // cc
+  { regex: /p0([0-9a-f]{12})\/pii\/redacted/g, idGroup: 1 }, // path
+  { regex: /p0([0-9a-f]{12})-postcode/g, idGroup: 1 }, // post
+  { regex: /p0([0-9a-f]{12})-PII-KEY/g, idGroup: 1 }, // pem
+  { regex: /p0([0-9a-f]{12})-phone/g, idGroup: 1 }, // phone
+  { regex: /p0([0-9a-f]{12})-nino/g, idGroup: 1 }, // nino
+  { regex: /p0([0-9a-f]{12})\.0\.0\.1/g, idGroup: 1 }, // ip
+  { regex: /p0([0-9a-f]{12})-ssn/g, idGroup: 1 }, // ssn
+  { regex: /p0([0-9a-f]{12})-\w+/g, idGroup: 1 }, // secret (keyword suffix)
 ];
 
 // Universal fallback: matches p0{hex} marker with 10-12 hex chars.
@@ -100,7 +100,8 @@ export const PII_ID_MARKER = /p0[0-9a-f]{10,12}/;
 export const PII_ID_MARKER_G = /p0[0-9a-f]{10,12}/g;
 
 // Extract keyword from a credentials match (e.g. "password=hunter2" → "password")
-const CREDENTIAL_KEYWORD_RE = /^(password|passwd|pwd|pass|secret|token|auth_token|access_key|private_key|client_secret|app_secret|api[_\s]?key|apikey)\s*[:=]/i;
+const CREDENTIAL_KEYWORD_RE =
+  /^(password|passwd|pwd|pass|secret|token|auth_token|access_key|private_key|client_secret|app_secret|api[_\s]?key|apikey)\s*[:=]/i;
 
 // ─── Code block detection ───
 
@@ -117,7 +118,7 @@ function findCodeBlocks(text: string): Array<{ start: number; end: number }> {
 }
 
 function insideCodeBlock(offset: number, blocks: Array<{ start: number; end: number }>): boolean {
-  return blocks.some(b => offset >= b.start && offset < b.end);
+  return blocks.some((b) => offset >= b.start && offset < b.end);
 }
 
 // ─── SecretVault ───
@@ -222,7 +223,9 @@ export class SecretVault {
     }
 
     // Resolve overlaps: earlier pass wins, then longer match wins
-    allMatches.sort((a, b) => a.start - b.start || a.pass - b.pass || (b.end - b.start) - (a.end - a.start));
+    allMatches.sort(
+      (a, b) => a.start - b.start || a.pass - b.pass || b.end - b.start - (a.end - a.start),
+    );
 
     const resolved: Match[] = [];
     let lastEnd = 0;
@@ -307,7 +310,10 @@ export class SecretVault {
       result = result.replace(fallback, (fullMatch, id: string) => {
         // Exact match first
         let entry = this.entries.get(id);
-        if (entry) { count++; return this.decrypt(entry); }
+        if (entry) {
+          count++;
+          return this.decrypt(entry);
+        }
 
         // Prefix match for truncated IDs (10-11 chars)
         if (id.length < 12) {
@@ -317,7 +323,10 @@ export class SecretVault {
               break;
             }
           }
-          if (entry) { count++; return this.decrypt(entry); }
+          if (entry) {
+            count++;
+            return this.decrypt(entry);
+          }
         }
 
         return fullMatch;

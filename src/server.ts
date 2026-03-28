@@ -16,9 +16,29 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { route } from "./router/index.js";
 import { getRoutingConfig } from "./router/config.js";
 import { buildPricingMap } from "./models.js";
-import { forwardRequest, TimeoutError, parseModelId, setCurrentCategory, type ChatRequest } from "./provider.js";
+import {
+  forwardRequest,
+  TimeoutError,
+  parseModelId,
+  setCurrentCategory,
+  type ChatRequest,
+} from "./provider.js";
 import { reloadAuth } from "./auth.js";
-import { loadConfig, getConfig, reloadConfig, getSanitizedConfig, getConfigPath, isPiiEnabled, getPiiExclude, getPiiMode, isPiiScrubSystem, isPiiDebugLog, isCompressEnabled, getCompressPasses, isCompressSystem } from "./config.js";
+import {
+  loadConfig,
+  getConfig,
+  reloadConfig,
+  getSanitizedConfig,
+  getConfigPath,
+  isPiiEnabled,
+  getPiiExclude,
+  getPiiMode,
+  isPiiScrubSystem,
+  isPiiDebugLog,
+  isCompressEnabled,
+  getCompressPasses,
+  isCompressSystem,
+} from "./config.js";
 import { logger, setLogLevel } from "./logger.js";
 import { scrubMessages, destroySession, piiVaultStore } from "./pii/index.js";
 import { compressMessages } from "./compress/index.js";
@@ -27,7 +47,15 @@ import { LRUCache, buildCacheKey } from "./cache/index.js";
 import type { CacheGlobalConfig } from "./config.js";
 import { getUsageStats } from "./usage.js";
 import { getDashboardHTML } from "./dashboard.js";
-import { getQualityTiersResponse, applyPreset, setQualityLevel, setGlobalLevel, testProvider, type PresetName, type QualityLevel } from "./quality.js";
+import {
+  getQualityTiersResponse,
+  applyPreset,
+  setQualityLevel,
+  setGlobalLevel,
+  testProvider,
+  type PresetName,
+  type QualityLevel,
+} from "./quality.js";
 
 // Load config at startup
 const appConfig = loadConfig();
@@ -36,8 +64,12 @@ const appConfig = loadConfig();
 if (process.env.LLMROUTER_URL && appConfig.mlClassifier) {
   appConfig.mlClassifier.url = process.env.LLMROUTER_URL;
 }
-const PORT = parseInt(process.env.TIERFLOW_PORT ?? process.env.CLAWROUTER_PORT ?? String(appConfig.port), 10);
-const HOST = process.env.TIERFLOW_HOST ?? process.env.CLAWROUTER_HOST ?? appConfig.host ?? "127.0.0.1";
+const PORT = parseInt(
+  process.env.TIERFLOW_PORT ?? process.env.CLAWROUTER_PORT ?? String(appConfig.port),
+  10,
+);
+const HOST =
+  process.env.TIERFLOW_HOST ?? process.env.CLAWROUTER_HOST ?? appConfig.host ?? "127.0.0.1";
 
 // Build pricing map once at startup
 const modelPricing = buildPricingMap();
@@ -85,9 +117,11 @@ function readBody(req: IncomingMessage): Promise<string> {
  */
 function sendError(res: ServerResponse, status: number, message: string, type = "server_error") {
   res.writeHead(status, { "Content-Type": "application/json" });
-  res.end(JSON.stringify({
-    error: { message, type, code: status },
-  }));
+  res.end(
+    JSON.stringify({
+      error: { message, type, code: status },
+    }),
+  );
 }
 
 /**
@@ -103,9 +137,13 @@ function extractPromptForClassification(messages: ChatRequest["messages"]): {
   // Separate system messages from conversation
   const conversationMsgs: Array<{ role: string; text: string }> = [];
   for (const msg of messages) {
-    const text = typeof msg.content === "string"
-      ? msg.content
-      : (msg.content ?? []).filter(b => b.type === "text").map(b => b.text ?? "").join("\n");
+    const text =
+      typeof msg.content === "string"
+        ? msg.content
+        : (msg.content ?? [])
+            .filter((b) => b.type === "text")
+            .map((b) => b.text ?? "")
+            .join("\n");
 
     if (msg.role === "system" || msg.role === "developer") {
       systemPrompt = (systemPrompt ? systemPrompt + "\n" : "") + text;
@@ -119,7 +157,7 @@ function extractPromptForClassification(messages: ChatRequest["messages"]): {
 
   // Build classification prompt: weight the last user message most,
   // but include recent context so quoted/replied content gets scored too
-  const lastUserMsg = recentMsgs.filter(m => m.role === "user").pop()?.text ?? "";
+  const lastUserMsg = recentMsgs.filter((m) => m.role === "user").pop()?.text ?? "";
   const contextParts: string[] = [];
   for (const msg of recentMsgs) {
     if (msg.text !== lastUserMsg) {
@@ -129,23 +167,21 @@ function extractPromptForClassification(messages: ChatRequest["messages"]): {
   }
 
   // Combine: context (truncated) + full last user message
-  const prompt = contextParts.length > 0
-    ? contextParts.join("\n") + "\n" + lastUserMsg
-    : lastUserMsg;
+  const prompt =
+    contextParts.length > 0 ? contextParts.join("\n") + "\n" + lastUserMsg : lastUserMsg;
 
   return { prompt, systemPrompt };
 }
-
 
 /**
  * Detect user-requested mode override in prompt text.
  * Users can prefix or include mode directives to force a specific tier:
  *   "simple mode: ..."  or  "/simple ..."   → SIMPLE
- *   "medium mode: ..."  or  "/medium ..."   → MEDIUM  
+ *   "medium mode: ..."  or  "/medium ..."   → MEDIUM
  *   "complex mode: ..." or  "/complex ..."  → COMPLEX
  *   "max mode: ..."     or  "/max ..."      → REASONING
  *   "reasoning mode: ..." or "/reasoning ..." → REASONING
- * 
+ *
  * Returns the forced tier and cleaned prompt (directive stripped), or null if no override.
  */
 function detectModeOverride(prompt: string): { tier: string; cleanedPrompt: string } | null {
@@ -172,7 +208,7 @@ function detectModeOverride(prompt: string): { tier: string; cleanedPrompt: stri
     }
   }
 
-  // Pattern 2: "mode mode: ..." or "mode mode, ..." at start  
+  // Pattern 2: "mode mode: ..." or "mode mode, ..." at start
   const prefixMatch = prompt.match(/^([a-z]+)\s+mode[:\s,]+/i);
   if (prefixMatch) {
     const mode = prefixMatch[1].toLowerCase();
@@ -239,7 +275,9 @@ async function handleChatCompletions(req: IncomingMessage, res: ServerResponse) 
 
   // Log tool presence for routing visibility
   if (chatReq.tools && chatReq.tools.length > 0) {
-    logger.info(`[tools] ${chatReq.tools.length} tools: ${chatReq.tools.map((t: any) => t.function?.name ?? '?').join(', ')}`);
+    logger.info(
+      `[tools] ${chatReq.tools.length} tools: ${chatReq.tools.map((t: any) => t.function?.name ?? "?").join(", ")}`,
+    );
   }
 
   // Extract prompt for classification
@@ -256,19 +294,34 @@ async function handleChatCompletions(req: IncomingMessage, res: ServerResponse) 
   let reasoning: string;
   let category: string | undefined;
 
-  if (requestedModel === "auto" || requestedModel === "clawrouter/auto" || requestedModel === "blockrun/auto") {
+  if (
+    requestedModel === "auto" ||
+    requestedModel === "clawrouter/auto" ||
+    requestedModel === "blockrun/auto"
+  ) {
     // Run the ML classifier (handles mode overrides, tools, audio internally)
     const routingCfg = getRoutingConfig();
     const hasTools = chatReq.tools && chatReq.tools.length > 0;
-    const hasAudio = chatReq.messages?.some(m => {
-      const content = typeof m.content === "string" ? m.content : JSON.stringify(m.content ?? "");
-      return content.includes("audio/ogg") || content.includes("audio/") || content.includes("[media attached:");
-    }) ?? false;
+    const hasAudio =
+      chatReq.messages?.some((m) => {
+        const content = typeof m.content === "string" ? m.content : JSON.stringify(m.content ?? "");
+        return (
+          content.includes("audio/ogg") ||
+          content.includes("audio/") ||
+          content.includes("[media attached:")
+        );
+      }) ?? false;
 
-    const decision = await route(prompt, systemPrompt, maxTokens, {
-      config: routingCfg,
-      modelPricing,
-    }, { hasTools, hasAudio });
+    const decision = await route(
+      prompt,
+      systemPrompt,
+      maxTokens,
+      {
+        config: routingCfg,
+        modelPricing,
+      },
+      { hasTools, hasAudio },
+    );
 
     routedModel = decision.model;
     tier = decision.tier;
@@ -285,7 +338,9 @@ async function handleChatCompletions(req: IncomingMessage, res: ServerResponse) 
     }
 
     const catLabel = decision.category ? ` category=${decision.category}` : "";
-    logger.info(`[${stats.requests + 1}] Classified: tier=${tier}${catLabel} model=${routedModel} confidence=${decision.confidence.toFixed(2)} | ${reasoning}`);
+    logger.info(
+      `[${stats.requests + 1}] Classified: tier=${tier}${catLabel} model=${routedModel} confidence=${decision.confidence.toFixed(2)} | ${reasoning}`,
+    );
   } else {
     // Explicit model requested — pass through
     routedModel = requestedModel;
@@ -318,7 +373,11 @@ async function handleChatCompletions(req: IncomingMessage, res: ServerResponse) 
     try {
       const piiMode = getPiiMode(primaryProviderCfg);
       primaryPiiMode = piiMode;
-      const scrubResult = scrubMessages(chatReq.messages, getPiiExclude(primaryProviderCfg), isPiiScrubSystem(primaryProviderCfg));
+      const scrubResult = scrubMessages(
+        chatReq.messages,
+        getPiiExclude(primaryProviderCfg),
+        isPiiScrubSystem(primaryProviderCfg),
+      );
       piiSession = scrubResult.sessionId;
       piiScrubbed = scrubResult.scrubbed;
 
@@ -328,16 +387,23 @@ async function handleChatCompletions(req: IncomingMessage, res: ServerResponse) 
 
         // Debug logging (temporary — logs safe/scrubbed payload only)
         if (isPiiDebugLog(primaryProviderCfg)) {
-          logger.info(`[PII] DEBUG scrubbed payload: ${JSON.stringify(scrubResult.messages.map(m => ({ role: m.role, content: typeof m.content === "string" ? m.content.slice(0, 200) : "[array]" })))}`);
+          logger.info(
+            `[PII] DEBUG scrubbed payload: ${JSON.stringify(scrubResult.messages.map((m) => ({ role: m.role, content: typeof m.content === "string" ? m.content.slice(0, 200) : "[array]" })))}`,
+          );
         }
 
         // Add PII info headers
         res.setHeader("X-PII-Scrubbed", "true");
         res.setHeader("X-PII-Categories", scrubResult.categories.join(","));
-        res.setHeader("X-PII-Count", String(scrubResult.messages.reduce((n, m) => {
-          const c = typeof m.content === "string" ? m.content : JSON.stringify(m.content ?? "");
-          return n + (c.match(/p0[0-9a-f]{12}/g) ?? []).length;
-        }, 0)));
+        res.setHeader(
+          "X-PII-Count",
+          String(
+            scrubResult.messages.reduce((n, m) => {
+              const c = typeof m.content === "string" ? m.content : JSON.stringify(m.content ?? "");
+              return n + (c.match(/p0[0-9a-f]{12}/g) ?? []).length;
+            }, 0),
+          ),
+        );
       }
     } catch (err) {
       stats.pii.errors++;
@@ -358,7 +424,7 @@ async function handleChatCompletions(req: IncomingMessage, res: ServerResponse) 
       if (compressResult.compressed) {
         chatReq = { ...chatReq, messages: compressResult.messages };
         stats.compress.compressed++;
-        stats.compress.tokensSaved += (compressResult.tokensBefore - compressResult.tokensAfter);
+        stats.compress.tokensSaved += compressResult.tokensBefore - compressResult.tokensAfter;
 
         res.setHeader("X-CtxPack-Savings", `${compressResult.savings}%`);
         res.setHeader("X-CtxPack-Before", String(compressResult.tokensBefore));
@@ -389,9 +455,8 @@ async function handleChatCompletions(req: IncomingMessage, res: ServerResponse) 
     } else {
       // Legacy: use tier config
       const hasTools = chatReq.tools && chatReq.tools.length > 0;
-      const tierSource = (hasTools && routingCfg.agenticTiers)
-        ? routingCfg.agenticTiers
-        : routingCfg.tiers;
+      const tierSource =
+        hasTools && routingCfg.agenticTiers ? routingCfg.agenticTiers : routingCfg.tiers;
       const tierConfig = tierSource[tier as keyof typeof tierSource];
       if (tierConfig?.fallback) {
         for (const fb of tierConfig.fallback) {
@@ -431,13 +496,23 @@ async function handleChatCompletions(req: IncomingMessage, res: ServerResponse) 
         const piiMode = primaryPiiMode;
 
         // Warn if falling back to a non-PII provider with scrubbed data
-        if (piiScrubbed && modelToTry !== routedModel && (!actualProviderCfg || !isPiiEnabled(actualProviderCfg))) {
-          logger.warn(`[PII] Fallback to ${modelToTry} (no PII flag) — rehydrating scrubbed response`);
+        if (
+          piiScrubbed &&
+          modelToTry !== routedModel &&
+          (!actualProviderCfg || !isPiiEnabled(actualProviderCfg))
+        ) {
+          logger.warn(
+            `[PII] Fallback to ${modelToTry} (no PII flag) — rehydrating scrubbed response`,
+          );
           res.setHeader("X-PII-Warning", "fallback-to-non-pii-provider");
         }
 
         await forwardRequest(
-          chatReq, modelToTry, tier, res, stream,
+          chatReq,
+          modelToTry,
+          tier,
+          res,
+          stream,
           needsRehydrate ? piiSession : null,
           needsRehydrate ? piiMode : undefined,
         );
@@ -485,7 +560,13 @@ function handleListModels(_req: IncomingMessage, res: ServerResponse) {
   const cfg = getConfig();
   const created = Math.floor(Date.now() / 1000);
   const seen = new Set<string>();
-  const models: Array<{ id: string; object: string; created: number; owned_by: string; permission?: unknown[] }> = [];
+  const models: Array<{
+    id: string;
+    object: string;
+    created: number;
+    owned_by: string;
+    permission?: unknown[];
+  }> = [];
 
   // Always include "auto" (the smart router)
   models.push({ id: "auto", object: "model", created, owned_by: "tierflow", permission: [] });
@@ -525,12 +606,25 @@ function handleListModels(_req: IncomingMessage, res: ServerResponse) {
  */
 function handleHealth(_req: IncomingMessage, res: ServerResponse) {
   res.writeHead(200, { "Content-Type": "application/json" });
-  res.end(JSON.stringify({
-    status: "ok",
-    version: "2.0.0",
-    uptime: process.uptime(),
-    stats: { ...stats, cache: responseCache?.getStats() ?? { hits: 0, misses: 0, stores: 0, evictions: 0, size: 0, hitRate: "0.0%" }, tokenUsage: getUsageStats() },
-  }));
+  res.end(
+    JSON.stringify({
+      status: "ok",
+      version: "2.0.0",
+      uptime: process.uptime(),
+      stats: {
+        ...stats,
+        cache: responseCache?.getStats() ?? {
+          hits: 0,
+          misses: 0,
+          stores: 0,
+          evictions: 0,
+          size: 0,
+          hitRate: "0.0%",
+        },
+        tokenUsage: getUsageStats(),
+      },
+    }),
+  );
 }
 
 /**
@@ -538,19 +632,41 @@ function handleHealth(_req: IncomingMessage, res: ServerResponse) {
  */
 function handleStats(_req: IncomingMessage, res: ServerResponse) {
   res.writeHead(200, { "Content-Type": "application/json" });
-  res.end(JSON.stringify({ ...stats, cache: responseCache?.getStats() ?? { hits: 0, misses: 0, stores: 0, evictions: 0, size: 0, hitRate: "0.0%" }, tokenUsage: getUsageStats() }, null, 2));
+  res.end(
+    JSON.stringify(
+      {
+        ...stats,
+        cache: responseCache?.getStats() ?? {
+          hits: 0,
+          misses: 0,
+          stores: 0,
+          evictions: 0,
+          size: 0,
+          hitRate: "0.0%",
+        },
+        tokenUsage: getUsageStats(),
+      },
+      null,
+      2,
+    ),
+  );
 }
-
 
 /**
  * Handle GET /config — show sanitized config (no secrets)
  */
 function handleConfig(_req: IncomingMessage, res: ServerResponse) {
   res.writeHead(200, { "Content-Type": "application/json" });
-  res.end(JSON.stringify({
-    configPath: getConfigPath(),
-    config: getSanitizedConfig(),
-  }, null, 2));
+  res.end(
+    JSON.stringify(
+      {
+        configPath: getConfigPath(),
+        config: getSanitizedConfig(),
+      },
+      null,
+      2,
+    ),
+  );
 }
 
 /**
@@ -562,12 +678,14 @@ function handleReloadConfig(_req: IncomingMessage, res: ServerResponse) {
   responseCache = initCache();
   const cfg = getConfig();
   res.writeHead(200, { "Content-Type": "application/json" });
-  res.end(JSON.stringify({
-    status: "reloaded",
-    configPath: getConfigPath(),
-    providers: Object.keys(cfg.providers),
-    tiers: Object.keys(cfg.tiers),
-  }));
+  res.end(
+    JSON.stringify({
+      status: "reloaded",
+      configPath: getConfigPath(),
+      providers: Object.keys(cfg.providers),
+      tiers: Object.keys(cfg.tiers),
+    }),
+  );
 }
 
 /**
@@ -674,8 +792,13 @@ responseCache = initCache();
 const server = createServer(handleRequest);
 
 server.listen(PORT, HOST, () => {
-  logger.info(`🚀 TierFlow listening on http://${HOST}:${PORT} (config: ${getConfigPath() ?? "built-in defaults"})`);
-  if (responseCache) logger.info(`   Cache: enabled (TTL=${getConfig().cache?.ttl_seconds ?? 300}s, max=${getConfig().cache?.max_entries ?? 5000})`);
+  logger.info(
+    `🚀 TierFlow listening on http://${HOST}:${PORT} (config: ${getConfigPath() ?? "built-in defaults"})`,
+  );
+  if (responseCache)
+    logger.info(
+      `   Cache: enabled (TTL=${getConfig().cache?.ttl_seconds ?? 300}s, max=${getConfig().cache?.max_entries ?? 5000})`,
+    );
   logger.info(`   POST /v1/chat/completions  — route & forward`);
   logger.info(`   GET  /v1/models            — list models`);
   logger.info(`   GET  /health               — health check`);

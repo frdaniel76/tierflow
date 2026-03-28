@@ -26,7 +26,8 @@ async function test(name: string, fn: () => void | Promise<void>) {
 }
 
 function assertEqual<T>(actual: T, expected: T, msg?: string) {
-  if (actual !== expected) throw new Error(msg || `Expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+  if (actual !== expected)
+    throw new Error(msg || `Expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
 }
 
 function assert(condition: boolean, msg: string) {
@@ -34,7 +35,8 @@ function assert(condition: boolean, msg: string) {
 }
 
 function assertIncludes(haystack: string, needle: string, msg?: string) {
-  if (!haystack.includes(needle)) throw new Error(msg || `Expected to include "${needle}" in "${haystack}"`);
+  if (!haystack.includes(needle))
+    throw new Error(msg || `Expected to include "${needle}" in "${haystack}"`);
 }
 
 /**

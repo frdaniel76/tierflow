@@ -15,13 +15,13 @@
 
 The current 14-dimension keyword scorer has fundamental limitations:
 
-| Problem | Example | Impact |
-|---------|---------|--------|
-| Context bleed | "What's the time?" after a coding session → COMPLEX | Wastes money, adds latency |
-| Over-trigger on keywords | "Tell me a joke step by step" → REASONING (60s+ R1 delay) | Terrible UX |
-| Binary simple indicators | "What is X" always -0.10 regardless of X | Underestimates legitimate questions |
-| MEDIUM band too narrow | 0.00–0.03 score range → almost never MEDIUM | Poor model utilization |
-| No understanding | Matches words, not meaning | Can't handle novel query types |
+| Problem                  | Example                                                   | Impact                              |
+| ------------------------ | --------------------------------------------------------- | ----------------------------------- |
+| Context bleed            | "What's the time?" after a coding session → COMPLEX       | Wastes money, adds latency          |
+| Over-trigger on keywords | "Tell me a joke step by step" → REASONING (60s+ R1 delay) | Terrible UX                         |
+| Binary simple indicators | "What is X" always -0.10 regardless of X                  | Underestimates legitimate questions |
+| MEDIUM band too narrow   | 0.00–0.03 score range → almost never MEDIUM               | Poor model utilization              |
+| No understanding         | Matches words, not meaning                                | Can't handle novel query types      |
 
 **Root cause:** Rules can't understand language. A model trained on millions of human preferences can.
 
@@ -30,11 +30,13 @@ The current 14-dimension keyword scorer has fundamental limitations:
 ## 2. Architecture Overview
 
 ### Current (v1.x)
+
 ```
 Request → 14-keyword-scorer (TypeScript, 0ms) → tier → model → forward
 ```
 
 ### Proposed (v2.0)
+
 ```
 Request
     ↓
@@ -53,6 +55,7 @@ PII scrub → forward → rehydrate → respond
 ```
 
 ### Component Diagram
+
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                    TierFlow (TypeScript)                   │
@@ -89,27 +92,27 @@ PII scrub → forward → rehydrate → respond
 
 Instead of 4 tiers based on "complexity," use **task categories** that map to **specialized models**:
 
-| Category | Description | Best Model | Cost | Fallback |
-|----------|-------------|-----------|------|----------|
-| `simple_chat` | Greetings, time, weather, yes/no questions | Gemini 3.1 Flash Lite | $0.25/$1.50 | Mistral Nemo |
-| `general` | General knowledge, explanations, summaries | DeepSeek V3.2 | $0.55/$2.19 | MiMo-V2-Flash |
-| `coding` | Write, debug, review, explain code | Devstral 2 | **Free** | Qwen3 Coder Next ($0.12/$0.75) |
-| `reasoning` | Prove, analyze, compare, design, complex math | DeepSeek R1 | **Free** | DeepSeek V3.2 |
-| `creative` | Stories, jokes, poems, brainstorming | Step 3.5 Flash | **Free** | DeepSeek V3.2 |
-| `data` | CSV, spreadsheet, data analysis, summarize docs | Gemini 3.1 Flash Lite (1M ctx) | $0.25/$1.50 | DeepSeek V3.2 |
-| `agentic` | Tool calls, exec, file ops, calendar, email | DeepSeek V3.2 | $0.55/$2.19 | MiMo-V2-Flash |
-| `transcription` | Voice/audio processing | N/A (local whisper) | **Free** | — |
+| Category        | Description                                     | Best Model                     | Cost        | Fallback                       |
+| --------------- | ----------------------------------------------- | ------------------------------ | ----------- | ------------------------------ |
+| `simple_chat`   | Greetings, time, weather, yes/no questions      | Gemini 3.1 Flash Lite          | $0.25/$1.50 | Mistral Nemo                   |
+| `general`       | General knowledge, explanations, summaries      | DeepSeek V3.2                  | $0.55/$2.19 | MiMo-V2-Flash                  |
+| `coding`        | Write, debug, review, explain code              | Devstral 2                     | **Free**    | Qwen3 Coder Next ($0.12/$0.75) |
+| `reasoning`     | Prove, analyze, compare, design, complex math   | DeepSeek R1                    | **Free**    | DeepSeek V3.2                  |
+| `creative`      | Stories, jokes, poems, brainstorming            | Step 3.5 Flash                 | **Free**    | DeepSeek V3.2                  |
+| `data`          | CSV, spreadsheet, data analysis, summarize docs | Gemini 3.1 Flash Lite (1M ctx) | $0.25/$1.50 | DeepSeek V3.2                  |
+| `agentic`       | Tool calls, exec, file ops, calendar, email     | DeepSeek V3.2                  | $0.55/$2.19 | MiMo-V2-Flash                  |
+| `transcription` | Voice/audio processing                          | N/A (local whisper)            | **Free**    | —                              |
 
 ### Why Specialized Models?
 
-| Query | Current (tier-based) | Proposed (category-based) |
-|-------|---------------------|--------------------------|
-| "Fix the off-by-one in this loop" | COMPLEX → DeepSeek V3.2 ($0.55/M) | `coding` → Devstral 2 (**free**, better at code) |
-| "Tell me a joke" | MEDIUM → Gemini Flash | `creative` → Step 3.5 Flash (**free**, better at creative) |
-| "Prove the Pythagorean theorem" | REASONING → DeepSeek R1 | `reasoning` → DeepSeek R1 (same, correct) |
-| "What's 2+2?" | MEDIUM → Gemini Flash | `simple_chat` → Gemini Flash Lite (cheaper) |
-| "Analyze this CSV data" | COMPLEX → DeepSeek V3.2 | `data` → Gemini Flash Lite (1M context, cheaper) |
-| "Read my email" | MEDIUM + tools → agentic | `agentic` → DeepSeek V3.2 (correct) |
+| Query                             | Current (tier-based)              | Proposed (category-based)                                  |
+| --------------------------------- | --------------------------------- | ---------------------------------------------------------- |
+| "Fix the off-by-one in this loop" | COMPLEX → DeepSeek V3.2 ($0.55/M) | `coding` → Devstral 2 (**free**, better at code)           |
+| "Tell me a joke"                  | MEDIUM → Gemini Flash             | `creative` → Step 3.5 Flash (**free**, better at creative) |
+| "Prove the Pythagorean theorem"   | REASONING → DeepSeek R1           | `reasoning` → DeepSeek R1 (same, correct)                  |
+| "What's 2+2?"                     | MEDIUM → Gemini Flash             | `simple_chat` → Gemini Flash Lite (cheaper)                |
+| "Analyze this CSV data"           | COMPLEX → DeepSeek V3.2           | `data` → Gemini Flash Lite (1M context, cheaper)           |
+| "Read my email"                   | MEDIUM + tools → agentic          | `agentic` → DeepSeek V3.2 (correct)                        |
 
 **Cost savings:** 3 of 8 categories use **free** models. Current system uses paid models for everything.
 
@@ -226,6 +229,7 @@ A lightweight Python FastAPI microservice that wraps LLMRouter.
 ### Router Selection
 
 **Primary:** `knnrouter` — fastest, good accuracy, no GPU needed
+
 - Latency: ~20ms (10ms embedding + 10ms KNN lookup)
 - Memory: ~200MB (Longformer model + training data)
 - Training: pre-trained on Chatbot Arena data, optionally fine-tuned on your usage
@@ -275,30 +279,33 @@ Run as a launchd daemon alongside TierFlow:
 ## 6. TierFlow Code Changes
 
 ### Files to Remove
-| File | Lines | Why |
-|------|-------|-----|
-| `src/router/rules.ts` | 301 | Entire keyword scorer — replaced by LLMRouter |
-| `src/router/config.ts` (scoring section) | ~160 | Keyword lists, weights — no longer needed |
+
+| File                                     | Lines | Why                                           |
+| ---------------------------------------- | ----- | --------------------------------------------- |
+| `src/router/rules.ts`                    | 301   | Entire keyword scorer — replaced by LLMRouter |
+| `src/router/config.ts` (scoring section) | ~160  | Keyword lists, weights — no longer needed     |
 
 ### Files to Modify
-| File | Change |
-|------|--------|
-| `src/router/index.ts` | Replace `classifyByRules()` call with HTTP call to LLMRouter service |
-| `src/router/types.ts` | Add `CategoryResult` type, update `RoutingDecision` |
-| `src/router/selector.ts` | Map category → model instead of tier → model |
-| `src/config.ts` | Add `classifier` and `categories` config sections |
-| `src/server.ts` | Update shortcuts logic, update stats to track categories |
-| `tierflow.config.json` | New format with categories instead of tiers |
+
+| File                     | Change                                                               |
+| ------------------------ | -------------------------------------------------------------------- |
+| `src/router/index.ts`    | Replace `classifyByRules()` call with HTTP call to LLMRouter service |
+| `src/router/types.ts`    | Add `CategoryResult` type, update `RoutingDecision`                  |
+| `src/router/selector.ts` | Map category → model instead of tier → model                         |
+| `src/config.ts`          | Add `classifier` and `categories` config sections                    |
+| `src/server.ts`          | Update shortcuts logic, update stats to track categories             |
+| `tierflow.config.json`   | New format with categories instead of tiers                          |
 
 ### Files Unchanged
-| File | Lines | Why |
-|------|-------|-----|
-| `src/provider.ts` | 907 | All forwarding/streaming/PII logic stays |
-| `src/pii/*` | 972 | Entire PII system stays |
-| `src/usage.ts` | 115 | Token tracking stays |
-| `src/auth.ts` | 129 | Auth stays |
-| `src/models.ts` | 143 | Pricing stays |
-| `src/logger.ts` | 33 | Logging stays |
+
+| File              | Lines | Why                                      |
+| ----------------- | ----- | ---------------------------------------- |
+| `src/provider.ts` | 907   | All forwarding/streaming/PII logic stays |
+| `src/pii/*`       | 972   | Entire PII system stays                  |
+| `src/usage.ts`    | 115   | Token tracking stays                     |
+| `src/auth.ts`     | 129   | Auth stays                               |
+| `src/models.ts`   | 143   | Pricing stays                            |
+| `src/logger.ts`   | 33    | Logging stays                            |
 
 ### New Router Decision Flow (router/index.ts)
 
@@ -310,7 +317,6 @@ export async function route(
   options: RouterOptions,
   metadata?: { hasTools: boolean; hasAudio: boolean },
 ): Promise<RoutingDecision> {
-
   // Layer 1: Hardcoded shortcuts (0ms)
   if (metadata?.hasAudio) return resolveCategory("transcription", options);
   if (metadata?.hasTools) return resolveCategory("agentic", options);
@@ -335,24 +341,26 @@ export async function route(
 ## 7. Cost Impact Analysis
 
 ### Current Monthly Estimate (based on your usage patterns)
-| Tier | Model | % of requests | Cost/M tokens | Est. monthly |
-|------|-------|---------------|---------------|-------------|
-| SIMPLE/MEDIUM | Gemini Flash | 60% | $0.50 avg | ~$0.50 |
-| COMPLEX | DeepSeek V3.2 | 30% | $2.74 avg | ~$0.60 |
-| REASONING | DeepSeek R1 | 10% | $4.36 avg | ~$0.30 |
-| **Total** | | | | **~$1.40/week** |
+
+| Tier          | Model         | % of requests | Cost/M tokens | Est. monthly    |
+| ------------- | ------------- | ------------- | ------------- | --------------- |
+| SIMPLE/MEDIUM | Gemini Flash  | 60%           | $0.50 avg     | ~$0.50          |
+| COMPLEX       | DeepSeek V3.2 | 30%           | $2.74 avg     | ~$0.60          |
+| REASONING     | DeepSeek R1   | 10%           | $4.36 avg     | ~$0.30          |
+| **Total**     |               |               |               | **~$1.40/week** |
 
 ### Proposed Monthly Estimate
-| Category | Model | % of requests | Cost/M tokens | Est. monthly |
-|----------|-------|---------------|---------------|-------------|
-| simple_chat | Gemini Flash Lite | 30% | $1.75 avg | ~$0.15 |
-| general | DeepSeek V3.2 | 15% | $2.74 avg | ~$0.20 |
-| coding | Devstral 2 | 20% | **Free** | $0.00 |
-| reasoning | DeepSeek R1 | 5% | **Free** | $0.00 |
-| creative | Step 3.5 Flash | 10% | **Free** | $0.00 |
-| data | Gemini Flash Lite | 5% | $1.75 avg | ~$0.05 |
-| agentic | DeepSeek V3.2 | 15% | $2.74 avg | ~$0.20 |
-| **Total** | | | | **~$0.60/week** |
+
+| Category    | Model             | % of requests | Cost/M tokens | Est. monthly    |
+| ----------- | ----------------- | ------------- | ------------- | --------------- |
+| simple_chat | Gemini Flash Lite | 30%           | $1.75 avg     | ~$0.15          |
+| general     | DeepSeek V3.2     | 15%           | $2.74 avg     | ~$0.20          |
+| coding      | Devstral 2        | 20%           | **Free**      | $0.00           |
+| reasoning   | DeepSeek R1       | 5%            | **Free**      | $0.00           |
+| creative    | Step 3.5 Flash    | 10%           | **Free**      | $0.00           |
+| data        | Gemini Flash Lite | 5%            | $1.75 avg     | ~$0.05          |
+| agentic     | DeepSeek V3.2     | 15%           | $2.74 avg     | ~$0.20          |
+| **Total**   |                   |               |               | **~$0.60/week** |
 
 **Estimated savings: ~57%** — mostly from routing coding/reasoning/creative to free models.
 
@@ -360,21 +368,22 @@ export async function route(
 
 ## 8. Quality Impact
 
-| Scenario | Current | Proposed | Quality Change |
-|----------|---------|----------|---------------|
-| Voice "Tell me a joke" | REASONING (R1, 60s) | `simple_chat` (Flash Lite, 2s) | ✅ Faster, correct tier |
-| "Fix the off-by-one" | COMPLEX (V3.2) | `coding` (Devstral 2) | ✅ Better model for code |
-| "What's on my calendar?" | MEDIUM + agentic (V3.2) | `agentic` (V3.2) | ➡ Same (correct) |
-| "Prove P≠NP" | REASONING (R1) | `reasoning` (R1) | ➡ Same (correct) |
-| "Write me a poem" | MEDIUM (Gemini Flash) | `creative` (Step 3.5 Flash) | ✅ Better model for creative |
-| "Summarize this document" | COMPLEX (V3.2) | `data` (Flash Lite, 1M ctx) | ✅ More context, cheaper |
-| "Hi, who are you?" | MEDIUM (Gemini Flash) | `simple_chat` (Flash Lite) | ✅ Cheaper, just as good |
+| Scenario                  | Current                 | Proposed                       | Quality Change               |
+| ------------------------- | ----------------------- | ------------------------------ | ---------------------------- |
+| Voice "Tell me a joke"    | REASONING (R1, 60s)     | `simple_chat` (Flash Lite, 2s) | ✅ Faster, correct tier      |
+| "Fix the off-by-one"      | COMPLEX (V3.2)          | `coding` (Devstral 2)          | ✅ Better model for code     |
+| "What's on my calendar?"  | MEDIUM + agentic (V3.2) | `agentic` (V3.2)               | ➡ Same (correct)             |
+| "Prove P≠NP"              | REASONING (R1)          | `reasoning` (R1)               | ➡ Same (correct)             |
+| "Write me a poem"         | MEDIUM (Gemini Flash)   | `creative` (Step 3.5 Flash)    | ✅ Better model for creative |
+| "Summarize this document" | COMPLEX (V3.2)          | `data` (Flash Lite, 1M ctx)    | ✅ More context, cheaper     |
+| "Hi, who are you?"        | MEDIUM (Gemini Flash)   | `simple_chat` (Flash Lite)     | ✅ Cheaper, just as good     |
 
 ---
 
 ## 9. Migration Strategy
 
 ### Phase 1: Setup LLMRouter Service (Day 1)
+
 1. Create `~/Projects/llmrouter-service/` project
 2. Install LLMRouter: `pip install llmrouter-lib`
 3. Write FastAPI `/classify` endpoint
@@ -383,23 +392,27 @@ export async function route(
 6. Deploy as launchd service on port 18801
 
 ### Phase 2: Update TierFlow Config (Day 1)
+
 1. Add `classifier` and `categories` to config schema
 2. Update `tierflow.config.json` with new category→model table
 3. Keep old tier config as backward-compatible fallback
 
 ### Phase 3: Replace Classifier Call (Day 2)
+
 1. Replace `classifyByRules()` with HTTP call to LLMRouter
 2. Add shortcuts for audio/tools/mode-override
 3. Add graceful fallback when LLMRouter is unreachable
 4. Update `selectModel()` to use categories instead of tiers
 
 ### Phase 4: Testing (Day 2)
+
 1. Run existing PII tests (should all pass — PII unchanged)
 2. Test category classification on 50+ sample queries
 3. Run E2E test suite via `~/bin/e2e-test`
 4. Test fallback behavior (kill LLMRouter → TierFlow still works)
 
 ### Phase 5: Optimization (Week 2+)
+
 1. Collect routing logs for 1 week
 2. Train custom router on your data (instead of generic Chatbot Arena)
 3. Evaluate accuracy improvement
@@ -409,14 +422,14 @@ export async function route(
 
 ## 10. Risk Mitigation
 
-| Risk | Mitigation |
-|------|-----------|
-| LLMRouter service crashes | TierFlow falls back to `general` category (V3.2) — still works |
-| ML classifier misroutes | Mode overrides still work (`/simple`, `/code`, `/max`) |
-| Free models are rate-limited | Paid fallbacks configured for every category |
-| New dependency (Python) | Isolated service — TierFlow TypeScript core unchanged |
-| Model cold start (first request) | Launchd keeps service running, model stays loaded in memory |
-| Latency increase (+20ms) | Negligible vs LLM inference time (2-60s) |
+| Risk                             | Mitigation                                                     |
+| -------------------------------- | -------------------------------------------------------------- |
+| LLMRouter service crashes        | TierFlow falls back to `general` category (V3.2) — still works |
+| ML classifier misroutes          | Mode overrides still work (`/simple`, `/code`, `/max`)         |
+| Free models are rate-limited     | Paid fallbacks configured for every category                   |
+| New dependency (Python)          | Isolated service — TierFlow TypeScript core unchanged          |
+| Model cold start (first request) | Launchd keeps service running, model stays loaded in memory    |
+| Latency increase (+20ms)         | Negligible vs LLM inference time (2-60s)                       |
 
 ---
 

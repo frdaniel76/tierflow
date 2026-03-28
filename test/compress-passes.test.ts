@@ -35,7 +35,8 @@ function assert(condition: boolean, msg: string) {
 }
 
 function assertEqual<T>(actual: T, expected: T, msg?: string) {
-  if (actual !== expected) throw new Error(msg || `Expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+  if (actual !== expected)
+    throw new Error(msg || `Expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
 }
 
 function assertNotIncludes(haystack: string, needle: string, msg?: string) {
@@ -148,7 +149,7 @@ async function jsonTests() {
   });
 
   await test("handles arrays", () => {
-    const input = '```json\n[\n  1,\n  2,\n  3\n]\n```';
+    const input = "```json\n[\n  1,\n  2,\n  3\n]\n```";
     const result = compactJson(input);
     assertIncludes(result, "[1,2,3]");
   });
@@ -207,7 +208,8 @@ async function commentTests() {
   console.log("\n=== Pass 5: Strip Comments ===\n");
 
   await test("strips // comments from JS code block", () => {
-    const input = "```js\n// This is a comment\nconst x = 1;\n// Another comment\nconst y = 2;\n```";
+    const input =
+      "```js\n// This is a comment\nconst x = 1;\n// Another comment\nconst y = 2;\n```";
     const result = stripComments(input);
     assertNotIncludes(result, "This is a comment");
     assertIncludes(result, "const x = 1;");

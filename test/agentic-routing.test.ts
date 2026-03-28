@@ -33,11 +33,13 @@ function assert(condition: boolean, msg: string) {
 }
 
 function assertIncludes(haystack: string, needle: string, msg?: string) {
-  if (!haystack.includes(needle)) throw new Error(msg || `Expected "${haystack}" to include "${needle}"`);
+  if (!haystack.includes(needle))
+    throw new Error(msg || `Expected "${haystack}" to include "${needle}"`);
 }
 
 function assertNotIncludes(haystack: string, needle: string, msg?: string) {
-  if (haystack.includes(needle)) throw new Error(msg || `Expected "${haystack}" NOT to include "${needle}"`);
+  if (haystack.includes(needle))
+    throw new Error(msg || `Expected "${haystack}" NOT to include "${needle}"`);
 }
 
 // Sample tool definitions
@@ -102,7 +104,7 @@ async function agenticOverrideTests() {
     assert(res.ok, `Expected 200, got ${res.status}`);
     const model = res.headers.get("x-clawrouter-model") ?? "";
     assert(
-      !AGENTIC_MODELS.some(m => model.includes(m)),
+      !AGENTIC_MODELS.some((m) => model.includes(m)),
       `Simple query without tools should NOT use agentic model, got: ${model}`,
     );
   });
@@ -113,7 +115,7 @@ async function agenticOverrideTests() {
     const model = res.headers.get("x-clawrouter-model") ?? "";
     const reasoning = res.headers.get("x-clawrouter-reasoning") ?? "";
     assert(
-      AGENTIC_MODELS.some(m => model.includes(m)),
+      AGENTIC_MODELS.some((m) => model.includes(m)),
       `Simple query WITH tools should use agentic model, got: ${model}`,
     );
     assertIncludes(reasoning, "tools-present", "Reasoning should mention tools-present");
@@ -125,7 +127,7 @@ async function agenticOverrideTests() {
     const model = res.headers.get("x-clawrouter-model") ?? "";
     const reasoning = res.headers.get("x-clawrouter-reasoning") ?? "";
     assert(
-      AGENTIC_MODELS.some(m => model.includes(m)),
+      AGENTIC_MODELS.some((m) => model.includes(m)),
       `General query WITH tools should use agentic model, got: ${model}`,
     );
   });
@@ -146,7 +148,11 @@ async function specializedWithToolsTests() {
     // Coding should stay coding, not be overridden to agentic
     // Per router code: only simple_chat and general get overridden
     if (reasoning.includes("coding")) {
-      assertIncludes(reasoning, "kept specialized", "Coding with tools should say 'kept specialized'");
+      assertIncludes(
+        reasoning,
+        "kept specialized",
+        "Coding with tools should say 'kept specialized'",
+      );
     }
     // Model should be either coding or agentic (both acceptable per current logic)
   });
@@ -157,7 +163,11 @@ async function specializedWithToolsTests() {
     const reasoning = res.headers.get("x-clawrouter-reasoning") ?? "";
     // If classified as reasoning, should keep specialized
     if (reasoning.includes("reasoning")) {
-      assertIncludes(reasoning, "kept specialized", "Reasoning with tools should say 'kept specialized'");
+      assertIncludes(
+        reasoning,
+        "kept specialized",
+        "Reasoning with tools should say 'kept specialized'",
+      );
     }
   });
 }
@@ -170,10 +180,10 @@ async function agenticStatsTests() {
   console.log("\n=== Agentic Stats ===\n");
 
   await test("agentic request increments byModel counter", async () => {
-    const statsBefore = await (await fetch(`${BASE}/stats`)).json() as any;
+    const statsBefore = (await (await fetch(`${BASE}/stats`)).json()) as any;
     const res = await chat("Check my calendar for today", SAMPLE_TOOLS);
     assert(res.ok, `Expected 200, got ${res.status}`);
-    const statsAfter = await (await fetch(`${BASE}/stats`)).json() as any;
+    const statsAfter = (await (await fetch(`${BASE}/stats`)).json()) as any;
     assert(statsAfter.requests > statsBefore.requests, "Request count should increment");
   });
 }

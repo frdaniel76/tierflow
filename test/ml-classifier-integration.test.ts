@@ -34,7 +34,8 @@ function assert(condition: boolean, msg: string) {
 }
 
 function assertIncludes(haystack: string, needle: string, msg?: string) {
-  if (!haystack.includes(needle)) throw new Error(msg || `Expected "${haystack}" to include "${needle}"`);
+  if (!haystack.includes(needle))
+    throw new Error(msg || `Expected "${haystack}" to include "${needle}"`);
 }
 
 async function chat(content: string, extraBody: Record<string, unknown> = {}): Promise<Response> {
@@ -101,7 +102,10 @@ async function classificationTests() {
 
   await test("simple greeting → simple_chat model", async () => {
     const mlResult = await classify("Hi, how are you?");
-    assert(mlResult.category === "simple_chat", `ML classified as ${mlResult.category}, expected simple_chat`);
+    assert(
+      mlResult.category === "simple_chat",
+      `ML classified as ${mlResult.category}, expected simple_chat`,
+    );
 
     const res = await chat("Hi, how are you?");
     assert(res.ok, `Expected 200, got ${res.status}`);
@@ -109,14 +113,17 @@ async function classificationTests() {
     const reasoning = res.headers.get("x-clawrouter-reasoning") ?? "";
     assertIncludes(reasoning, "simple_chat", `Reasoning should mention simple_chat: ${reasoning}`);
     assert(
-      CATEGORY_MODELS.simple_chat.some(m => model.includes(m)),
+      CATEGORY_MODELS.simple_chat.some((m) => model.includes(m)),
       `Model ${model} should match simple_chat models`,
     );
   });
 
   await test("code request → coding model", async () => {
     const mlResult = await classify("Write a Python function to sort a list using quicksort");
-    assert(mlResult.category === "coding", `ML classified as ${mlResult.category}, expected coding`);
+    assert(
+      mlResult.category === "coding",
+      `ML classified as ${mlResult.category}, expected coding`,
+    );
 
     const res = await chat("Write a Python function to sort a list using quicksort");
     assert(res.ok, `Expected 200, got ${res.status}`);
@@ -124,13 +131,15 @@ async function classificationTests() {
     const reasoning = res.headers.get("x-clawrouter-reasoning") ?? "";
     assertIncludes(reasoning, "coding", `Reasoning should mention coding: ${reasoning}`);
     assert(
-      CATEGORY_MODELS.coding.some(m => model.includes(m)),
+      CATEGORY_MODELS.coding.some((m) => model.includes(m)),
       `Model ${model} should match coding models`,
     );
   });
 
   await test("math proof → reasoning model", async () => {
-    const mlResult = await classify("Prove that the square root of 2 is irrational. Show all steps.");
+    const mlResult = await classify(
+      "Prove that the square root of 2 is irrational. Show all steps.",
+    );
     assert(
       mlResult.category === "reasoning",
       `ML classified as ${mlResult.category}, expected reasoning`,
@@ -142,7 +151,7 @@ async function classificationTests() {
     const reasoning = res.headers.get("x-clawrouter-reasoning") ?? "";
     assertIncludes(reasoning, "reasoning", `Reasoning should mention reasoning: ${reasoning}`);
     assert(
-      CATEGORY_MODELS.reasoning.some(m => model.includes(m)),
+      CATEGORY_MODELS.reasoning.some((m) => model.includes(m)),
       `Model ${model} should match reasoning models`,
     );
   });
@@ -158,7 +167,7 @@ async function classificationTests() {
     assert(res.ok, `Expected 200, got ${res.status}`);
     const model = res.headers.get("x-clawrouter-model") ?? "";
     assert(
-      CATEGORY_MODELS.creative.some(m => model.includes(m)),
+      CATEGORY_MODELS.creative.some((m) => model.includes(m)),
       `Model ${model} should match creative models`,
     );
   });
@@ -200,7 +209,7 @@ async function modeOverrideTests() {
     const model = res.headers.get("x-clawrouter-model") ?? "";
     const reasoning = res.headers.get("x-clawrouter-reasoning") ?? "";
     assert(
-      CATEGORY_MODELS.reasoning.some(m => model.includes(m)),
+      CATEGORY_MODELS.reasoning.some((m) => model.includes(m)),
       `Model ${model} should be reasoning model for /reasoning override`,
     );
     assertIncludes(reasoning, "user-mode", "Reasoning should indicate user-mode override");
@@ -211,7 +220,7 @@ async function modeOverrideTests() {
     assert(res.ok, `Expected 200, got ${res.status}`);
     const model = res.headers.get("x-clawrouter-model") ?? "";
     assert(
-      CATEGORY_MODELS.simple_chat.some(m => model.includes(m)),
+      CATEGORY_MODELS.simple_chat.some((m) => model.includes(m)),
       `Model ${model} should be simple_chat model for /simple override`,
     );
   });
@@ -221,7 +230,7 @@ async function modeOverrideTests() {
     assert(res.ok, `Expected 200, got ${res.status}`);
     const model = res.headers.get("x-clawrouter-model") ?? "";
     assert(
-      CATEGORY_MODELS.coding.some(m => model.includes(m)),
+      CATEGORY_MODELS.coding.some((m) => model.includes(m)),
       `Model ${model} should be coding model for [code] override`,
     );
   });

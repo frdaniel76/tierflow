@@ -49,6 +49,7 @@ npm run bench:ml          # benchmark (requires ML classifier on :18801)
 ## Reporting Issues
 
 Use GitHub Issues. Include:
+
 - TierFlow version (`npx tierflow --version`)
 - Node.js version (`node --version`)
 - Steps to reproduce

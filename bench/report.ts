@@ -47,7 +47,9 @@ Generated: ${data.generated.split("T")[0]} | Version: ${data.tierflow_version}
 
 | Method | Count |
 |--------|-------|
-${Object.entries(data.routing_methods).map(([m, c]) => `| ${m} | ${c} |`).join("\n")}
+${Object.entries(data.routing_methods)
+  .map(([m, c]) => `| ${m} | ${c} |`)
+  .join("\n")}
 
 ## Accuracy by Category
 

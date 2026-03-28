@@ -90,21 +90,30 @@
     "data": "data"
   },
   "tiers": {
-    "SIMPLE":    { "primary": "openrouter/google/gemini-2.5-flash-lite", "fallback": ["ollama/llama3.2"] },
-    "MEDIUM":    { "primary": "openrouter/deepseek/deepseek-v3.2",      "fallback": ["ollama/llama3.2"] },
-    "COMPLEX":   { "primary": "anthropic/claude-sonnet-4-5",            "fallback": ["openrouter/deepseek/deepseek-v3.2"] },
-    "REASONING": { "primary": "anthropic/claude-opus-4-6",              "fallback": ["openrouter/deepseek/deepseek-r1"] }
+    "SIMPLE": {
+      "primary": "openrouter/google/gemini-2.5-flash-lite",
+      "fallback": ["ollama/llama3.2"]
+    },
+    "MEDIUM": { "primary": "openrouter/deepseek/deepseek-v3.2", "fallback": ["ollama/llama3.2"] },
+    "COMPLEX": {
+      "primary": "anthropic/claude-sonnet-4-5",
+      "fallback": ["openrouter/deepseek/deepseek-v3.2"]
+    },
+    "REASONING": {
+      "primary": "anthropic/claude-opus-4-6",
+      "fallback": ["openrouter/deepseek/deepseek-r1"]
+    }
   },
   "agenticTiers": {
-    "SIMPLE":    { "primary": "openrouter/deepseek/deepseek-v3.2", "fallback": [] },
-    "MEDIUM":    { "primary": "openrouter/deepseek/deepseek-v3.2", "fallback": [] },
-    "COMPLEX":   { "primary": "openrouter/deepseek/deepseek-v3.2", "fallback": [] },
+    "SIMPLE": { "primary": "openrouter/deepseek/deepseek-v3.2", "fallback": [] },
+    "MEDIUM": { "primary": "openrouter/deepseek/deepseek-v3.2", "fallback": [] },
+    "COMPLEX": { "primary": "openrouter/deepseek/deepseek-v3.2", "fallback": [] },
     "REASONING": { "primary": "openrouter/deepseek/deepseek-v3.2", "fallback": [] }
   },
   "tierBoundaries": {
     "simpleMedium": -0.05,
-    "mediumComplex": 0.10,
-    "complexReasoning": 0.20
+    "mediumComplex": 0.1,
+    "complexReasoning": 0.2
   },
   "thinking": {
     "adaptive": [],

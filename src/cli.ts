@@ -165,7 +165,10 @@ async function checkSetup() {
     { label: "Local (tierflow)", path: join(process.cwd(), "tierflow.config.json") },
     { label: "Local (freerouter)", path: join(process.cwd(), "freerouter.config.json") },
     { label: "User config", path: join(homedir(), ".config", "tierflow", "config.json") },
-    { label: "User config (legacy)", path: join(homedir(), ".config", "freerouter", "config.json") },
+    {
+      label: "User config (legacy)",
+      path: join(homedir(), ".config", "freerouter", "config.json"),
+    },
   ];
 
   let configFound = false;
@@ -209,7 +212,7 @@ async function checkSetup() {
       signal: AbortSignal.timeout(2000),
     });
     if (res.ok) {
-      const body = await res.json() as Record<string, unknown>;
+      const body = (await res.json()) as Record<string, unknown>;
       console.log(`  ML Classifier: CONNECTED (${body.classifier}, trained: ${body.trained})`);
     } else {
       console.log("  ML Classifier: ERROR (responded but not healthy)");

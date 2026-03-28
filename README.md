@@ -16,13 +16,13 @@
 
 **You already have API keys. Why pay someone else to use them?**
 
-| Pain | How TierFlow Fixes It |
-|------|------------------------|
-| Every message hits your expensive model | **ML-powered classifier** routes to 8 specialized categories. Save 60-80%. |
-| No control over routing | **Mode overrides** — `/max`, `/simple`, `[code]` to force a category. |
-| Proxies that hang | **Per-tier timeouts + auto-fallback** to secondary models. |
-| PII leaks to third-party providers | **Built-in PII scrubbing** — auto-redact before forwarding, auto-rehydrate on response. |
-| Hardcoded configs | **External JSON config** — edit and hit `/reload-config`. No restart. |
+| Pain                                    | How TierFlow Fixes It                                                                   |
+| --------------------------------------- | --------------------------------------------------------------------------------------- |
+| Every message hits your expensive model | **ML-powered classifier** routes to 8 specialized categories. Save 60-80%.              |
+| No control over routing                 | **Mode overrides** — `/max`, `/simple`, `[code]` to force a category.                   |
+| Proxies that hang                       | **Per-tier timeouts + auto-fallback** to secondary models.                              |
+| PII leaks to third-party providers      | **Built-in PII scrubbing** — auto-redact before forwarding, auto-rehydrate on response. |
+| Hardcoded configs                       | **External JSON config** — edit and hit `/reload-config`. No restart.                   |
 
 ## Features
 
@@ -106,6 +106,7 @@ open http://localhost:18800/dashboard
 ## Configuration
 
 TierFlow looks for config in this order:
+
 1. `TIERFLOW_CONFIG` environment variable
 2. `./tierflow.config.json` (working directory)
 3. `~/.config/tierflow/config.json`
@@ -138,14 +139,18 @@ If no config file exists, built-in defaults apply.
     }
   },
   "categories": {
-    "simple_chat": { "primary": "openrouter/google/gemini-2.5-flash-lite", "fallback": [], "timeout": 30000 },
-    "coding":      { "primary": "openrouter/qwen/qwen3-coder:free", "fallback": [], "timeout": 120000 },
-    "reasoning":   { "primary": "anthropic/claude-opus-4-6", "fallback": [], "timeout": 120000 }
+    "simple_chat": {
+      "primary": "openrouter/google/gemini-2.5-flash-lite",
+      "fallback": [],
+      "timeout": 30000
+    },
+    "coding": { "primary": "openrouter/qwen/qwen3-coder:free", "fallback": [], "timeout": 120000 },
+    "reasoning": { "primary": "anthropic/claude-opus-4-6", "fallback": [], "timeout": 120000 }
   },
   "tiers": {
-    "SIMPLE":    { "primary": "openrouter/google/gemini-2.5-flash-lite", "fallback": [] },
-    "MEDIUM":    { "primary": "openrouter/deepseek/deepseek-v3.2", "fallback": [] },
-    "COMPLEX":   { "primary": "anthropic/claude-sonnet-4-5", "fallback": [] },
+    "SIMPLE": { "primary": "openrouter/google/gemini-2.5-flash-lite", "fallback": [] },
+    "MEDIUM": { "primary": "openrouter/deepseek/deepseek-v3.2", "fallback": [] },
+    "COMPLEX": { "primary": "anthropic/claude-sonnet-4-5", "fallback": [] },
     "REASONING": { "primary": "anthropic/claude-opus-4-6", "fallback": [] }
   },
   "mlClassifier": {
@@ -173,29 +178,29 @@ Force a category when you know better than the classifier:
 deep mode: Analyze this distributed system for race conditions
 ```
 
-| Aliases | Routes to |
-|---------|-----------|
-| `simple`, `basic`, `cheap` | simple_chat |
-| `medium`, `balanced` | general |
-| `complex`, `advanced`, `code` | coding |
-| `max`, `reasoning`, `think`, `deep` | reasoning |
-| `creative` | creative |
-| `data` | data |
+| Aliases                             | Routes to   |
+| ----------------------------------- | ----------- |
+| `simple`, `basic`, `cheap`          | simple_chat |
+| `medium`, `balanced`                | general     |
+| `complex`, `advanced`, `code`       | coding      |
+| `max`, `reasoning`, `think`, `deep` | reasoning   |
+| `creative`                          | creative    |
+| `data`                              | data        |
 
 The prefix is **stripped** before forwarding — the LLM never sees it.
 
 ## Endpoints
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/v1/chat/completions` | POST | Main chat endpoint (OpenAI-compatible) |
-| `/v1/models` | GET | List available models (config-driven) |
-| `/health` | GET | Health check with uptime, stats, version |
-| `/stats` | GET | Request statistics (tiers, models, PII, cache, cost) |
-| `/config` | GET | View current config (secrets redacted) |
-| `/reload` | POST | Reload auth keys + config |
-| `/reload-config` | POST | Reload config file + auth |
-| `/dashboard` | GET | Web monitoring dashboard |
+| Endpoint               | Method | Description                                          |
+| ---------------------- | ------ | ---------------------------------------------------- |
+| `/v1/chat/completions` | POST   | Main chat endpoint (OpenAI-compatible)               |
+| `/v1/models`           | GET    | List available models (config-driven)                |
+| `/health`              | GET    | Health check with uptime, stats, version             |
+| `/stats`               | GET    | Request statistics (tiers, models, PII, cache, cost) |
+| `/config`              | GET    | View current config (secrets redacted)               |
+| `/reload`              | POST   | Reload auth keys + config                            |
+| `/reload-config`       | POST   | Reload config file + auth                            |
+| `/dashboard`           | GET    | Web monitoring dashboard                             |
 
 ## The Routing Engine
 
@@ -207,23 +212,23 @@ Calls the LLMRouter service (`localhost:18801`) which uses sentence-transformer 
 
 When the ML service is unavailable, falls back to a rule-based scorer across 15 weighted dimensions:
 
-| Dimension | Weight | What It Measures |
-|-----------|--------|-----------------|
-| reasoningMarkers | 0.25 | Logical reasoning keywords |
-| technicalTerms | 0.18 | Specialized vocabulary |
-| codePresence | 0.12 | Programming keywords |
-| multiStepPatterns | 0.12 | Multi-step instructions |
-| domainSpecificity | 0.12 | Domain-specific terms |
-| simpleIndicators | 0.10 | Greetings, simple questions |
-| imperativeVerbs | 0.06 | Action verbs |
-| creativeMarkers | 0.05 | Creative writing keywords |
-| questionComplexity | 0.05 | Question structure |
-| tokenCount | 0.04 | Message length |
-| constraintCount | 0.04 | Constraint indicators |
-| agenticTask | 0.04 | Agentic/tool keywords |
-| outputFormat | 0.03 | Output format requests |
-| referenceComplexity | 0.02 | Reference patterns |
-| negationComplexity | 0.01 | Negation patterns |
+| Dimension           | Weight | What It Measures            |
+| ------------------- | ------ | --------------------------- |
+| reasoningMarkers    | 0.25   | Logical reasoning keywords  |
+| technicalTerms      | 0.18   | Specialized vocabulary      |
+| codePresence        | 0.12   | Programming keywords        |
+| multiStepPatterns   | 0.12   | Multi-step instructions     |
+| domainSpecificity   | 0.12   | Domain-specific terms       |
+| simpleIndicators    | 0.10   | Greetings, simple questions |
+| imperativeVerbs     | 0.06   | Action verbs                |
+| creativeMarkers     | 0.05   | Creative writing keywords   |
+| questionComplexity  | 0.05   | Question structure          |
+| tokenCount          | 0.04   | Message length              |
+| constraintCount     | 0.04   | Constraint indicators       |
+| agenticTask         | 0.04   | Agentic/tool keywords       |
+| outputFormat        | 0.03   | Output format requests      |
+| referenceComplexity | 0.02   | Reference patterns          |
+| negationComplexity  | 0.01   | Negation patterns           |
 
 Multilingual keyword detection: English, Chinese, Japanese, Russian, German.
 
@@ -231,13 +236,13 @@ Multilingual keyword detection: English, Chinese, Japanese, Russian, German.
 
 Enable per-provider with `"pii": true` in config. 15 detection patterns across 5 ordered passes:
 
-| Pass | Patterns | Categories |
-|------|----------|------------|
+| Pass                          | Patterns                                                | Categories              |
+| ----------------------------- | ------------------------------------------------------- | ----------------------- |
 | 1. High-confidence structured | PEM blocks, API keys, connection strings, Bearer tokens | pem, apikey, conn, cred |
-| 2. Structured identifiers | Emails, credit cards, SSNs, UK NINOs | email, cc, ssn, nino |
-| 3. Semi-structured | Phone numbers, IPv4/IPv6, UK postcodes, file paths | phone, ip, post, path |
-| 4. PEM headers | Stray PEM BEGIN lines | pem |
-| 5. Entropy catch-all | password=, secret=, token= patterns | secret |
+| 2. Structured identifiers     | Emails, credit cards, SSNs, UK NINOs                    | email, cc, ssn, nino    |
+| 3. Semi-structured            | Phone numbers, IPv4/IPv6, UK postcodes, file paths      | phone, ip, post, path   |
+| 4. PEM headers                | Stray PEM BEGIN lines                                   | pem                     |
+| 5. Entropy catch-all          | password=, secret=, token= patterns                     | secret                  |
 
 Placeholders are **type-preserving** (`p0{hex}@maildomain.com` for emails, `p0{hex}-placeholder-key` for API keys) so LLMs echo them correctly in tool calls. Encrypted with AES-256-GCM, memory-only.
 

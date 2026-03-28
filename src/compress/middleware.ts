@@ -121,9 +121,7 @@ export function compressMessages(
     return clone;
   });
 
-  const savings = totalBefore > 0
-    ? Math.round((1 - totalAfter / totalBefore) * 100)
-    : 0;
+  const savings = totalBefore > 0 ? Math.round((1 - totalAfter / totalBefore) * 100) : 0;
 
   return {
     messages: compressed,

@@ -12,18 +12,21 @@ import { logger } from "./logger.js";
 export type ProviderAuth = {
   provider: string;
   profileName: string;
-  token?: string;   // Anthropic OAuth token
-  apiKey?: string;   // API key (Kimi, OpenAI)
+  token?: string; // Anthropic OAuth token
+  apiKey?: string; // API key (Kimi, OpenAI)
 };
 
 type AuthProfilesFile = {
   version: number;
-  profiles: Record<string, {
-    type: "token" | "api_key";
-    provider: string;
-    token?: string;
-    key?: string;
-  }>;
+  profiles: Record<
+    string,
+    {
+      type: "token" | "api_key";
+      provider: string;
+      token?: string;
+      key?: string;
+    }
+  >;
   lastGood?: Record<string, string>;
 };
 
@@ -33,7 +36,9 @@ function loadAuthProfiles(): Map<string, ProviderAuth> {
   // Get path from config, fall back to default
   const cfg = getConfig();
   const authCfg = cfg.auth;
-  const defaultAuth = authCfg[authCfg.default] as { type?: string; profilesPath?: string } | undefined;
+  const defaultAuth = authCfg[authCfg.default] as
+    | { type?: string; profilesPath?: string }
+    | undefined;
   let filePath: string;
   if (defaultAuth?.profilesPath) {
     const p = defaultAuth.profilesPath;
@@ -84,8 +89,6 @@ export function getAuth(provider: string): ProviderAuth | undefined {
   }
   return authCache.get(provider);
 }
-
-
 
 /**
  * Get auth from environment variable (for providers with auth.type=env in config).
