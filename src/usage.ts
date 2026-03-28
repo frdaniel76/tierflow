@@ -1,18 +1,21 @@
 /**
  * Token usage and cost accumulator.
- * Tracks per-request, per-model, per-tier, and rolling 24h hourly data.
+ * Tracks per-request, per-model, per-tier, per-category, and rolling 24h hourly data.
+ * Includes baseline cost tracking for savings calculation.
  */
 
 export interface HourlyBucket {
   hour: string;     // ISO hour: "2026-03-22T14:00:00Z"
   tokens: number;
   cost: number;
+  baselineCost: number;
   requests: number;
 }
 
 export interface UsageByKey {
   tokens: number;
   cost: number;
+  baselineCost: number;
   requests: number;
 }
 
@@ -22,6 +25,7 @@ export interface TokenUsageStats {
     completionTokens: number;
     totalTokens: number;
     cost: number;
+    baselineCost: number;
     requests: number;
   };
   byModel: Record<string, UsageByKey>;
@@ -31,7 +35,7 @@ export interface TokenUsageStats {
 }
 
 const usage: TokenUsageStats = {
-  allTime: { promptTokens: 0, completionTokens: 0, totalTokens: 0, cost: 0, requests: 0 },
+  allTime: { promptTokens: 0, completionTokens: 0, totalTokens: 0, cost: 0, baselineCost: 0, requests: 0 },
   byModel: {},
   byTier: {},
   byCategory: {},
@@ -49,6 +53,7 @@ export function recordUsage(
     completion_tokens?: number;
     total_tokens?: number;
     cost?: number;
+    baselineCost?: number;
   },
   category?: string,
 ): void {
@@ -56,6 +61,7 @@ export function recordUsage(
   const completion = data.completion_tokens ?? 0;
   const total = data.total_tokens ?? (prompt + completion);
   const cost = data.cost ?? 0;
+  const baselineCost = data.baselineCost ?? 0;
 
   if (total === 0 && cost === 0) return;
 
@@ -64,31 +70,35 @@ export function recordUsage(
   usage.allTime.completionTokens += completion;
   usage.allTime.totalTokens += total;
   usage.allTime.cost += cost;
+  usage.allTime.baselineCost += baselineCost;
   usage.allTime.requests++;
 
   // By model
   if (!usage.byModel[model]) {
-    usage.byModel[model] = { tokens: 0, cost: 0, requests: 0 };
+    usage.byModel[model] = { tokens: 0, cost: 0, baselineCost: 0, requests: 0 };
   }
   usage.byModel[model].tokens += total;
   usage.byModel[model].cost += cost;
+  usage.byModel[model].baselineCost += baselineCost;
   usage.byModel[model].requests++;
 
   // By tier
   if (!usage.byTier[tier]) {
-    usage.byTier[tier] = { tokens: 0, cost: 0, requests: 0 };
+    usage.byTier[tier] = { tokens: 0, cost: 0, baselineCost: 0, requests: 0 };
   }
   usage.byTier[tier].tokens += total;
   usage.byTier[tier].cost += cost;
+  usage.byTier[tier].baselineCost += baselineCost;
   usage.byTier[tier].requests++;
 
   // By category
   if (category) {
     if (!usage.byCategory[category]) {
-      usage.byCategory[category] = { tokens: 0, cost: 0, requests: 0 };
+      usage.byCategory[category] = { tokens: 0, cost: 0, baselineCost: 0, requests: 0 };
     }
     usage.byCategory[category].tokens += total;
     usage.byCategory[category].cost += cost;
+    usage.byCategory[category].baselineCost += baselineCost;
     usage.byCategory[category].requests++;
   }
 
@@ -97,11 +107,12 @@ export function recordUsage(
   const hourKey = now.toISOString().slice(0, 13) + ":00:00Z";
   let bucket = usage.hourly.find(b => b.hour === hourKey);
   if (!bucket) {
-    bucket = { hour: hourKey, tokens: 0, cost: 0, requests: 0 };
+    bucket = { hour: hourKey, tokens: 0, cost: 0, baselineCost: 0, requests: 0 };
     usage.hourly.push(bucket);
   }
   bucket.tokens += total;
   bucket.cost += cost;
+  bucket.baselineCost += baselineCost;
   bucket.requests++;
 
   // Prune >24h
@@ -120,7 +131,7 @@ export function getUsageStats(): TokenUsageStats {
  * Reset usage stats (for testing).
  */
 export function resetUsage(): void {
-  usage.allTime = { promptTokens: 0, completionTokens: 0, totalTokens: 0, cost: 0, requests: 0 };
+  usage.allTime = { promptTokens: 0, completionTokens: 0, totalTokens: 0, cost: 0, baselineCost: 0, requests: 0 };
   usage.byModel = {};
   usage.byTier = {};
   usage.byCategory = {};

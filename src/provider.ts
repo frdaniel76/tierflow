@@ -9,6 +9,15 @@ import { getConfig, toInternalApiType, supportsAdaptiveThinking as configSupport
 import { logger } from "./logger.js";
 import { rehydrateText, rehydrateChunk } from "./pii/index.js";
 import { recordUsage } from "./usage.js";
+
+// Baseline cost: what the most expensive model (Opus) would have cost
+// Used for savings calculation in /stats and dashboard
+const OPUS_INPUT_PRICE  = 15 / 1_000_000;  // $15/1M tokens
+const OPUS_OUTPUT_PRICE = 75 / 1_000_000;  // $75/1M tokens
+
+function computeBaselineCost(promptTokens: number, completionTokens: number): number {
+  return (promptTokens * OPUS_INPUT_PRICE) + (completionTokens * OPUS_OUTPUT_PRICE);
+}
 import type { IncomingMessage, ServerResponse } from "node:http";
 // --- Timeout Configuration ---
 const TIER_TIMEOUTS: Record<string, number> = {
@@ -422,9 +431,12 @@ async function forwardToAnthropic(
     };
 
     // Record Anthropic token usage
+    const aPrompt = data.usage?.input_tokens ?? 0;
+    const aComp = data.usage?.output_tokens ?? 0;
     recordUsage(modelName, tier, {
-      prompt_tokens: data.usage?.input_tokens ?? 0,
-      completion_tokens: data.usage?.output_tokens ?? 0,
+      prompt_tokens: aPrompt,
+      completion_tokens: aComp,
+      baselineCost: computeBaselineCost(aPrompt, aComp),
     }, _currentCategory);
 
     res.writeHead(200, { "Content-Type": "application/json" });
@@ -547,9 +559,12 @@ async function forwardToAnthropic(
             stopReason = event.delta?.stop_reason ?? null;
             // Anthropic sends usage in message_delta
             if (event.usage) {
+              const sPrompt = event.usage.input_tokens ?? 0;
+              const sComp = event.usage.output_tokens ?? 0;
               recordUsage(modelName, tier, {
-                prompt_tokens: event.usage.input_tokens ?? 0,
-                completion_tokens: event.usage.output_tokens ?? 0,
+                prompt_tokens: sPrompt,
+                completion_tokens: sComp,
+                baselineCost: computeBaselineCost(sPrompt, sComp),
               }, _currentCategory);
             }
           }
@@ -710,7 +725,12 @@ async function forwardToOpenAI(
     // Record token usage
     const respUsage = (data as any).usage;
     if (respUsage) {
-      recordUsage(modelName, tier, respUsage, _currentCategory);
+      const oPrompt = respUsage.prompt_tokens ?? 0;
+      const oComp = respUsage.completion_tokens ?? 0;
+      recordUsage(modelName, tier, {
+        ...respUsage,
+        baselineCost: computeBaselineCost(oPrompt, oComp),
+      }, _currentCategory);
     }
 
     // Recalculate Content-Length after rehydration (placeholder ≠ original value length)
@@ -871,7 +891,14 @@ async function forwardToOpenAI(
       }
     }
     // Record streaming usage
-    if (streamUsage) recordUsage(modelName, tier, streamUsage, _currentCategory);
+    if (streamUsage) {
+      const suPrompt = streamUsage.prompt_tokens ?? 0;
+      const suComp = streamUsage.completion_tokens ?? 0;
+      recordUsage(modelName, tier, {
+        ...streamUsage,
+        baselineCost: computeBaselineCost(suPrompt, suComp),
+      }, _currentCategory);
+    }
 
     if (!res.writableEnded) {
       if (!sentDone) res.write("data: [DONE]\n\n");

@@ -27,6 +27,7 @@ import { LRUCache, buildCacheKey } from "./cache/index.js";
 import type { CacheGlobalConfig } from "./config.js";
 import { getUsageStats } from "./usage.js";
 import { getDashboardHTML } from "./dashboard.js";
+import { getQualityTiersResponse, applyPreset, setQualityLevel, setGlobalLevel, testProvider, type PresetName, type QualityLevel } from "./quality.js";
 
 // Load config at startup
 const appConfig = loadConfig();
@@ -612,6 +613,41 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse) {
       handleConfig(req, res);
     } else if (method === "POST" && url === "/reload-config") {
       handleReloadConfig(req, res);
+    } else if (method === "GET" && url === "/quality-tiers") {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(getQualityTiersResponse()));
+    } else if (method === "POST" && url === "/quality-preset") {
+      const body = JSON.parse(await readBody(req));
+      const preset = body.preset as PresetName;
+      if (!["free", "smart_saver", "quality_first", "maximum"].includes(preset)) {
+        sendError(res, 400, "Invalid preset. Use: free, smart_saver, quality_first, maximum");
+      } else {
+        applyPreset(preset);
+        reloadConfig();
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: true, preset }));
+      }
+    } else if (method === "POST" && url === "/quality-level") {
+      const body = JSON.parse(await readBody(req));
+      const { category, level, global: isGlobal } = body;
+      if (isGlobal && level >= 1 && level <= 5) {
+        setGlobalLevel(level as QualityLevel);
+        reloadConfig();
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: true, global: true, level }));
+      } else if (category && level >= 1 && level <= 5) {
+        setQualityLevel(category, level as QualityLevel);
+        reloadConfig();
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: true, category, level }));
+      } else {
+        sendError(res, 400, "Provide { category, level: 1-5 } or { global: true, level: 1-5 }");
+      }
+    } else if (method === "POST" && url === "/test-provider") {
+      const body = JSON.parse(await readBody(req));
+      const result = await testProvider(body.provider);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(result));
     } else if (method === "GET" && (url === "/dashboard" || url === "/")) {
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
       res.end(getDashboardHTML());
