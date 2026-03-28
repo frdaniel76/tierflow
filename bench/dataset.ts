@@ -1,5 +1,5 @@
 /**
- * FreeRouter Benchmark Dataset
+ * TierFlow Benchmark Dataset
  *
  * 100 curated prompts with ground-truth expected categories and tiers.
  * Used by bench/runner.ts to measure routing accuracy and cost savings.

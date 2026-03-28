@@ -1,8 +1,8 @@
 /**
- * ClawRouter — Direct API Edition
- * Forked from BlockRunAI/ClawRouter (MIT License).
+ * TierFlow — ML-Powered AI Model Router
+ * Originally forked from BlockRunAI/ClawRouter (MIT License).
  *
- * Smart 14-dimension weighted routing WITHOUT x402/BlockRun/wallet.
+ * ML-powered 8-category routing + 15-dimension fallback scorer.
  * Routes to YOUR configured providers using YOUR API keys.
  *
  * Usage:

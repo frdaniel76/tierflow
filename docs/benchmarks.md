@@ -1,4 +1,4 @@
-# FreeRouter Routing Benchmarks
+# TierFlow Routing Benchmarks
 
 Generated: 2026-03-28 | Version: 2.0.0
 
@@ -45,7 +45,7 @@ Generated: 2026-03-28 | Version: 2.0.0
 
 For a workload of **1,000 requests/day** at average prompt size:
 - Always Claude Opus: ~$307.44/day
-- FreeRouter routed: ~$74.97/day
+- TierFlow routed: ~$74.97/day
 - **Savings: $232.46/day (75.6%)**
 
 ---

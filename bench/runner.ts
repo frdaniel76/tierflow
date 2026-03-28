@@ -1,6 +1,6 @@
 #!/usr/bin/env npx tsx
 /**
- * FreeRouter Benchmark Runner
+ * TierFlow Benchmark Runner
  *
  * Tests routing decisions (no API calls, no spending money).
  * Measures: category accuracy, tier accuracy, cost savings, latency.
@@ -59,7 +59,7 @@ type BenchResult = {
   difficulty: string;
 };
 
-console.log(`\nFreeRouter Benchmark — ${BENCH_DATASET.length} prompts\n`);
+console.log(`\nTierFlow Benchmark — ${BENCH_DATASET.length} prompts\n`);
 
 const results: BenchResult[] = [];
 let categoryCorrect = 0;
@@ -135,7 +135,7 @@ const avgSavings = totalCostBaseline > 0
 
 const summary: BenchResults = {
   generated: new Date().toISOString(),
-  freerouter_version: "2.0.0",
+  tierflow_version: "2.0.0",
   total_prompts: BENCH_DATASET.length,
   prompts_routed: results.length,
   category_accuracy: results.length > 0 ? categoryCorrect / results.length : 0,

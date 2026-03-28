@@ -1,12 +1,12 @@
 {
-  "name": "freerouter",
+  "name": "tierflow",
   "version": "2.0.0",
-  "description": "Free, self-hosted AI model router — ML-powered smart routing with your own API keys",
+  "description": "TierFlow — ML-powered AI model router. Smart routing with your own API keys.",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "freerouter": "dist/cli.js"
+    "tierflow": "dist/cli.js"
   },
   "files": [
     "dist/",

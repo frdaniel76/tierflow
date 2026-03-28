@@ -1,10 +1,10 @@
 # Provider Cookbook
 
-FreeRouter supports any **OpenAI-compatible** API out of the box via config. No code changes needed.
+TierFlow supports any **OpenAI-compatible** API out of the box via config. No code changes needed.
 
 ## How It Works
 
-Add a provider to `freerouter.config.json` under `providers`, then reference it in your `tiers` or `categories`:
+Add a provider to `tierflow.config.json` under `providers`, then reference it in your `tiers` or `categories`:
 
 ```json
 {
@@ -150,7 +150,7 @@ Uses the native Anthropic Messages API (not OpenAI-compat).
 | `"none"` | No authentication (local providers) | `{ "type": "none" }` |
 | `"openclaw"` | Read from OpenClaw auth-profiles.json | `{ "type": "openclaw" }` |
 | `"file"` | Read key from a file | `{ "type": "file", "filePath": "/path/to/key" }` |
-| `"keychain"` | macOS Keychain | `{ "type": "keychain", "service": "freerouter", "account": "groq" }` |
+| `"keychain"` | macOS Keychain | `{ "type": "keychain", "service": "tierflow", "account": "groq" }` |
 
 ## Custom Headers
 

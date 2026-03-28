@@ -1,5 +1,5 @@
 /**
- * ClawRouter Auth — loads API keys from OpenClaw auth-profiles.json
+ * TierFlow Auth — loads API keys from OpenClaw auth-profiles.json
  * Zero-dep, reads from ~/.openclaw/agents/main/agent/auth-profiles.json
  */
 

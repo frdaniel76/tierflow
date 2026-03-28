@@ -10,15 +10,15 @@
 
 ```powershell
 # Install and run
-npx freerouter --init
-npx freerouter
+npx tierflow --init
+npx tierflow
 ```
 
 ## Option B: Clone & Build
 
 ```powershell
-git clone https://github.com/frdaniel76/freerouter.git
-cd freerouter
+git clone https://github.com/frdaniel76/tierflow.git
+cd tierflow
 npm install
 npm run build
 npm start
@@ -36,8 +36,8 @@ docker compose up -d
 
 Generate a config template:
 ```powershell
-npx freerouter --init
-# Creates: %USERPROFILE%\.config\freerouter\config.json
+npx tierflow --init
+# Creates: %USERPROFILE%\.config\tierflow\config.json
 ```
 
 Set API keys:
@@ -58,7 +58,7 @@ pip install -r requirements.txt
 python server.py
 ```
 
-Without it, FreeRouter uses the 15-dimension keyword scorer (still works, just less accurate).
+Without it, TierFlow uses the 15-dimension keyword scorer (still works, just less accurate).
 
 ## Verify
 
@@ -70,9 +70,9 @@ curl http://localhost:18800/health
 start http://localhost:18800/dashboard
 
 # Validate setup
-npx freerouter --check
+npx tierflow --check
 ```
 
 ## Firewall
 
-FreeRouter binds to `127.0.0.1` by default (localhost only). If you need network access, change `host` in config to `"0.0.0.0"` and allow port 18800 in Windows Firewall.
+TierFlow binds to `127.0.0.1` by default (localhost only). If you need network access, change `host` in config to `"0.0.0.0"` and allow port 18800 in Windows Firewall.

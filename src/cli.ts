@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 /**
- * FreeRouter CLI — npx freerouter
+ * TierFlow CLI — npx tierflow
  *
  * Usage:
- *   npx freerouter              # start with default config
- *   npx freerouter --port 8080  # custom port
- *   npx freerouter --init       # generate config template
- *   npx freerouter --check      # validate config + ML service
- *   npx freerouter --version
+ *   npx tierflow              # start with default config
+ *   npx tierflow --port 8080  # custom port
+ *   npx tierflow --init       # generate config template
+ *   npx tierflow --check      # validate config + ML service
+ *   npx tierflow --version
  */
 
 import { parseArgs } from "node:util";
@@ -32,25 +32,25 @@ const { values: args } = parseArgs({
 
 if (args.help) {
   console.log(`
-  FreeRouter v${VERSION} — Free, self-hosted AI model router
+  TierFlow v${VERSION} — ML-powered AI model router
 
   Usage:
-    npx freerouter              Start with default/detected config
-    npx freerouter --port 8080  Custom port
-    npx freerouter --init       Generate config template
-    npx freerouter --check      Validate config + connectivity
-    npx freerouter --debug      Enable debug logging
+    npx tierflow              Start with default/detected config
+    npx tierflow --port 8080  Custom port
+    npx tierflow --init       Generate config template
+    npx tierflow --check      Validate config + connectivity
+    npx tierflow --debug      Enable debug logging
 
   Options:
     -p, --port <port>   Port to listen on (default: 18800)
     --host <host>       Host to bind to (default: 127.0.0.1)
-    --init              Generate ~/.config/freerouter/config.json
+    --init              Generate ~/.config/tierflow/config.json
     --check             Validate config and check ML service
     --debug             Enable debug logging
     -v, --version       Print version
     -h, --help          Show this help
 
-  Docs: https://github.com/your-org/freerouter
+  Docs: https://github.com/frdaniel76/tierflow
 `);
   process.exit(0);
 }
@@ -71,21 +71,24 @@ if (args.check) {
 }
 
 // Set env vars from CLI flags before importing server
-if (args.port) process.env.CLAWROUTER_PORT = args.port;
-if (args.host) process.env.CLAWROUTER_HOST = args.host;
+if (args.port) process.env.TIERFLOW_PORT = args.port;
+if (args.host) process.env.TIERFLOW_HOST = args.host;
 if (args.debug) process.argv.push("--debug");
 
-// Check for first run
+// Check for first run (check new + legacy config names)
 const configPaths = [
+  process.env.TIERFLOW_CONFIG,
   process.env.FREEROUTER_CONFIG,
+  join(process.cwd(), "tierflow.config.json"),
   join(process.cwd(), "freerouter.config.json"),
+  join(homedir(), ".config", "tierflow", "config.json"),
   join(homedir(), ".config", "freerouter", "config.json"),
 ].filter(Boolean);
 
 const hasConfig = configPaths.some((p) => p && existsSync(p));
 if (!hasConfig) {
   console.log("\n  No config found. Starting with built-in defaults.");
-  console.log("  Run: npx freerouter --init  to generate a config template.\n");
+  console.log("  Run: npx tierflow --init  to generate a config template.\n");
 }
 
 // Start the server
@@ -94,7 +97,7 @@ await import("./server.js");
 // ─── Commands ───
 
 async function generateConfig() {
-  const configDir = join(homedir(), ".config", "freerouter");
+  const configDir = join(homedir(), ".config", "tierflow");
   const configPath = join(configDir, "config.json");
 
   if (existsSync(configPath)) {
@@ -149,17 +152,20 @@ async function generateConfig() {
   writeFileSync(configPath, JSON.stringify(template, null, 2) + "\n");
   console.log(`\n  Config created: ${configPath}`);
   console.log("  Edit it with your preferred providers and models.");
-  console.log("  Set API keys as environment variables, then run: npx freerouter\n");
+  console.log("  Set API keys as environment variables, then run: npx tierflow\n");
 }
 
 async function checkSetup() {
-  console.log(`\n  FreeRouter v${VERSION} — Setup Check\n`);
+  console.log(`\n  TierFlow v${VERSION} — Setup Check\n`);
 
   // 1. Config file
   const paths = [
-    { label: "FREEROUTER_CONFIG env", path: process.env.FREEROUTER_CONFIG },
-    { label: "Local", path: join(process.cwd(), "freerouter.config.json") },
-    { label: "User config", path: join(homedir(), ".config", "freerouter", "config.json") },
+    { label: "TIERFLOW_CONFIG env", path: process.env.TIERFLOW_CONFIG },
+    { label: "FREEROUTER_CONFIG env (legacy)", path: process.env.FREEROUTER_CONFIG },
+    { label: "Local (tierflow)", path: join(process.cwd(), "tierflow.config.json") },
+    { label: "Local (freerouter)", path: join(process.cwd(), "freerouter.config.json") },
+    { label: "User config", path: join(homedir(), ".config", "tierflow", "config.json") },
+    { label: "User config (legacy)", path: join(homedir(), ".config", "freerouter", "config.json") },
   ];
 
   let configFound = false;
@@ -168,7 +174,6 @@ async function checkSetup() {
       console.log(`  Config: ${label} (${path})`);
       configFound = true;
 
-      // Parse and check providers
       try {
         const cfg = JSON.parse(readFileSync(path, "utf-8"));
         const providers = Object.entries(cfg.providers || {});
@@ -194,7 +199,7 @@ async function checkSetup() {
 
   if (!configFound) {
     console.log("  Config: NOT FOUND (will use built-in defaults)");
-    console.log("  Run: npx freerouter --init  to generate one");
+    console.log("  Run: npx tierflow --init  to generate one");
   }
 
   // 2. ML classifier

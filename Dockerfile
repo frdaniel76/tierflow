@@ -20,8 +20,8 @@ RUN npm ci --omit=dev 2>/dev/null; exit 0
 
 COPY --from=builder /app/dist/ ./dist/
 
-ENV CLAWROUTER_HOST=0.0.0.0
-ENV CLAWROUTER_PORT=18800
+ENV TIERFLOW_HOST=0.0.0.0
+ENV TIERFLOW_PORT=18800
 
 EXPOSE 18800
 

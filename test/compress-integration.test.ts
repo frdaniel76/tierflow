@@ -186,7 +186,7 @@ async function responseValidityTests() {
     const content = "Logs:\n" + "step done\n".repeat(10) + "\n\n\n\nSummarize.";
     const res = await chat(content);
     const model = res.headers.get("x-clawrouter-model");
-    assert(model !== null, "X-ClawRouter-Model header should be set");
+    assert(model !== null, "X-TierFlow-Model header should be set");
   });
 }
 

@@ -1,4 +1,4 @@
-# FreeRouter PII Proxy — Design & Implementation Plan
+# TierFlow PII Proxy — Design & Implementation Plan
 
 **Version:** 2.0.0
 **Date:** 2026-03-28
@@ -53,7 +53,7 @@ OpenClaw (client)
     │
     ▼
 ┌─────────────────────────────────────────────────────┐
-│  FreeRouter  (server.ts)                            │
+│  TierFlow  (server.ts)                            │
 │                                                     │
 │  1. Parse request                                   │
 │  2. route() → tier + model (e.g. openrouter/deepseek-chat) │
@@ -182,7 +182,7 @@ export OPENROUTER_API_KEY="sk-or-v1-..."
 
 ### 3.5 Hot-Reload Support
 
-The existing `POST /reload-config` endpoint already reloads `freerouter.config.json`. The PII config is read from the same file, so hot-reload works automatically. No vault state is affected by a config reload — active sessions continue until their TTL expires.
+The existing `POST /reload-config` endpoint already reloads `tierflow.config.json`. The PII config is read from the same file, so hot-reload works automatically. No vault state is affected by a config reload — active sessions continue until their TTL expires.
 
 ---
 
@@ -208,7 +208,7 @@ Three files from `github.com/frdaniel76/pii-vault`, placed under `src/pii/`:
 
 ### 4.2 New File: `src/pii/middleware.ts`
 
-This is the glue between FreeRouter's request pipeline and pii-vault's core.
+This is the glue between TierFlow's request pipeline and pii-vault's core.
 
 ```typescript
 // src/pii/middleware.ts
@@ -583,10 +583,10 @@ Two modes controlled by `pii.mode`:
 | **Rehydrate fails** (session expired, decrypt error) | `strict`: Return `502 { error: "PII rehydrate failed" }`. `standard`: Return response with placeholders intact + `X-PII-Warning` header. | `standard` mode: user sees `<<email:abc123>>` instead of real value. Ugly but safe. |
 | **Rehydrate fails mid-stream** | `strict`: Write error SSE event + `[DONE]`. `standard`: Continue stream with placeholders. | Same as above — placeholders visible but no PII leaked |
 | **Vault session not found** (shouldn't happen) | Same as rehydrate failure. Log as critical. | None — placeholder stays |
-| **External provider returns error** | Normal FreeRouter fallback chain. If fallback is local (Ollama), PII layer auto-disengages for that attempt. Vault destroyed on request end. | None |
+| **External provider returns error** | Normal TierFlow fallback chain. If fallback is local (Ollama), PII layer auto-disengages for that attempt. Vault destroyed on request end. | None |
 | **Fallback from external → local mid-request** | PII scrub was applied to messages. Local Ollama sees scrubbed messages. **Rehydration must be conditional:** only run if the *actual responding provider* has `pii: true`. If the fallback lands on a local provider (no PII), skip rehydration — the local model's response won't contain placeholders. The `piiSession` is still destroyed on request end. | Slightly wasteful (Ollama gets scrubbed text) but safe and correct. |
 | **Request aborted by client** | `finally` block destroys vault session. | None — crypto keys zeroed |
-| **FreeRouter crashes** | Vault keys are memory-only. No PII persisted to disk. | None |
+| **TierFlow crashes** | Vault keys are memory-only. No PII persisted to disk. | None |
 
 ### 9.3 Logging
 
@@ -637,7 +637,7 @@ These headers are written before the response body, so they work for both stream
 | `src/config.ts` | Add `PiiConfig` type, extend `ProviderConfigEntry` with `pii` field, add `isPiiEnabled()` + `getPiiExclude()` helpers | ~30 |
 | `src/server.ts` | Import PII middleware. Add scrub step in `handleChatCompletions()` between route and forward. Thread `piiSession` through to provider. | ~25 |
 | `src/provider.ts` | Accept `piiSession` parameter in `forwardRequest()` and `forwardToOpenAI()`. Add rehydration in non-streaming response path. Add carry-buffer rehydration in streaming SSE loop. Add `finally` carry flush. | ~60 |
-| `freerouter.config.json` | Add `openrouter` provider entry | ~10 |
+| `tierflow.config.json` | Add `openrouter` provider entry | ~10 |
 
 **Total new code:** ~610 lines (pii core) + ~150 lines (middleware) + ~750 lines (tests)
 **Total modified code:** ~115 lines across 3 existing files
@@ -646,15 +646,15 @@ These headers are written before the response body, so they work for both stream
 
 ## 11. Implementation Sequence
 
-### Phase 1: PII Core (no FreeRouter changes)
+### Phase 1: PII Core (no TierFlow changes)
 
-**Goal:** Get the pii-vault modules compiling and tested in FreeRouter's build system.
+**Goal:** Get the pii-vault modules compiling and tested in TierFlow's build system.
 
 | Step | Task |
 |---|---|
 | 1.1 | Create `src/pii/` directory |
 | 1.2 | Copy `patterns.ts`, `vault.ts`, `vault-store.ts` from pii-vault |
-| 1.3 | Adapt imports to FreeRouter's module style (ESM, `.js` extensions) |
+| 1.3 | Adapt imports to TierFlow's module style (ESM, `.js` extensions) |
 | 1.4 | Create `src/pii/index.ts` barrel export |
 | 1.5 | Verify `npm run build` succeeds |
 | 1.6 | Write unit tests for vault: redact, rehydrate, destroy, deduplication |
@@ -672,7 +672,7 @@ These headers are written before the response body, so they work for both stream
 | 2.3 | Write unit tests for `rehydrateChunk()` — all edge cases from section 7.4 |
 | 2.4 | Write carry buffer stress test — random chunk boundary splits |
 
-**Checkpoint:** Middleware passes all unit tests. No FreeRouter files touched yet.
+**Checkpoint:** Middleware passes all unit tests. No TierFlow files touched yet.
 
 ### Phase 3: Config Extension
 
@@ -682,7 +682,7 @@ These headers are written before the response body, so they work for both stream
 |---|---|
 | 3.1 | Add `PiiConfig` type and extend `ProviderConfigEntry` in `src/config.ts` |
 | 3.2 | Add `isPiiEnabled()` and `getPiiExclude()` helpers in `src/config.ts` |
-| 3.3 | Add `openrouter` provider to `freerouter.config.json` |
+| 3.3 | Add `openrouter` provider to `tierflow.config.json` |
 | 3.4 | Set `OPENROUTER_API_KEY` in `~/.zprofile` |
 | 3.5 | Verify `POST /reload-config` picks up new provider |
 
@@ -906,12 +906,12 @@ Mock HTTP server round-trips:
 After implementation, validate with real OpenRouter:
 
 ```bash
-# 1. Start FreeRouter with OpenRouter configured
-cd ~/Projects/freerouter && node dist/src/server.js
+# 1. Start TierFlow with OpenRouter configured
+cd ~/Projects/tierflow && node dist/src/server.js
 
-# Note: The Bearer token below ($OLLAMA_API_KEY) is FreeRouter's own auth,
-# NOT the OpenRouter API key. FreeRouter handles provider auth internally
-# using the keys configured in freerouter.config.json.
+# Note: The Bearer token below ($OLLAMA_API_KEY) is TierFlow's own auth,
+# NOT the OpenRouter API key. TierFlow handles provider auth internally
+# using the keys configured in tierflow.config.json.
 
 # 2. Non-streaming test with PII
 curl -s http://127.0.0.1:18800/v1/chat/completions \
@@ -924,7 +924,7 @@ curl -s http://127.0.0.1:18800/v1/chat/completions \
   }' | jq .
 
 # Expected: response contains "John Smith", "john@acme.com", etc. — rehydrated
-# Verify: check FreeRouter logs for [PII] scrub/rehydrate messages
+# Verify: check TierFlow logs for [PII] scrub/rehydrate messages
 
 # 3. Streaming test with PII
 curl -N http://127.0.0.1:18800/v1/chat/completions \
@@ -989,7 +989,7 @@ The feature is fully opt-in. To disable:
 Then `curl -X POST http://127.0.0.1:18800/reload-config`.
 
 **Option B — Remove OpenRouter entirely:**
-Remove the `openrouter` provider from config + revert tier mappings to all-Ollama. Hot-reload. FreeRouter operates exactly as before.
+Remove the `openrouter` provider from config + revert tier mappings to all-Ollama. Hot-reload. TierFlow operates exactly as before.
 
 **Option C — Code revert:**
 The PII module is self-contained in `src/pii/`. Removing that directory + reverting the ~115 lines changed in `server.ts`, `provider.ts`, `config.ts` restores the original codebase.
@@ -1045,7 +1045,7 @@ Type values: apikey, cred, pem, conn, email, cc, nino, phone, ip, post, path, se
 | Threat | Mitigation |
 |---|---|
 | PII sent to external model | Scrub layer intercepts. Fail-closed on error. |
-| PII in FreeRouter logs | Never log raw PII. Log placeholder IDs and categories only. |
+| PII in TierFlow logs | Never log raw PII. Log placeholder IDs and categories only. |
 | Placeholder leaks to user | Rehydration restores originals. On failure, `strict` mode blocks response. `standard` mode shows safe placeholder. |
 | Vault key extraction | Keys are memory-only, never serialized. `destroy()` zeros the buffer. Process crash = keys gone. |
 | Session hijacking | Sessions are request-scoped (created and destroyed within one HTTP request). No session ID exposed externally. |

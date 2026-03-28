@@ -1,5 +1,5 @@
 /**
- * FreeRouter Dashboard — lightweight monitoring UI.
+ * TierFlow Dashboard — lightweight monitoring UI.
  * Vanilla HTML/JS, no framework, no build step.
  * Served at GET /dashboard, polls GET /stats every 5s.
  */
@@ -10,7 +10,7 @@ export function getDashboardHTML(): string {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>FreeRouter Dashboard</title>
+<title>TierFlow Dashboard</title>
 <style>
   :root {
     --bg: #0f1117; --bg2: #1a1d27; --bg3: #242837;
@@ -84,7 +84,7 @@ export function getDashboardHTML(): string {
 <body>
 <div class="container">
   <header>
-    <h1><span>Free</span>Router</h1>
+    <h1><span>Tier</span>Flow</h1>
     <div class="header-right">
       <span id="ml-status" class="ml-badge down">ML: checking...</span>
       <span id="uptime">--</span>
@@ -156,7 +156,7 @@ export function getDashboardHTML(): string {
     <div id="compress-stats" class="no-data">No compression activity</div>
   </div>
 
-  <footer>FreeRouter v2.0 &mdash; Stats since <span id="started">--</span></footer>
+  <footer>TierFlow v2.0 &mdash; Stats since <span id="started">--</span></footer>
 </div>
 
 <script>

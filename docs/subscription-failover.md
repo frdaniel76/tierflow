@@ -1,6 +1,6 @@
 # Failover & Fallback Chains
 
-How FreeRouter handles provider failures and model fallbacks.
+How TierFlow handles provider failures and model fallbacks.
 
 ## How Fallback Works
 
@@ -14,7 +14,7 @@ Each tier/category config has a `primary` model and an ordered `fallback` array:
 }
 ```
 
-When the primary model fails (error or timeout), FreeRouter automatically tries the next model in the fallback chain.
+When the primary model fails (error or timeout), TierFlow automatically tries the next model in the fallback chain.
 
 ## Fallback Flow
 
@@ -69,7 +69,7 @@ This provides resilience: if Anthropic is down, falls back to OpenRouter, then t
 
 ## Agentic Fallback
 
-When tools are present, FreeRouter uses `agenticTiers` instead of `tiers` (if configured). This ensures tool-capable models are used even in fallback:
+When tools are present, TierFlow uses `agenticTiers` instead of `tiers` (if configured). This ensures tool-capable models are used even in fallback:
 
 ```json
 "agenticTiers": {

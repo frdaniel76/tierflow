@@ -98,11 +98,11 @@ Built-in monitoring at `GET /dashboard`:
 ## CLI
 
 ```bash
-npx freerouter              # start server
-npx freerouter --init       # generate config template
-npx freerouter --check      # validate config + connectivity
-npx freerouter --port 8080  # custom port
-npx freerouter --debug      # verbose logging
+npx tierflow              # start server
+npx tierflow --init       # generate config template
+npx tierflow --check      # validate config + connectivity
+npx tierflow --port 8080  # custom port
+npx tierflow --debug      # verbose logging
 ```
 
 ## Tool Call Translation

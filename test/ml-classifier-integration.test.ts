@@ -61,7 +61,7 @@ async function classify(message: string): Promise<{ category: string; confidence
   return res.json() as Promise<{ category: string; confidence: number }>;
 }
 
-// Expected model prefixes per category (primary + fallbacks from freerouter.config.json)
+// Expected model prefixes per category (primary + fallbacks from tierflow.config.json)
 const CATEGORY_MODELS: Record<string, string[]> = {
   simple_chat: ["gemini-2.5-flash-lite", "mistral-nemo"],
   general: ["qwen3-235b", "mimo-v2-flash", "mistral-nemo"],

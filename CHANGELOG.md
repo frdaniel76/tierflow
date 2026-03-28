@@ -27,7 +27,7 @@ Replaced the 15-dimension keyword scorer as primary routing engine with an ML cl
 #### Community Release Features (v2.0.0)
 - **Web dashboard** at `GET /dashboard` — tier distribution, model usage, cache stats, hourly chart, auto-refresh
 - **Docker Compose** — `docker compose up` for router + ML classifier
-- **CLI** — `npx freerouter --init`, `--check`, `--port`, `--version`
+- **CLI** — `npx tierflow --init`, `--check`, `--port`, `--version`
 - **Provider plugins** — `"none"` auth type for Ollama, config-driven `/v1/models`, provider cookbook
 - **Benchmark suite** — 100 prompts, accuracy + cost savings metrics
 - **GitHub Actions CI** — Node 20+22 matrix, 40 tests (unit + integration)
@@ -152,8 +152,8 @@ When no prefix is detected, falls back to normal 14-dimension classification —
 ### 🔧 External Config + Reliability Improvements
 
 #### Config-Driven Architecture
-- **New: `freerouter.config.json`** — all providers, tiers, boundaries, thinking, and auth are now configurable without editing source code
-- **New: `src/config.ts`** — config loader with file search priority: `FREEROUTER_CONFIG` env → `./freerouter.config.json` → `~/.config/freerouter/config.json`
+- **New: `tierflow.config.json`** — all providers, tiers, boundaries, thinking, and auth are now configurable without editing source code
+- **New: `src/config.ts`** — config loader with file search priority: `TIERFLOW_CONFIG` env → `./tierflow.config.json` → `~/.config/tierflow/config.json`
 - Deep-merges file config over built-in defaults — fully backward compatible (works without config file)
 - New `/config` endpoint — view current config with secrets redacted
 - New `/reload-config` endpoint — reload config without restarting the proxy
@@ -178,10 +178,10 @@ When no prefix is detected, falls back to normal 14-dimension classification —
 - Thinking config is now data-driven: specify which models support adaptive thinking and budget amounts
 
 ### Migration
-No action needed — if no `freerouter.config.json` exists, all previous defaults apply. To customize:
+No action needed — if no `tierflow.config.json` exists, all previous defaults apply. To customize:
 
 ```bash
-cp freerouter.config.json ~/.config/freerouter/config.json
+cp tierflow.config.json ~/.config/tierflow/config.json
 # Edit providers, tiers, boundaries to taste
 curl http://localhost:18800/reload-config  # Apply without restart
 ```
@@ -192,7 +192,7 @@ curl http://localhost:18800/reload-config  # Apply without restart
 
 ### 🚀 First Full Release — Proxy Server + Smart Routing
 
-The first complete release of FreeRouter: a self-hosted, OpenAI-compatible proxy that classifies requests by complexity and routes them to the best model using your own API keys.
+The first complete release of TierFlow: a self-hosted, OpenAI-compatible proxy that classifies requests by complexity and routes them to the best model using your own API keys.
 
 ### Added
 
@@ -233,7 +233,7 @@ The first complete release of FreeRouter: a self-hosted, OpenAI-compatible proxy
 ### Architecture
 
 ```
-Client (OpenAI format) → FreeRouter (:18800) → 14-dim Classifier → Route to best model
+Client (OpenAI format) → TierFlow (:18800) → 14-dim Classifier → Route to best model
                                                                      ├── Simple → Kimi K2.5
                                                                      ├── Medium → Sonnet 4.5
                                                                      ├── Complex → Opus 4.6

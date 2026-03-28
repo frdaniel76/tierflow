@@ -1,12 +1,12 @@
 # Architecture
 
-Technical deep-dive into FreeRouter's internals.
+Technical deep-dive into TierFlow's internals.
 
 ## System Overview
 
 ```
                          ┌─────────────────────────────────────────────┐
-                         │              FreeRouter (:18800)            │
+                         │              TierFlow (:18800)            │
 Client ──HTTP POST──────>│                                             │
 /v1/chat/completions     │  Parse ─> Cache Check ─> Route ─> PII Scrub│
                          │    ─> Compress ─> Forward ─> Rehydrate     │
@@ -97,4 +97,4 @@ Stops on: success, or stream already started (`res.headersSent`).
 | `src/auth.ts` | Auth: env, file, keychain, openclaw, none |
 | `src/usage.ts` | Token/cost tracking (allTime, byModel, byTier, byCategory, hourly) |
 | `src/dashboard.ts` | Built-in HTML monitoring UI |
-| `src/cli.ts` | CLI entry (npx freerouter) |
+| `src/cli.ts` | CLI entry (npx tierflow) |

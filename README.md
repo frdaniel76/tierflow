@@ -1,4 +1,4 @@
-# FreeRouter — Free, Self-Hosted AI Model Router
+# TierFlow — Free, Self-Hosted AI Model Router
 
 **Stop overpaying for AI. Route every request to the right model — automatically, with your own API keys.**
 
@@ -8,11 +8,11 @@
 
 ---
 
-## Why FreeRouter?
+## Why TierFlow?
 
 **You already have API keys. Why pay someone else to use them?**
 
-| Pain | How FreeRouter Fixes It |
+| Pain | How TierFlow Fixes It |
 |------|------------------------|
 | Every message hits your expensive model | **ML-powered classifier** routes to 8 specialized categories. Save 60-80%. |
 | No control over routing | **Mode overrides** — `/max`, `/simple`, `[code]` to force a category. |
@@ -30,7 +30,7 @@
 - **Agentic routing** — auto-detects tool calls and routes to agentic-capable models
 - **Web dashboard** — built-in monitoring at `/dashboard` with auto-refresh
 - **Docker Compose** — one-command startup for router + ML classifier
-- **CLI** — `npx freerouter --init`, `--check`, `--port`
+- **CLI** — `npx tierflow --init`, `--check`, `--port`
 - **Zero runtime dependencies** — pure Node.js built-ins
 - **OpenAI-compatible API** — drop-in `/v1/chat/completions` proxy
 - **40 tests** — unit (cache, router, config) + integration (mock ML classifier)
@@ -38,7 +38,7 @@
 ## How It Works
 
 ```
-Your App --> FreeRouter (:18800) --> ML Classifier (:18801) --> Best Model
+Your App --> TierFlow (:18800) --> ML Classifier (:18801) --> Best Model
 
                     8 Categories:
                     simple_chat   --> Gemini Flash Lite   (near-zero cost)
@@ -60,15 +60,15 @@ The ML classifier uses sentence embeddings (all-MiniLM-L6-v2) + KNN to categoriz
 ### Option A: npx (recommended)
 
 ```bash
-npx freerouter --init     # generate config template
-npx freerouter            # start the router
+npx tierflow --init     # generate config template
+npx tierflow            # start the router
 ```
 
 ### Option B: Clone & Build
 
 ```bash
-git clone https://github.com/frdaniel76/freerouter.git
-cd freerouter
+git clone https://github.com/frdaniel76/tierflow.git
+cd tierflow
 npm install
 npm run build
 npm start
@@ -101,10 +101,10 @@ open http://localhost:18800/dashboard
 
 ## Configuration
 
-FreeRouter looks for config in this order:
-1. `FREEROUTER_CONFIG` environment variable
-2. `./freerouter.config.json` (working directory)
-3. `~/.config/freerouter/config.json`
+TierFlow looks for config in this order:
+1. `TIERFLOW_CONFIG` environment variable
+2. `./tierflow.config.json` (working directory)
+3. `~/.config/tierflow/config.json`
 
 If no config file exists, built-in defaults apply.
 
@@ -242,7 +242,7 @@ Zero overhead when disabled (default).
 ## Project Structure
 
 ```
-freerouter/
+tierflow/
 ├── src/
 │   ├── server.ts            # HTTP server, route handlers, stats
 │   ├── provider.ts          # Multi-provider forwarding + SSE translation
@@ -252,7 +252,7 @@ freerouter/
 │   ├── usage.ts             # Token usage + cost tracking
 │   ├── logger.ts            # Logging
 │   ├── dashboard.ts         # Built-in web dashboard
-│   ├── cli.ts               # CLI entry point (npx freerouter)
+│   ├── cli.ts               # CLI entry point (npx tierflow)
 │   ├── index.ts             # Library exports
 │   ├── router/
 │   │   ├── index.ts         # ML classifier + legacy scorer integration
@@ -279,25 +279,25 @@ freerouter/
 ├── docs/                    # Documentation
 ├── Dockerfile               # Multi-stage Node.js build
 ├── docker-compose.yml       # Router + ML classifier stack
-├── freerouter.config.example.json
+├── tierflow.config.example.json
 └── package.json
 ```
 
 ## OpenClaw Integration
 
-Add FreeRouter as a provider in your OpenClaw config:
+Add TierFlow as a provider in your OpenClaw config:
 
 ```json
 {
   "providers": {
-    "freerouter": {
+    "tierflow": {
       "baseUrl": "http://localhost:18800",
       "api": "openai-completions",
       "models": [{ "id": "auto" }]
     }
   },
   "agents": {
-    "defaults": { "model": "freerouter/auto" }
+    "defaults": { "model": "tierflow/auto" }
   }
 }
 ```
@@ -306,8 +306,8 @@ Add FreeRouter as a provider in your OpenClaw config:
 
 Forked from [BlockRunAI/ClawRouter](https://github.com/BlockRunAI/ClawRouter) (MIT License). Original 15-dimension routing engine preserved and extended; x402 payment protocol removed. Credit to BlockRunAI for the classifier design.
 
-**New in FreeRouter:** ML-powered 8-category routing, PII scrubbing, CtxPack compression, response caching, web dashboard, CLI, Docker support.
+**New in TierFlow:** ML-powered 8-category routing, PII scrubbing, CtxPack compression, response caching, web dashboard, CLI, Docker support.
 
 ## License
 
-[MIT](LICENSE) — Copyright BlockRunAI (original) + frdaniel76 (FreeRouter extensions)
+[MIT](LICENSE) — Copyright BlockRunAI (original) + frdaniel76 (TierFlow extensions)

@@ -46,4 +46,4 @@ jobs:
       - name: Integration tests
         run: npm run test:integration
         env:
-          FREEROUTER_TEST_MODE: "1"
+          TIERFLOW_TEST_MODE: "1"

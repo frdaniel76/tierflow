@@ -1,5 +1,5 @@
 /**
- * ClawRouter Provider â€” handles forwarding to backend APIs
+ * TierFlow Provider â€” handles forwarding to backend APIs
  * Supports: Anthropic Messages API, OpenAI-compatible (Kimi, OpenAI)
  * Zero external deps â€” uses native fetch + streams.
  */

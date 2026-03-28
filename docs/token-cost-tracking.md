@@ -11,7 +11,7 @@ Track token usage and costs per request, accumulate totals, and expose via `/sta
 ```
 Provider response → usage { prompt_tokens, completion_tokens, cost }
         ↓
-FreeRouter accumulates in-memory (src/usage.ts):
+TierFlow accumulates in-memory (src/usage.ts):
   - all-time totals (tokens, cost, requests)
   - by model, by tier, by category
   - rolling 24h window (per-hour buckets)

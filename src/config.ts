@@ -1,11 +1,11 @@
 /**
- * ClawRouter Config — loads external configuration from freerouter.config.json
+ * TierFlow Config — loads external configuration
  * Zero external deps. Falls back to hardcoded defaults if no config file exists.
  *
  * Config file search order:
- *   1. FREEROUTER_CONFIG env var
- *   2. ./freerouter.config.json (cwd)
- *   3. ~/.config/freerouter/config.json
+ *   1. TIERFLOW_CONFIG or FREEROUTER_CONFIG env var
+ *   2. ./tierflow.config.json or ./freerouter.config.json (cwd)
+ *   3. ~/.config/tierflow/config.json or ~/.config/freerouter/config.json
  */
 
 import { readFileSync, existsSync } from "node:fs";
@@ -189,17 +189,21 @@ function deepMerge(target: Record<string, unknown>, source: Record<string, unkno
  * Find config file path.
  */
 function findConfigFile(): string | null {
-  // 1. Env var
-  const envPath = process.env.FREEROUTER_CONFIG;
+  // 1. Env var (new name first, then legacy)
+  const envPath = process.env.TIERFLOW_CONFIG ?? process.env.FREEROUTER_CONFIG;
   if (envPath && existsSync(envPath)) return envPath;
 
-  // 2. CWD
-  const cwdPath = join(process.cwd(), "freerouter.config.json");
-  if (existsSync(cwdPath)) return cwdPath;
+  // 2. CWD (new name first, then legacy)
+  for (const name of ["tierflow.config.json", "freerouter.config.json"]) {
+    const cwdPath = join(process.cwd(), name);
+    if (existsSync(cwdPath)) return cwdPath;
+  }
 
-  // 3. ~/.config/freerouter/config.json
-  const homePath = join(homedir(), ".config", "freerouter", "config.json");
-  if (existsSync(homePath)) return homePath;
+  // 3. Home config (new path first, then legacy)
+  for (const dir of ["tierflow", "freerouter"]) {
+    const homePath = join(homedir(), ".config", dir, "config.json");
+    if (existsSync(homePath)) return homePath;
+  }
 
   return null;
 }
@@ -211,7 +215,7 @@ export function loadConfig(): FreeRouterConfig {
   const configPath = findConfigFile();
 
   if (!configPath) {
-    logger.info("No freerouter.config.json found, using built-in defaults");
+    logger.info("No tierflow.config.json found, using built-in defaults");
     _config = { ...DEFAULT_CONFIG };
     _configPath = null;
     return _config;

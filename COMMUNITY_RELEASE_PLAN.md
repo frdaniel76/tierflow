@@ -1,11 +1,11 @@
-# FreeRouter Community Release Plan
+# TierFlow Community Release Plan
 
 **Created:** 2026-03-28
 **Status:** All 8 phases implemented (2026-03-28)
 
 ## Overview
 
-7 improvements to make FreeRouter attractive for open-source community release. Positioned as: *"The privacy-first intelligent router for developers who own their API keys"*.
+7 improvements to make TierFlow attractive for open-source community release. Positioned as: *"The privacy-first intelligent router for developers who own their API keys"*.
 
 ---
 
@@ -50,7 +50,7 @@
 
 ### Design
 - **Unit tests**: Pure function tests for `router/rules.ts`, `pii/vault.ts`, `cache/store.ts`, `config.ts` using `node:test`
-- **Integration tests**: Start server + mock ML classifier (Node.js HTTP server returning canned responses), send requests, verify `X-ClawRouter-*` headers
+- **Integration tests**: Start server + mock ML classifier (Node.js HTTP server returning canned responses), send requests, verify `X-TierFlow-*` headers
 - **Mock ML server**: Minimal HTTP server at `test/fixtures/mock-ml-server.ts` — maps known prompts to categories, returns `{ category, confidence, latency_ms }`
 - **CI matrix**: Node 20 + 22, lint/prettier only on 22
 
@@ -172,7 +172,7 @@ Single HTML string returned by `getDashboardHTML()`. Polls `GET /stats` via `fet
 **Tests routing decisions, not model responses.** No API calls, no spending money.
 
 - **100 curated prompts** with ground-truth `expected_category` and `expected_tier`
-- **3 comparison scenarios** per prompt: always-cheap, FreeRouter-routed, always-best
+- **3 comparison scenarios** per prompt: always-cheap, TierFlow-routed, always-best
 - **Metrics**: category accuracy, tier accuracy, cost savings %, latency p50/p95
 
 **Dataset structure:**
@@ -191,7 +191,7 @@ Category accuracy: 94%  |  Cost savings: 93.5%  |  Latency p50: 42ms
 
 ## Phase 6: Docker Compose (Improvement #1)
 
-**Goal:** `docker compose up` starts FreeRouter + LLMRouter ML classifier.
+**Goal:** `docker compose up` starts TierFlow + LLMRouter ML classifier.
 
 ### Files
 | File | Action |
@@ -213,14 +213,14 @@ Category accuracy: 94%  |  Cost savings: 93.5%  |  Latency p50: 42ms
 - Named volume for KNN joblib cache
 - Health check on `/health`
 
-**FreeRouter Dockerfile:**
+**TierFlow Dockerfile:**
 - Multi-stage: builder (`npm ci` + `npm run build`) + runtime (copy `dist/` only)
 - `node:22-slim` base
 
 **docker-compose.yml:**
 - `llmrouter` service: builds `../llmrouter-service`, exposes 18801, health check
-- `freerouter` service: depends on llmrouter (service_healthy), exposes 18800
-- Config via bind mount (`~/.config/freerouter/`) or env vars
+- `tierflow` service: depends on llmrouter (service_healthy), exposes 18800
+- Config via bind mount (`~/.config/tierflow/`) or env vars
 - `LLMROUTER_URL=http://llmrouter:18801/classify` overrides config
 
 **server.ts addition:**
@@ -234,7 +234,7 @@ if (process.env.LLMROUTER_URL && appConfig.mlClassifier) {
 
 ## Phase 7: npm Package (Improvement #4)
 
-**Goal:** `npx freerouter` downloads and runs with zero cloning.
+**Goal:** `npx tierflow` downloads and runs with zero cloning.
 
 ### Files
 | File | Action |
@@ -247,11 +247,11 @@ if (process.env.LLMROUTER_URL && appConfig.mlClassifier) {
 
 **CLI flags:**
 ```
-npx freerouter              # start with default config
-npx freerouter --port 8080  # custom port
-npx freerouter --init       # generate ~/.config/freerouter/config.json template
-npx freerouter --check      # validate config + ML service connectivity
-npx freerouter --version
+npx tierflow              # start with default config
+npx tierflow --port 8080  # custom port
+npx tierflow --init       # generate ~/.config/tierflow/config.json template
+npx tierflow --check      # validate config + ML service connectivity
+npx tierflow --version
 ```
 
 **`--init` generates:**
@@ -268,12 +268,12 @@ npx freerouter --version
 
 **package.json additions:**
 ```json
-"bin": { "freerouter": "dist/cli.js" },
+"bin": { "tierflow": "dist/cli.js" },
 "files": ["dist/", "README.md", "LICENSE"],
 "engines": { "node": ">=20.0.0" }
 ```
 
-**Note:** ML classifier is optional. CLI prints: "For ML-powered routing, also run llmrouter-service. Without it, FreeRouter uses rule-based routing."
+**Note:** ML classifier is optional. CLI prints: "For ML-powered routing, also run llmrouter-service. Without it, TierFlow uses rule-based routing."
 
 ---
 
@@ -296,7 +296,7 @@ npx freerouter --version
 **Layout per prompt:**
 ```
 ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐
-│  Always Cheap   │  │   FreeRouter    │  │  Always Best    │
+│  Always Cheap   │  │   TierFlow    │  │  Always Best    │
 │  gpt-4o-mini    │  │  kimi-for-code  │  │  claude-opus    │
 │  [response]     │  │  [response]     │  │  [response]     │
 │  $0.00002       │  │  $0.0001        │  │  $0.0032        │

@@ -4,7 +4,8 @@ dist/
 .DS_Store
 .playwright-mcp/
 
-# Local config (use freerouter.config.example.json as template)
+# Local config (use tierflow.config.example.json as template)
+tierflow.config.json
 freerouter.config.json
 
 # Benchmark results (regenerate with: npm run bench)

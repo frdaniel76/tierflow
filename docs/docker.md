@@ -1,16 +1,16 @@
 # Docker Setup
 
-Run the full FreeRouter stack (router + ML classifier) with Docker Compose.
+Run the full TierFlow stack (router + ML classifier) with Docker Compose.
 
 ## Quick Start
 
 ```bash
 # Clone both repos
-git clone <freerouter-repo> freerouter
+git clone <tierflow-repo> tierflow
 git clone <llmrouter-service-repo> llmrouter-service
 
 # Start everything
-cd freerouter
+cd tierflow
 docker compose up -d
 
 # Check status
@@ -18,20 +18,20 @@ docker compose ps
 docker compose logs -f
 ```
 
-FreeRouter will be available at `http://localhost:18800`.
+TierFlow will be available at `http://localhost:18800`.
 
 ## Architecture
 
 ```
                    docker network
 ┌──────────────┐      ┌────────────────┐
-│  freerouter  │─────▶│  llmrouter     │
+│  tierflow  │─────▶│  llmrouter     │
 │  :18800      │      │  :18801        │
 │  (Node.js)   │      │  (Python)      │
 └──────────────┘      └────────────────┘
 ```
 
-- **freerouter** waits for llmrouter to be healthy before starting
+- **tierflow** waits for llmrouter to be healthy before starting
 - They communicate via `http://llmrouter:18801/classify` (Docker DNS)
 - Both bind to `127.0.0.1` on the host (localhost only)
 
@@ -55,11 +55,11 @@ ANTHROPIC_API_KEY=sk-ant-... docker compose up -d
 Mount your config file:
 
 ```bash
-# Default: mounts ./freerouter.config.json
+# Default: mounts ./tierflow.config.json
 docker compose up -d
 
 # Custom path:
-FREEROUTER_CONFIG=/path/to/config.json docker compose up -d
+TIERFLOW_CONFIG=/path/to/config.json docker compose up -d
 ```
 
 ### Without ML Classifier
@@ -67,17 +67,17 @@ FREEROUTER_CONFIG=/path/to/config.json docker compose up -d
 If you only want the router (rule-based routing):
 
 ```bash
-docker compose up freerouter -d
+docker compose up tierflow -d
 ```
 
-FreeRouter falls back to the 14-dimension keyword scorer when the ML classifier is unavailable.
+TierFlow falls back to the 14-dimension keyword scorer when the ML classifier is unavailable.
 
 ## Image Sizes
 
 | Image | Size | Why |
 |-------|------|-----|
-| freerouter | ~180MB | Node.js slim + built JS |
-| freerouter-llmrouter | ~600MB | Python + sentence-transformers model (80MB) baked in |
+| tierflow | ~180MB | Node.js slim + built JS |
+| tierflow-llmrouter | ~600MB | Python + sentence-transformers model (80MB) baked in |
 
 The ML model is baked into the image to avoid downloading at runtime.
 

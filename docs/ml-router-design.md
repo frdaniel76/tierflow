@@ -1,4 +1,4 @@
-# FreeRouter ML-Powered Routing — Comprehensive Design
+# TierFlow ML-Powered Routing — Comprehensive Design
 
 **Version:** 2.0
 **Date:** 2026-03-28
@@ -47,7 +47,7 @@ LLMRouter ML classifier (Python FastAPI, ~20ms)
   - Trained on human preference data
   - Returns: { category, model_id, confidence }
     ↓
-FreeRouter maps category → model from config table
+TierFlow maps category → model from config table
     ↓
 PII scrub → forward → rehydrate → respond
 ```
@@ -55,7 +55,7 @@ PII scrub → forward → rehydrate → respond
 ### Component Diagram
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    FreeRouter (TypeScript)                   │
+│                    TierFlow (TypeScript)                   │
 │                                                             │
 │  ┌──────────────┐     ┌───────────────┐     ┌───────────┐  │
 │  │  Shortcuts    │────▶│  ML Classifier │────▶│  Model    │  │
@@ -117,7 +117,7 @@ Instead of 4 tiers based on "complexity," use **task categories** that map to **
 
 ## 4. Configuration Table
 
-### freerouter.config.json (v2.0)
+### tierflow.config.json (v2.0)
 
 ```json
 {
@@ -230,21 +230,21 @@ A lightweight Python FastAPI microservice that wraps LLMRouter.
 - Memory: ~200MB (Longformer model + training data)
 - Training: pre-trained on Chatbot Arena data, optionally fine-tuned on your usage
 
-**Fallback if service down:** FreeRouter falls back to `general` category (DeepSeek V3.2).
+**Fallback if service down:** TierFlow falls back to `general` category (DeepSeek V3.2).
 
 ### Training Pipeline
 
 LLMRouter can be trained on your own data for better accuracy:
 
 ```
-Step 1: Collect queries from FreeRouter logs (prompt + which model was used)
+Step 1: Collect queries from TierFlow logs (prompt + which model was used)
 Step 2: Generate embeddings via Longformer
 Step 3: Evaluate which model answered best (or use human feedback)
 Step 4: Train KNN/SVM/MLP router on this data
 Step 5: Deploy updated model
 ```
 
-This can run as a weekly batch job using FreeRouter's request logs.
+This can run as a weekly batch job using TierFlow's request logs.
 
 ### Health Check
 
@@ -252,7 +252,7 @@ This can run as a weekly batch job using FreeRouter's request logs.
 
 ### Service Management
 
-Run as a launchd daemon alongside FreeRouter:
+Run as a launchd daemon alongside TierFlow:
 
 ```xml
 <!-- ~/Library/LaunchAgents/com.medme.llmrouter.plist -->
@@ -272,7 +272,7 @@ Run as a launchd daemon alongside FreeRouter:
 
 ---
 
-## 6. FreeRouter Code Changes
+## 6. TierFlow Code Changes
 
 ### Files to Remove
 | File | Lines | Why |
@@ -288,7 +288,7 @@ Run as a launchd daemon alongside FreeRouter:
 | `src/router/selector.ts` | Map category → model instead of tier → model |
 | `src/config.ts` | Add `classifier` and `categories` config sections |
 | `src/server.ts` | Update shortcuts logic, update stats to track categories |
-| `freerouter.config.json` | New format with categories instead of tiers |
+| `tierflow.config.json` | New format with categories instead of tiers |
 
 ### Files Unchanged
 | File | Lines | Why |
@@ -382,9 +382,9 @@ export async function route(
 5. Test classification accuracy on sample queries
 6. Deploy as launchd service on port 18801
 
-### Phase 2: Update FreeRouter Config (Day 1)
+### Phase 2: Update TierFlow Config (Day 1)
 1. Add `classifier` and `categories` to config schema
-2. Update `freerouter.config.json` with new category→model table
+2. Update `tierflow.config.json` with new category→model table
 3. Keep old tier config as backward-compatible fallback
 
 ### Phase 3: Replace Classifier Call (Day 2)
@@ -397,7 +397,7 @@ export async function route(
 1. Run existing PII tests (should all pass — PII unchanged)
 2. Test category classification on 50+ sample queries
 3. Run E2E test suite via `~/bin/e2e-test`
-4. Test fallback behavior (kill LLMRouter → FreeRouter still works)
+4. Test fallback behavior (kill LLMRouter → TierFlow still works)
 
 ### Phase 5: Optimization (Week 2+)
 1. Collect routing logs for 1 week
@@ -411,10 +411,10 @@ export async function route(
 
 | Risk | Mitigation |
 |------|-----------|
-| LLMRouter service crashes | FreeRouter falls back to `general` category (V3.2) — still works |
+| LLMRouter service crashes | TierFlow falls back to `general` category (V3.2) — still works |
 | ML classifier misroutes | Mode overrides still work (`/simple`, `/code`, `/max`) |
 | Free models are rate-limited | Paid fallbacks configured for every category |
-| New dependency (Python) | Isolated service — FreeRouter TypeScript core unchanged |
+| New dependency (Python) | Isolated service — TierFlow TypeScript core unchanged |
 | Model cold start (first request) | Launchd keeps service running, model stays loaded in memory |
 | Latency increase (+20ms) | Negligible vs LLM inference time (2-60s) |
 
@@ -432,14 +432,14 @@ export async function route(
 ├── test_classifier.py     # Unit tests
 └── com.medme.llmrouter.plist  # launchd daemon config
 
-~/Projects/freerouter/
+~/Projects/tierflow/
 ├── src/router/index.ts    # Modified — HTTP call to LLMRouter
 ├── src/router/types.ts    # Modified — CategoryResult type
 ├── src/router/selector.ts # Modified — category → model
 ├── src/router/rules.ts    # DELETED (or kept as legacy fallback)
 ├── src/config.ts          # Modified — new config sections
 ├── src/server.ts          # Modified — shortcuts, stats
-└── freerouter.config.json # New format with categories
+└── tierflow.config.json # New format with categories
 ```
 
 ---

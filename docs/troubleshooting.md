@@ -7,7 +7,7 @@
 curl http://localhost:18800/health
 
 # 2. Validate config + API keys
-npx freerouter --check
+npx tierflow --check
 
 # 3. Check ML classifier (optional)
 curl http://localhost:18801/health
@@ -34,7 +34,7 @@ Model ID: `openrouter/google/gemini-2.5-flash-lite` → looks up `openrouter` pr
 
 ### ML classifier unavailable
 
-If LLMRouter service isn't running on `:18801`, FreeRouter falls back to the 15-dimension keyword scorer. This is intentional — routing still works, just less accurately.
+If LLMRouter service isn't running on `:18801`, TierFlow falls back to the 15-dimension keyword scorer. This is intentional — routing still works, just less accurately.
 
 To start the ML classifier:
 ```bash
@@ -61,16 +61,16 @@ For local providers (Ollama), use `"auth": { "type": "none" }`.
 lsof -i :18800
 
 # Use a different port
-npx freerouter --port 18900
-# or set CLAWROUTER_PORT=18900
+npx tierflow --port 18900
+# or set TIERFLOW_PORT=18900
 ```
 
 ### Config not loading
 
 Check the search order:
-1. `FREEROUTER_CONFIG` env var (explicit path)
-2. `./freerouter.config.json` (current directory)
-3. `~/.config/freerouter/config.json`
+1. `TIERFLOW_CONFIG` env var (explicit path)
+2. `./tierflow.config.json` (current directory)
+3. `~/.config/tierflow/config.json`
 
 Verify: `curl http://localhost:18800/config` shows which config path was loaded.
 
@@ -103,12 +103,12 @@ Cache skips: streaming requests, tool call requests (by default). Check `X-Cache
 
 ## Logs
 
-FreeRouter logs to stdout. Each routed request shows:
+TierFlow logs to stdout. Each routed request shows:
 ```
 [N] Classified: tier=SIMPLE category=simple_chat model=openrouter/google/gemini-2.5-flash-lite confidence=0.98 | ml: simple_chat (conf=0.98, 35ms)
 ```
 
-Enable debug logging: `npx freerouter --debug` or pass `--debug` flag.
+Enable debug logging: `npx tierflow --debug` or pass `--debug` flag.
 
 ## Getting Help
 

@@ -58,7 +58,7 @@ const SAMPLE_TOOLS = [
   },
 ];
 
-// Expected agentic models from freerouter.config.json
+// Expected agentic models from tierflow.config.json
 const AGENTIC_MODELS = ["deepseek-v3.2", "deepseek/deepseek-v3"];
 
 async function chat(content: string, tools?: any[]): Promise<Response> {

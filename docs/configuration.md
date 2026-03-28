@@ -1,23 +1,23 @@
 # Configuration Reference
 
-Complete reference for FreeRouter configuration.
+Complete reference for TierFlow configuration.
 
 ## Config File Location
 
 Search order:
-1. `FREEROUTER_CONFIG` environment variable
-2. `./freerouter.config.json` (working directory)
-3. `~/.config/freerouter/config.json`
+1. `TIERFLOW_CONFIG` environment variable
+2. `./tierflow.config.json` (working directory)
+3. `~/.config/tierflow/config.json`
 
-Generate a template: `npx freerouter --init`
+Generate a template: `npx tierflow --init`
 
 ## Environment Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `FREEROUTER_CONFIG` | — | Path to config file |
-| `CLAWROUTER_PORT` | 18800 | Override port |
-| `CLAWROUTER_HOST` | 127.0.0.1 | Override bind host |
+| `TIERFLOW_CONFIG` | — | Path to config file |
+| `TIERFLOW_PORT` | 18800 | Override port |
+| `TIERFLOW_HOST` | 127.0.0.1 | Override bind host |
 | `LLMROUTER_URL` | — | Override ML classifier URL (for Docker) |
 | `ANTHROPIC_API_KEY` | — | API key (when using `auth.type: "env"`) |
 | `OPENROUTER_API_KEY` | — | API key (when using `auth.type: "env"`) |
@@ -116,7 +116,7 @@ Generate a template: `npx freerouter --init`
 | `"none"` | No auth (Ollama, LM Studio) | `{ "type": "none" }` |
 | `"openclaw"` | Read from OpenClaw auth-profiles.json | `{ "type": "openclaw" }` |
 | `"file"` | Read key from file | `{ "type": "file", "filePath": "/path/to/key" }` |
-| `"keychain"` | macOS Keychain | `{ "type": "keychain", "service": "freerouter", "account": "anthropic" }` |
+| `"keychain"` | macOS Keychain | `{ "type": "keychain", "service": "tierflow", "account": "anthropic" }` |
 
 ## Hot Reload
 
@@ -129,5 +129,5 @@ Reloads config file + auth keys + reinitializes cache. No restart needed.
 ## Testing Config
 
 ```bash
-npx freerouter --check    # validate config, check API keys, ping ML service
+npx tierflow --check    # validate config, check API keys, ping ML service
 ```

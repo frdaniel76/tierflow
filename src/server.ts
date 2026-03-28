@@ -1,5 +1,5 @@
 /**
- * ClawRouter Proxy Server
+ * TierFlow Proxy Server
  *
  * OpenAI-compatible HTTP server that classifies incoming requests
  * using the 14-dimension weighted scorer and routes to the best backend.
@@ -35,8 +35,8 @@ const appConfig = loadConfig();
 if (process.env.LLMROUTER_URL && appConfig.mlClassifier) {
   appConfig.mlClassifier.url = process.env.LLMROUTER_URL;
 }
-const PORT = parseInt(process.env.CLAWROUTER_PORT ?? String(appConfig.port), 10);
-const HOST = process.env.CLAWROUTER_HOST ?? appConfig.host ?? "127.0.0.1";
+const PORT = parseInt(process.env.TIERFLOW_PORT ?? process.env.CLAWROUTER_PORT ?? String(appConfig.port), 10);
+const HOST = process.env.TIERFLOW_HOST ?? process.env.CLAWROUTER_HOST ?? appConfig.host ?? "127.0.0.1";
 
 // Build pricing map once at startup
 const modelPricing = buildPricingMap();
@@ -299,9 +299,9 @@ async function handleChatCompletions(req: IncomingMessage, res: ServerResponse) 
   stats.byModel[routedModel] = (stats.byModel[routedModel] ?? 0) + 1;
 
   // Add routing info headers
-  res.setHeader("X-ClawRouter-Model", routedModel);
-  res.setHeader("X-ClawRouter-Tier", tier);
-  res.setHeader("X-ClawRouter-Reasoning", reasoning.slice(0, 200));
+  res.setHeader("X-TierFlow-Model", routedModel);
+  res.setHeader("X-TierFlow-Tier", tier);
+  res.setHeader("X-TierFlow-Reasoning", reasoning.slice(0, 200));
 
   // ─── PII Scrub (if provider requires it) ───
   let piiSession: string | null = null;
@@ -416,7 +416,7 @@ async function handleChatCompletions(req: IncomingMessage, res: ServerResponse) 
       try {
         if (modelToTry !== routedModel) {
           logger.info(`[${stats.requests}] Falling back to ${modelToTry}`);
-          res.setHeader("X-ClawRouter-Model", modelToTry);
+          res.setHeader("X-TierFlow-Model", modelToTry);
         }
 
         // Always rehydrate if we scrubbed — even if fallback provider doesn't have PII enabled,
@@ -485,7 +485,7 @@ function handleListModels(_req: IncomingMessage, res: ServerResponse) {
   const models: Array<{ id: string; object: string; created: number; owned_by: string; permission?: unknown[] }> = [];
 
   // Always include "auto" (the smart router)
-  models.push({ id: "auto", object: "model", created, owned_by: "freerouter", permission: [] });
+  models.push({ id: "auto", object: "model", created, owned_by: "tierflow", permission: [] });
   seen.add("auto");
 
   // Collect models from tiers, agenticTiers, and categories
@@ -636,7 +636,7 @@ responseCache = initCache();
 const server = createServer(handleRequest);
 
 server.listen(PORT, HOST, () => {
-  logger.info(`🚀 ClawRouter proxy listening on http://${HOST}:${PORT} (config: ${getConfigPath() ?? "built-in defaults"})`);
+  logger.info(`🚀 TierFlow listening on http://${HOST}:${PORT} (config: ${getConfigPath() ?? "built-in defaults"})`);
   if (responseCache) logger.info(`   Cache: enabled (TTL=${getConfig().cache?.ttl_seconds ?? 300}s, max=${getConfig().cache?.max_entries ?? 5000})`);
   logger.info(`   POST /v1/chat/completions  — route & forward`);
   logger.info(`   GET  /v1/models            — list models`);

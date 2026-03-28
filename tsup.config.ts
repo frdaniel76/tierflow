@@ -14,6 +14,6 @@ export default defineConfig({
   target: "node20",
   splitting: false,
   banner: {
-    js: "// FreeRouter — Free, self-hosted AI model router",
+    js: "// TierFlow — ML-powered AI model router",
   },
 });

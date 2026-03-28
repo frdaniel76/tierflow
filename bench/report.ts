@@ -1,11 +1,11 @@
 /**
- * FreeRouter Benchmark Report Generator
+ * TierFlow Benchmark Report Generator
  * Outputs JSON + Markdown from benchmark results.
  */
 
 export type BenchResults = {
   generated: string;
-  freerouter_version: string;
+  tierflow_version: string;
   total_prompts: number;
   prompts_routed: number;
   category_accuracy: number;
@@ -26,9 +26,9 @@ export function generateReport(data: BenchResults): { markdown: string; json: st
   const pct = (n: number) => (n * 100).toFixed(1) + "%";
   const cost = (n: number) => "$" + n.toFixed(6);
 
-  const md = `# FreeRouter Routing Benchmarks
+  const md = `# TierFlow Routing Benchmarks
 
-Generated: ${data.generated.split("T")[0]} | Version: ${data.freerouter_version}
+Generated: ${data.generated.split("T")[0]} | Version: ${data.tierflow_version}
 
 ## Summary
 
@@ -70,7 +70,7 @@ ${Object.entries(data.by_difficulty)
 
 For a workload of **1,000 requests/day** at average prompt size:
 - Always Claude Opus: ~$${((data.total_cost_baseline / data.prompts_routed) * 1000).toFixed(2)}/day
-- FreeRouter routed: ~$${((data.total_cost_routed / data.prompts_routed) * 1000).toFixed(2)}/day
+- TierFlow routed: ~$${((data.total_cost_routed / data.prompts_routed) * 1000).toFixed(2)}/day
 - **Savings: $${(((data.total_cost_baseline - data.total_cost_routed) / data.prompts_routed) * 1000).toFixed(2)}/day (${data.avg_savings_pct.toFixed(1)}%)**
 
 ---
