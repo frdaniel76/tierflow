@@ -1,0 +1,240 @@
+#!/usr/bin/env node
+/**
+ * TierFlow Terminal Dashboard
+ * Live-updating terminal UI for monitoring TierFlow.
+ *
+ * Usage: tf-dashboard [--port 18800] [--interval 5]
+ */
+
+const PORT = process.argv.includes('--port') ? process.argv[process.argv.indexOf('--port') + 1] : '18800';
+const INTERVAL = process.argv.includes('--interval') ? parseInt(process.argv[process.argv.indexOf('--interval') + 1]) * 1000 : 5000;
+const BASE = `http://127.0.0.1:${PORT}`;
+
+// ANSI helpers
+const ESC = '\x1b[';
+const CLEAR = ESC + '2J' + ESC + 'H';
+const BOLD = ESC + '1m';
+const DIM = ESC + '2m';
+const RESET = ESC + '0m';
+const GREEN = ESC + '32m';
+const YELLOW = ESC + '33m';
+const BLUE = ESC + '34m';
+const MAGENTA = ESC + '35m';
+const CYAN = ESC + '36m';
+const RED = ESC + '31m';
+const WHITE = ESC + '37m';
+const BG_GREEN = ESC + '42m';
+const BG_BLUE = ESC + '44m';
+const BG_YELLOW = ESC + '43m';
+const BG_MAGENTA = ESC + '45m';
+
+const HIDE_CURSOR = ESC + '?25l';
+const SHOW_CURSOR = ESC + '?25h';
+
+// Box drawing
+const TL = '╔', TR = '╗', BL = '╚', BR = '╝', H = '═', V = '║', ML = '╠', MR = '╣';
+
+const W = Math.min(process.stdout.columns || 80, 80);
+
+function hline(left, right) { return left + H.repeat(W - 2) + right; }
+function row(content) {
+  const stripped = content.replace(/\x1b\[[0-9;]*m/g, '');
+  const inner = W - 4; // 2 for borders + 2 for padding
+  if (stripped.length > inner) {
+    // Truncate content (tricky with ANSI — just pad with nothing)
+    return V + ' ' + content + ' ' + V;
+  }
+  const pad = inner - stripped.length;
+  return V + ' ' + content + ' '.repeat(pad) + ' ' + V;
+}
+function emptyRow() { return V + ' '.repeat(W - 2) + V; }
+
+function fmt(n) { return n >= 1e6 ? (n/1e6).toFixed(1)+'M' : n >= 1e3 ? (n/1e3).toFixed(1)+'k' : String(n); }
+function fmtCost(n) { return n === 0 ? '$0' : n < 0.01 ? '$'+n.toFixed(4) : '$'+n.toFixed(2); }
+function fmtUptime(s) { const d=Math.floor(s/86400),h=Math.floor((s%86400)/3600),m=Math.floor((s%3600)/60); return d>0?d+'d '+h+'h':h>0?h+'h '+m+'m':m+'m '+Math.floor(s%60)+'s'; }
+
+function bar(pct, width, color) {
+  const filled = Math.round(pct / 100 * width);
+  const empty = width - filled;
+  return color + '█'.repeat(filled) + RESET + DIM + '░'.repeat(empty) + RESET;
+}
+
+function padRight(s, len) { return s.length >= len ? s.slice(0, len) : s + ' '.repeat(len - s.length); }
+function padLeft(s, len) { return s.length >= len ? s.slice(0, len) : ' '.repeat(len - s.length) + s; }
+
+async function fetchJSON(path) {
+  try {
+    const res = await fetch(BASE + path, { signal: AbortSignal.timeout(3000) });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch { return null; }
+}
+
+async function render() {
+  const [stats, health, quality] = await Promise.all([
+    fetchJSON('/stats'),
+    fetchJSON('/health'),
+    fetchJSON('/quality-tiers'),
+  ]);
+
+  if (!stats || !health) {
+    process.stdout.write(CLEAR);
+    console.log(`\n  ${RED}TierFlow not reachable at ${BASE}${RESET}`);
+    console.log(`  Make sure the server is running.\n`);
+    return;
+  }
+
+  const tu = stats.tokenUsage?.allTime || {};
+  const cache = stats.cache || {};
+  const pii = stats.pii || {};
+  const comp = stats.compress || {};
+  const bt = stats.byTier || {};
+  const bc = stats.tokenUsage?.byCategory || {};
+  const bm = stats.tokenUsage?.byModel || {};
+
+  const actual = tu.cost || 0;
+  const baseline = tu.baselineCost || 0;
+  const saved = Math.max(0, baseline - actual);
+  const savPct = baseline > 0 ? (saved / baseline * 100) : 0;
+  const tierTotal = Object.values(bt).reduce((a, b) => a + Number(b), 0) || 1;
+  const preset = quality?.activePreset || 'unknown';
+
+  const lines = [];
+
+  // Header
+  lines.push(hline(TL, TR));
+  lines.push(row(`${BOLD}${GREEN}Tier${WHITE}Flow Dashboard${RESET}${DIM}  v${health.version}  ${fmtUptime(health.uptime)}${RESET}`));
+  lines.push(hline(ML, MR));
+
+  // Top stats
+  lines.push(row(`Requests: ${BOLD}${fmt(stats.requests)}${RESET}  Errors: ${stats.errors}  Timeouts: ${stats.timeouts}`));
+  lines.push(row(`Cost: ${BOLD}${GREEN}${fmtCost(actual)}${RESET}  Baseline: ${DIM}${fmtCost(baseline)}${RESET}  Saved: ${BOLD}${GREEN}${savPct.toFixed(1)}%${RESET} (${fmtCost(saved)})`));
+  lines.push(hline(ML, MR));
+
+  // Tier distribution
+  const tierW = W - 32;
+  const tierData = [
+    { name: 'SIMPLE', color: GREEN, count: bt.SIMPLE || 0 },
+    { name: 'MEDIUM', color: BLUE, count: bt.MEDIUM || 0 },
+    { name: 'COMPLEX', color: YELLOW, count: bt.COMPLEX || 0 },
+    { name: 'REASONING', color: MAGENTA, count: bt.REASONING || 0 },
+  ];
+  for (const t of tierData) {
+    const pct = tierTotal > 0 ? (t.count / tierTotal * 100) : 0;
+    lines.push(row(`${padRight(t.name, 10)} ${bar(pct, tierW, t.color)} ${padLeft(pct.toFixed(0) + '%', 4)} ${padLeft(String(t.count), 5)}`));
+  }
+  lines.push(hline(ML, MR));
+
+  // Category breakdown
+  lines.push(row(`${DIM}Category        Reqs    Cost      Saved${RESET}`));
+  const catKeys = Object.keys(bc).sort((a, b) => bc[b].requests - bc[a].requests).slice(0, 8);
+  if (catKeys.length === 0) {
+    lines.push(row(`${DIM}No category data yet${RESET}`));
+  }
+  for (const k of catKeys) {
+    const sv = Math.max(0, (bc[k].baselineCost || 0) - bc[k].cost);
+    lines.push(row(
+      `${padRight(k, 16)}${padLeft(String(bc[k].requests), 5)}  ${padLeft(fmtCost(bc[k].cost), 8)}  ${GREEN}${padLeft(fmtCost(sv), 8)}${RESET}`
+    ));
+  }
+  lines.push(hline(ML, MR));
+
+  // Model breakdown
+  lines.push(row(`${DIM}Model                 Reqs   Tokens    Cost${RESET}`));
+  const modKeys = Object.keys(bm).sort((a, b) => bm[b].requests - bm[a].requests).slice(0, 6);
+  if (modKeys.length === 0) {
+    lines.push(row(`${DIM}No model data yet${RESET}`));
+  }
+  for (const k of modKeys) {
+    const short = k.split('/').pop().slice(0, 20);
+    lines.push(row(
+      `${padRight(short, 22)}${padLeft(String(bm[k].requests), 5)} ${padLeft(fmt(bm[k].tokens), 8)}  ${padLeft(fmtCost(bm[k].cost), 8)}`
+    ));
+  }
+  lines.push(hline(ML, MR));
+
+  // Bottom stats
+  const cacheStr = `Cache: ${cache.hitRate || '0%'} hit (${cache.hits || 0}/${(cache.hits || 0) + (cache.misses || 0)})`;
+  const piiStr = `PII: ${pii.scrubbed || 0} scrubbed`;
+  const compStr = comp.compressed > 0 ? `CtxPack: ${fmt(comp.tokensSaved)} saved` : '';
+  const presetStr = `Preset: ${CYAN}${preset}${RESET}`;
+  lines.push(row(`${cacheStr}  ${DIM}│${RESET}  ${piiStr}  ${DIM}│${RESET}  ${presetStr}`));
+  lines.push(hline(ML, MR));
+
+  // Controls
+  lines.push(row(`${DIM}[q]uit  [r]efresh  [1-4] preset  [t]est providers${RESET}`));
+  lines.push(hline(BL, BR));
+
+  process.stdout.write(CLEAR + lines.join('\n') + '\n');
+}
+
+// ─── Keyboard Controls ───
+
+let timer = null;
+const presetNames = ['free', 'smart_saver', 'quality_first', 'maximum'];
+
+function startPolling() {
+  if (timer) clearInterval(timer);
+  timer = setInterval(render, INTERVAL);
+}
+
+if (process.stdin.isTTY) {
+  process.stdin.setRawMode(true);
+  process.stdin.resume();
+  process.stdin.setEncoding('utf8');
+  process.stdout.write(HIDE_CURSOR);
+
+  process.stdin.on('data', async (key) => {
+    if (key === 'q' || key === '\x03') { // q or Ctrl+C
+      process.stdout.write(SHOW_CURSOR + '\n');
+      process.exit(0);
+    }
+    if (key === 'r') {
+      await render();
+    }
+    if (key >= '1' && key <= '4') {
+      const preset = presetNames[parseInt(key) - 1];
+      try {
+        await fetch(BASE + '/quality-preset', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ preset }),
+        });
+        await render();
+      } catch {}
+    }
+    if (key === 't') {
+      // Test all providers
+      process.stdout.write(CLEAR);
+      console.log('\n  Testing providers...\n');
+      try {
+        const cfg = await fetchJSON('/config');
+        const providers = Object.keys(cfg?.config?.providers || {});
+        for (const name of providers) {
+          const result = await fetchJSON('/test-provider'); // need POST
+          const res = await fetch(BASE + '/test-provider', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ provider: name }),
+          });
+          const data = await res.json();
+          const status = data.ok ? `${GREEN}OK${RESET} (${data.latency_ms}ms)` : `${RED}FAIL${RESET} ${data.error}`;
+          console.log(`  ${padRight(name, 15)} ${status}`);
+        }
+        console.log(`\n  Press any key to continue...`);
+        await new Promise(r => process.stdin.once('data', r));
+        await render();
+      } catch (e) {
+        console.log(`  ${RED}Error: ${e.message}${RESET}`);
+      }
+    }
+  });
+}
+
+// ─── Start ───
+process.on('exit', () => process.stdout.write(SHOW_CURSOR));
+process.on('SIGINT', () => { process.stdout.write(SHOW_CURSOR + '\n'); process.exit(0); });
+
+console.log(`  TierFlow Terminal Dashboard — polling ${BASE} every ${INTERVAL/1000}s\n`);
+await render();
+startPolling();
