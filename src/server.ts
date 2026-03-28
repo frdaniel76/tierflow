@@ -46,6 +46,7 @@ import type { PassName } from "./compress/index.js";
 import { LRUCache, buildCacheKey } from "./cache/index.js";
 import { getUsageStats } from "./usage.js";
 import { getDashboardHTML } from "./dashboard.js";
+import { initClassifier, getClassifierStatus } from "./ml/index.js";
 import {
   getQualityTiersResponse,
   applyPreset,
@@ -550,6 +551,7 @@ function handleHealth(_req: IncomingMessage, res: ServerResponse) {
       status: "ok",
       version: "2.0.0",
       uptime: process.uptime(),
+      mlClassifier: getClassifierStatus(),
       stats: {
         ...stats,
         cache: responseCache?.getStats() ?? {
@@ -730,10 +732,19 @@ responseCache = initCache();
 
 const server = createServer(handleRequest);
 
-server.listen(PORT, HOST, () => {
+server.listen(PORT, HOST, async () => {
   logger.info(
     `🚀 TierFlow listening on http://${HOST}:${PORT} (config: ${getConfigPath() ?? "built-in defaults"})`,
   );
+  // Try to initialize local ML classifier (non-blocking)
+  initClassifier().then((ok) => {
+    if (ok) {
+      const status = getClassifierStatus();
+      logger.info(`   ML: local ONNX classifier ready (${status.training_examples} training examples)`);
+    } else {
+      logger.info(`   ML: local classifier not available (install @huggingface/transformers for local ML)`);
+    }
+  });
   if (responseCache)
     logger.info(
       `   Cache: enabled (TTL=${getConfig().cache?.ttl_seconds ?? 300}s, max=${getConfig().cache?.max_entries ?? 5000})`,

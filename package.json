@@ -11,6 +11,7 @@
   "files": [
     "dist/*.js",
     "dist/*.d.ts",
+    "src/ml/training-data.json",
     "README.md",
     "LICENSE"
   ],
@@ -45,5 +46,8 @@
     "tsx": "^4.19.0",
     "typescript": "^5.7.0",
     "typescript-eslint": "^8.57.2"
+  },
+  "optionalDependencies": {
+    "@huggingface/transformers": "^3.8.1"
   }
 }

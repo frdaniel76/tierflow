@@ -41,7 +41,7 @@ export type RoutingDecision = {
   tier: Tier; // legacy compat — derived from category
   category?: Category; // v2: the actual classification
   confidence: number;
-  method: "rules" | "llm" | "ml-classifier" | "shortcut";
+  method: "rules" | "llm" | "ml-classifier" | "local-ml" | "shortcut";
   reasoning: string;
   costEstimate: number;
   baselineCost: number;

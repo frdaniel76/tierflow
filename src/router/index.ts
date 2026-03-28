@@ -1,14 +1,16 @@
 /**
  * Smart Router Entry Point — v2.0
  *
- * ML-powered classification via LLMRouter service.
- * Falls back to legacy keyword scorer when ML service is unavailable.
+ * ML-powered classification with three layers:
+ * 1. Local ONNX classifier (if @huggingface/transformers installed)
+ * 2. External HTTP classifier (LLMRouter service on :18801)
+ * 3. Rule-based 15-dimension keyword scorer (fallback)
  *
  * Decision flow:
  * 1. Check shortcuts (audio, tools, mode override)
- * 2. Call ML classifier (HTTP to localhost:18801, ~40ms)
- * 3. Map category → model from config
- * 4. Fall back to legacy scorer if ML is down
+ * 2. Try local ML classifier (~50ms)
+ * 3. Try external ML service (~40ms)
+ * 4. Fall back to default category or legacy scorer
  */
 
 import type {
@@ -19,6 +21,7 @@ import type {
   CategoryResult,
   CategoryConfig,
 } from "./types.js";
+import { classify as localClassify } from "../ml/index.js";
 import { CATEGORY_TO_TIER } from "./types.js";
 import { classifyByRules } from "./rules.js";
 import { selectModel, type ModelPricing } from "./selector.js";
@@ -106,42 +109,45 @@ async function routeByCategory(
     }
   }
 
-  // ─── ML Classifier (~40ms) ───
+  // ─── ML Classifier: try local ONNX first, then external HTTP ───
+
+  let classifierResult: CategoryResult | null = null;
+  let classifierMethod: "ml-classifier" | "local-ml" = "ml-classifier";
+
+  // Layer 1: Local ONNX classifier (if @huggingface/transformers installed)
   try {
-    const result = await callMLClassifier(prompt, mlConfig, metadata);
-
-    // If tools present and classifier didn't pick agentic, check if we should override
-    let category = result.category;
-    let reasoning = `ml: ${category} (conf=${result.confidence.toFixed(2)}, ${result.latency_ms ?? 0}ms)`;
-
-    if (metadata?.hasTools && category !== "agentic") {
-      // Tools present — use agentic for simple/general queries, keep specialized for others
-      if (category === "simple_chat" || category === "general") {
-        category = "agentic";
-        reasoning += " | tools-present -> agentic";
-      } else {
-        reasoning += " | tools-present (kept specialized)";
-      }
+    const localResult = await localClassify(prompt);
+    if (localResult) {
+      classifierResult = {
+        category: localResult.category as Category,
+        confidence: localResult.confidence,
+        alternatives: localResult.alternatives.map((a) => ({
+          category: a.category as Category,
+          confidence: a.confidence,
+        })),
+        latency_ms: localResult.latency_ms,
+      };
+      classifierMethod = "local-ml";
     }
-
-    return buildCategoryDecision(
-      category,
-      result.confidence,
-      "ml-classifier",
-      reasoning,
-      categories,
-      modelPricing,
-      estimatedTotalTokens,
-      maxOutputTokens,
-    );
   } catch (err) {
-    // ML service down — fall back to default category
-    const fallback = (mlConfig.fallback_category ?? "general") as Category;
-    logger.warn(
-      `[Router] ML classifier unavailable: ${err instanceof Error ? err.message : err} — using ${fallback}`,
-    );
+    logger.debug?.(`[Router] Local ML classifier error: ${err instanceof Error ? err.message : err}`);
+  }
 
-    // If tools present, prefer agentic fallback
+  // Layer 2: External HTTP classifier (if local not available)
+  if (!classifierResult) {
+    try {
+      classifierResult = await callMLClassifier(prompt, mlConfig, metadata);
+      classifierMethod = "ml-classifier";
+    } catch (err) {
+      logger.warn(
+        `[Router] ML classifiers unavailable: ${err instanceof Error ? err.message : err}`,
+      );
+    }
+  }
+
+  // Layer 3: Fallback to default category
+  if (!classifierResult) {
+    const fallback = (mlConfig.fallback_category ?? "general") as Category;
     const category = metadata?.hasTools ? "agentic" : fallback;
     return buildCategoryDecision(
       category,
@@ -154,6 +160,30 @@ async function routeByCategory(
       maxOutputTokens,
     );
   }
+
+  // Apply tools override
+  let category = classifierResult.category;
+  let reasoning = `${classifierMethod}: ${category} (conf=${classifierResult.confidence.toFixed(2)}, ${classifierResult.latency_ms ?? 0}ms)`;
+
+  if (metadata?.hasTools && category !== "agentic") {
+    if (category === "simple_chat" || category === "general") {
+      category = "agentic";
+      reasoning += " | tools-present -> agentic";
+    } else {
+      reasoning += " | tools-present (kept specialized)";
+    }
+  }
+
+  return buildCategoryDecision(
+    category,
+    classifierResult.confidence,
+    classifierMethod,
+    reasoning,
+    categories,
+    modelPricing,
+    estimatedTotalTokens,
+    maxOutputTokens,
+  );
 }
 
 /**
@@ -220,7 +250,7 @@ function detectModeOverride(prompt: string, overrides: Record<string, string>): 
 function buildCategoryDecision(
   category: Category,
   confidence: number,
-  method: "ml-classifier" | "shortcut",
+  method: "ml-classifier" | "local-ml" | "shortcut",
   reasoning: string,
   categories: Record<string, CategoryConfig>,
   modelPricing: Map<string, ModelPricing>,

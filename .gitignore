@@ -12,3 +12,6 @@ freerouter.config.json
 
 # Benchmark results (regenerate with: npm run bench)
 bench/results.json
+
+# ML embedding cache (generated at runtime)
+src/ml/embeddings-cache.json
