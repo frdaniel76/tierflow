@@ -8,9 +8,10 @@
  * router falls back to the rule-based keyword scorer.
  */
 
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { homedir } from "node:os";
 import { logger } from "../logger.js";
 
 // ─── Types ───
@@ -60,15 +61,29 @@ const MAX_QUERY_LENGTH = 2000; // truncate queries beyond this
 
 /**
  * Check if the ML classifier is available (dependency installed + model loadable).
+ * Uses import.meta.resolve (ESM-native, sync in Node 20+) with a filesystem
+ * fallback for environments where import.meta.resolve is unavailable (e.g. tsx).
  */
 export function isMLAvailable(): boolean {
   if (isAvailable !== null) return isAvailable;
 
   try {
-    require.resolve("@huggingface/transformers");
-    isAvailable = true;
+    // Prefer ESM-native resolution (Node 20+)
+    if (typeof import.meta.resolve === "function") {
+      import.meta.resolve("@huggingface/transformers");
+      isAvailable = true;
+      return true;
+    }
   } catch {
-    // Try dynamic import check for ESM
+    isAvailable = false;
+    return false;
+  }
+
+  // Fallback: check if the package directory exists in node_modules
+  try {
+    const root = findPackageRoot();
+    isAvailable = existsSync(join(root, "node_modules", "@huggingface", "transformers"));
+  } catch {
     isAvailable = false;
   }
   return isAvailable;
@@ -214,22 +229,64 @@ function cosineDistance(a: Float32Array, b: Float32Array): number {
   return 1 - similarity; // distance = 1 - similarity
 }
 
-function getModuleDir(): string {
+/**
+ * Find the package root by walking up from import.meta.url until we find package.json.
+ * Works in both dev (src/ml/classifier.ts) and bundled (dist/server.js) contexts.
+ */
+function findPackageRoot(): string {
+  let dir: string;
   try {
-    return dirname(fileURLToPath(import.meta.url));
+    dir = dirname(fileURLToPath(import.meta.url));
   } catch {
-    return __dirname;
+    dir = __dirname;
   }
+
+  // Walk up at most 5 levels to find package.json
+  for (let i = 0; i < 5; i++) {
+    if (existsSync(join(dir, "package.json"))) return dir;
+    const parent = dirname(dir);
+    if (parent === dir) break; // filesystem root
+    dir = parent;
+  }
+  return dir;
+}
+
+/**
+ * Locate training-data.json — checks multiple paths to handle dev, bundled, and npm installs.
+ */
+function findTrainingDataPath(): string {
+  const root = findPackageRoot();
+  const candidates = [
+    join(root, "src", "ml", "training-data.json"), // dev + npm package (listed in "files")
+    join(root, "dist", "ml", "training-data.json"), // if copied to dist
+    join(dirname(fileURLToPath(import.meta.url)), "training-data.json"), // co-located (dev)
+  ];
+
+  for (const p of candidates) {
+    if (existsSync(p)) return p;
+  }
+
+  throw new Error(
+    `training-data.json not found. Searched:\n${candidates.map((c) => `  - ${c}`).join("\n")}`,
+  );
 }
 
 function loadTrainingData(): TrainingData {
-  const dataPath = join(getModuleDir(), "training-data.json");
+  const dataPath = findTrainingDataPath();
+  logger.info(`[ML] Loading training data from ${dataPath}`);
   const raw = readFileSync(dataPath, "utf-8");
   return JSON.parse(raw) as TrainingData;
 }
 
+/**
+ * Embedding cache goes in ~/.cache/tierflow/ — always writable, survives npm updates.
+ */
 function getEmbeddingCachePath(): string {
-  return join(getModuleDir(), "embeddings-cache.json");
+  const cacheDir = join(homedir(), ".cache", "tierflow");
+  if (!existsSync(cacheDir)) {
+    mkdirSync(cacheDir, { recursive: true });
+  }
+  return join(cacheDir, "embeddings-cache.json");
 }
 
 async function loadOrComputeEmbeddings(): Promise<Float32Array[]> {

@@ -1,10 +1,10 @@
 /**
  * Integration tests for CtxPack compression in the HTTP pipeline.
  *
- * Tests against the running FreeRouter instance on :18800.
+ * Tests against the running TierFlow instance on :18800.
  * Verifies response headers, stats counters, and actual compression.
  *
- * Requires: FreeRouter running with `"compress": true` on openrouter provider.
+ * Requires: TierFlow running with `"compress": true` on openrouter provider.
  *
  * Usage:
  *   npx tsx test/compress-integration.test.ts
@@ -61,9 +61,9 @@ async function getStats(): Promise<Record<string, any>> {
 // ═══════════════════════════════════════════
 
 async function healthTests() {
-  console.log("\n=== Prerequisite: FreeRouter running ===\n");
+  console.log("\n=== Prerequisite: TierFlow running ===\n");
 
-  await test("FreeRouter is healthy", async () => {
+  await test("TierFlow is healthy", async () => {
     const res = await fetch(`${BASE}/health`, { signal: AbortSignal.timeout(5000) });
     assert(res.ok, `Expected 200, got ${res.status}`);
   });
@@ -191,7 +191,7 @@ async function responseValidityTests() {
   await test("model header is set on compressed request", async () => {
     const content = "Logs:\n" + "step done\n".repeat(10) + "\n\n\n\nSummarize.";
     const res = await chat(content);
-    const model = res.headers.get("x-clawrouter-model");
+    const model = res.headers.get("x-tierflow-model");
     assert(model !== null, "X-TierFlow-Model header should be set");
   });
 }
@@ -201,7 +201,7 @@ async function responseValidityTests() {
 // ═══════════════════════════════════════════
 
 (async () => {
-  console.log("CtxPack — Integration Tests (live FreeRouter)");
+  console.log("CtxPack — Integration Tests (live TierFlow)");
 
   try {
     await healthTests();

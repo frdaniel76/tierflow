@@ -2,7 +2,7 @@
  * Integration tests for stats/metrics accuracy.
  *
  * Verifies that /stats endpoint returns correct counters after real requests.
- * Tests against the running FreeRouter (:18800).
+ * Tests against the running TierFlow (:18800).
  *
  * Usage:
  *   npx tsx test/stats-accuracy.test.ts
@@ -146,7 +146,7 @@ async function counterTests() {
   await test("byModel counter increments for routed model", async () => {
     const before = await getStats();
     const res = await chat("Hello");
-    const model = res.headers.get("x-clawrouter-model") ?? "";
+    const model = res.headers.get("x-tierflow-model") ?? "";
     const after = await getStats();
     // The model in byModel might use a different key format
     const totalModelCountBefore = Object.values(before.byModel as Record<string, number>).reduce(
@@ -285,7 +285,7 @@ async function configTests() {
 // ═══════════════════════════════════════════
 
 (async () => {
-  console.log("Stats & Metrics — Accuracy Tests (live FreeRouter)");
+  console.log("Stats & Metrics — Accuracy Tests (live TierFlow)");
 
   try {
     await schemaTests();

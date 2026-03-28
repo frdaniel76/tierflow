@@ -161,14 +161,8 @@ async function checkSetup() {
   // 1. Config file
   const paths = [
     { label: "TIERFLOW_CONFIG env", path: process.env.TIERFLOW_CONFIG },
-    { label: "FREEROUTER_CONFIG env (legacy)", path: process.env.FREEROUTER_CONFIG },
-    { label: "Local (tierflow)", path: join(process.cwd(), "tierflow.config.json") },
-    { label: "Local (freerouter)", path: join(process.cwd(), "freerouter.config.json") },
+    { label: "Local config", path: join(process.cwd(), "tierflow.config.json") },
     { label: "User config", path: join(homedir(), ".config", "tierflow", "config.json") },
-    {
-      label: "User config (legacy)",
-      path: join(homedir(), ".config", "freerouter", "config.json"),
-    },
   ];
 
   let configFound = false;

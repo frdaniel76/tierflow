@@ -14,11 +14,12 @@ FROM node:22-slim
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci --omit=dev 2>/dev/null; exit 0
-# Note: freerouter has zero runtime deps, so npm ci --omit=dev installs nothing.
-# The dist/ folder is fully self-contained.
+# Install optional ML classifier dependency for built-in smart routing.
+# Without this, TierFlow falls back to the rule-based keyword scorer.
+RUN npm install --omit=dev @huggingface/transformers 2>/dev/null; exit 0
 
 COPY --from=builder /app/dist/ ./dist/
+COPY src/ml/training-data.json ./src/ml/training-data.json
 
 ENV TIERFLOW_HOST=0.0.0.0
 ENV TIERFLOW_PORT=18800

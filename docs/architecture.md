@@ -26,7 +26,7 @@ Client ──HTTP POST──────>│                                    
 
 1. **Parse** — Read JSON body, extract model, messages, tools, stream flag
 2. **Cache check** — SHA-256 hash of (model + messages + tools). On hit → return immediately (`X-Cache: HIT`)
-3. **Route** — ML classifier (v2) or 15-dimension keyword scorer (v1 fallback)
+3. **Route** — ML classifier (v2) or 14-dimension keyword scorer (v1 fallback)
 4. **PII scrub** — If provider has `pii: true`, replace PII with type-preserving placeholders (AES-256-GCM encrypted)
 5. **Compress** — If provider has `compress: true`, apply CtxPack passes
 6. **Forward** — Dispatch to upstream (Anthropic Messages API or OpenAI-compatible)
@@ -86,7 +86,7 @@ Stops on: success, or stream already started (`res.headersSent`).
 | `src/server.ts`          | HTTP server, route handlers, stats, dashboard                      |
 | `src/provider.ts`        | Provider dispatch, API translation, streaming                      |
 | `src/router/index.ts`    | ML classifier + legacy scorer integration                          |
-| `src/router/rules.ts`    | 15-dimension keyword scorer                                        |
+| `src/router/rules.ts`    | 14-dimension keyword scorer                                        |
 | `src/router/selector.ts` | Tier → model, cost estimation                                      |
 | `src/router/config.ts`   | Default config, dimension weights                                  |
 | `src/pii/vault.ts`       | AES-256-GCM encryption, placeholder templates                      |
@@ -95,7 +95,7 @@ Stops on: success, or stream already started (`res.headersSent`).
 | `src/compress/passes.ts` | 6 compression algorithms                                           |
 | `src/cache/store.ts`     | LRU cache, TTL, SHA-256 hashing                                    |
 | `src/config.ts`          | Config types, loading, validation                                  |
-| `src/auth.ts`            | Auth: env, file, keychain, openclaw, none                          |
+| `src/auth.ts`            | Auth: env, file, keychain, profiles, none                          |
 | `src/usage.ts`           | Token/cost tracking (allTime, byModel, byTier, byCategory, hourly) |
 | `src/dashboard.ts`       | Built-in HTML monitoring UI                                        |
 | `src/cli.ts`             | CLI entry (npx tierflow)                                           |

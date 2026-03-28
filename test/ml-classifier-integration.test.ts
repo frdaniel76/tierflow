@@ -1,10 +1,10 @@
 /**
  * Integration tests for ML classifier routing.
  *
- * Tests against the running FreeRouter (:18800) + LLMRouter (:18801).
+ * Tests against the running TierFlow (:18800) + LLMRouter (:18801).
  * Verifies that ML classification results in correct model selection.
  *
- * Requires: FreeRouter + LLMRouter both running.
+ * Requires: TierFlow + LLMRouter both running.
  *
  * Usage:
  *   npx tsx test/ml-classifier-integration.test.ts
@@ -81,7 +81,7 @@ const CATEGORY_MODELS: Record<string, string[]> = {
 async function prerequisiteTests() {
   console.log("\n=== Prerequisites ===\n");
 
-  await test("FreeRouter is healthy", async () => {
+  await test("TierFlow is healthy", async () => {
     const res = await fetch(`${BASE}/health`, { signal: AbortSignal.timeout(5000) });
     assert(res.ok, `Expected 200, got ${res.status}`);
   });
@@ -109,8 +109,8 @@ async function classificationTests() {
 
     const res = await chat("Hi, how are you?");
     assert(res.ok, `Expected 200, got ${res.status}`);
-    const model = res.headers.get("x-clawrouter-model") ?? "";
-    const reasoning = res.headers.get("x-clawrouter-reasoning") ?? "";
+    const model = res.headers.get("x-tierflow-model") ?? "";
+    const reasoning = res.headers.get("x-tierflow-reasoning") ?? "";
     assertIncludes(reasoning, "simple_chat", `Reasoning should mention simple_chat: ${reasoning}`);
     assert(
       CATEGORY_MODELS.simple_chat.some((m) => model.includes(m)),
@@ -127,8 +127,8 @@ async function classificationTests() {
 
     const res = await chat("Write a Python function to sort a list using quicksort");
     assert(res.ok, `Expected 200, got ${res.status}`);
-    const model = res.headers.get("x-clawrouter-model") ?? "";
-    const reasoning = res.headers.get("x-clawrouter-reasoning") ?? "";
+    const model = res.headers.get("x-tierflow-model") ?? "";
+    const reasoning = res.headers.get("x-tierflow-reasoning") ?? "";
     assertIncludes(reasoning, "coding", `Reasoning should mention coding: ${reasoning}`);
     assert(
       CATEGORY_MODELS.coding.some((m) => model.includes(m)),
@@ -147,8 +147,8 @@ async function classificationTests() {
 
     const res = await chat("Prove that the square root of 2 is irrational. Show all steps.");
     assert(res.ok, `Expected 200, got ${res.status}`);
-    const model = res.headers.get("x-clawrouter-model") ?? "";
-    const reasoning = res.headers.get("x-clawrouter-reasoning") ?? "";
+    const model = res.headers.get("x-tierflow-model") ?? "";
+    const reasoning = res.headers.get("x-tierflow-reasoning") ?? "";
     assertIncludes(reasoning, "reasoning", `Reasoning should mention reasoning: ${reasoning}`);
     assert(
       CATEGORY_MODELS.reasoning.some((m) => model.includes(m)),
@@ -165,7 +165,7 @@ async function classificationTests() {
 
     const res = await chat("Write a short poem about the ocean at sunset");
     assert(res.ok, `Expected 200, got ${res.status}`);
-    const model = res.headers.get("x-clawrouter-model") ?? "";
+    const model = res.headers.get("x-tierflow-model") ?? "";
     assert(
       CATEGORY_MODELS.creative.some((m) => model.includes(m)),
       `Model ${model} should match creative models`,
@@ -189,7 +189,7 @@ async function mlFallbackTests() {
   await test("routing header includes ML confidence and latency", async () => {
     const res = await chat("What is the capital of France?");
     assert(res.ok, `Expected 200, got ${res.status}`);
-    const reasoning = res.headers.get("x-clawrouter-reasoning") ?? "";
+    const reasoning = res.headers.get("x-tierflow-reasoning") ?? "";
     assertIncludes(reasoning, "ml:", "Reasoning should indicate ML routing");
     assertIncludes(reasoning, "conf=", "Reasoning should include confidence score");
     assertIncludes(reasoning, "ms)", "Reasoning should include latency");
@@ -206,8 +206,8 @@ async function modeOverrideTests() {
   await test("/reasoning prefix forces reasoning model", async () => {
     const res = await chat("/reasoning What is 2+2?");
     assert(res.ok, `Expected 200, got ${res.status}`);
-    const model = res.headers.get("x-clawrouter-model") ?? "";
-    const reasoning = res.headers.get("x-clawrouter-reasoning") ?? "";
+    const model = res.headers.get("x-tierflow-model") ?? "";
+    const reasoning = res.headers.get("x-tierflow-reasoning") ?? "";
     assert(
       CATEGORY_MODELS.reasoning.some((m) => model.includes(m)),
       `Model ${model} should be reasoning model for /reasoning override`,
@@ -218,7 +218,7 @@ async function modeOverrideTests() {
   await test("/simple prefix forces simple_chat model", async () => {
     const res = await chat("/simple Explain quantum physics");
     assert(res.ok, `Expected 200, got ${res.status}`);
-    const model = res.headers.get("x-clawrouter-model") ?? "";
+    const model = res.headers.get("x-tierflow-model") ?? "";
     assert(
       CATEGORY_MODELS.simple_chat.some((m) => model.includes(m)),
       `Model ${model} should be simple_chat model for /simple override`,
@@ -228,7 +228,7 @@ async function modeOverrideTests() {
   await test("[code] bracket forces coding model", async () => {
     const res = await chat("[code] Hello world");
     assert(res.ok, `Expected 200, got ${res.status}`);
-    const model = res.headers.get("x-clawrouter-model") ?? "";
+    const model = res.headers.get("x-tierflow-model") ?? "";
     assert(
       CATEGORY_MODELS.coding.some((m) => model.includes(m)),
       `Model ${model} should be coding model for [code] override`,
@@ -241,7 +241,7 @@ async function modeOverrideTests() {
 // ═══════════════════════════════════════════
 
 (async () => {
-  console.log("ML Classifier — Integration Tests (live FreeRouter + LLMRouter)");
+  console.log("ML Classifier — Integration Tests (live TierFlow + LLMRouter)");
 
   try {
     await prerequisiteTests();

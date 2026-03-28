@@ -65,11 +65,11 @@ if (process.env.LLMROUTER_URL && appConfig.mlClassifier) {
   appConfig.mlClassifier.url = process.env.LLMROUTER_URL;
 }
 const PORT = parseInt(
-  process.env.TIERFLOW_PORT ?? process.env.CLAWROUTER_PORT ?? String(appConfig.port),
+  process.env.TIERFLOW_PORT ?? String(appConfig.port),
   10,
 );
 const HOST =
-  process.env.TIERFLOW_HOST ?? process.env.CLAWROUTER_HOST ?? appConfig.host ?? "127.0.0.1";
+  process.env.TIERFLOW_HOST ?? appConfig.host ?? "127.0.0.1";
 
 // Build pricing map once at startup
 const modelPricing = buildPricingMap();
@@ -237,6 +237,8 @@ async function handleChatCompletions(req: IncomingMessage, res: ServerResponse) 
   let tier: string;
   let reasoning: string;
   let category: string | undefined;
+  let costEstimate: number | undefined;
+  let baselineCost: number | undefined;
 
   if (requestedModel === "auto" || requestedModel === "tierflow/auto") {
     // Run the ML classifier (handles mode overrides, tools, audio internally)
@@ -267,6 +269,8 @@ async function handleChatCompletions(req: IncomingMessage, res: ServerResponse) 
     tier = decision.tier;
     reasoning = decision.reasoning;
     category = decision.category;
+    costEstimate = decision.costEstimate;
+    baselineCost = decision.baselineCost;
 
     // For legacy tier-based routing (when categories not configured), apply agentic override
     if (!decision.category && hasTools && routingCfg.agenticTiers) {
@@ -297,6 +301,9 @@ async function handleChatCompletions(req: IncomingMessage, res: ServerResponse) 
   // Add routing info headers
   res.setHeader("X-TierFlow-Model", routedModel);
   res.setHeader("X-TierFlow-Tier", tier);
+  if (category) res.setHeader("X-TierFlow-Category", category);
+  if (costEstimate !== undefined) res.setHeader("X-TierFlow-Cost", String(costEstimate));
+  if (baselineCost !== undefined) res.setHeader("X-TierFlow-Baseline-Cost", String(baselineCost));
   // Sanitize reasoning to remove any prompt content before setting header
   const safeReasoning = reasoning.replace(/prompt[:\s].*/gi, "").slice(0, 200);
   res.setHeader("X-TierFlow-Reasoning", safeReasoning);
@@ -646,7 +653,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse) {
   const method = req.method ?? "GET";
   const url = req.url ?? "/";
 
-  // CORS headers
+  // CORS headers — safe on localhost; restrict if exposing externally
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");

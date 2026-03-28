@@ -11,6 +11,13 @@ export NVM_DIR="$HOME/.nvm"
 #   export ANTHROPIC_API_KEY="sk-ant-..."
 #   export OLLAMA_API_KEY="ollama"
 
-# Run TierFlow
+# Load .env file if present
 cd "$(dirname "$0")"
+if [ -f .env ]; then
+  set -a
+  source .env
+  set +a
+fi
+
+# Run TierFlow
 exec node dist/server.js

@@ -4,7 +4,7 @@
  * Verifies that requests with `tools` array get routed to agentic models,
  * and that the agentic override logic works correctly.
  *
- * Tests against the running FreeRouter (:18800).
+ * Tests against the running TierFlow (:18800).
  *
  * Usage:
  *   npx tsx test/agentic-routing.test.ts
@@ -86,7 +86,7 @@ async function chat(content: string, tools?: any[]): Promise<Response> {
 async function prerequisiteTests() {
   console.log("\n=== Prerequisites ===\n");
 
-  await test("FreeRouter is healthy", async () => {
+  await test("TierFlow is healthy", async () => {
     const res = await fetch(`${BASE}/health`, { signal: AbortSignal.timeout(5000) });
     assert(res.ok, `Expected 200, got ${res.status}`);
   });
@@ -102,7 +102,7 @@ async function agenticOverrideTests() {
   await test("simple query WITHOUT tools → simple_chat model", async () => {
     const res = await chat("Hi there!");
     assert(res.ok, `Expected 200, got ${res.status}`);
-    const model = res.headers.get("x-clawrouter-model") ?? "";
+    const model = res.headers.get("x-tierflow-model") ?? "";
     assert(
       !AGENTIC_MODELS.some((m) => model.includes(m)),
       `Simple query without tools should NOT use agentic model, got: ${model}`,
@@ -112,8 +112,8 @@ async function agenticOverrideTests() {
   await test("simple query WITH tools → agentic model", async () => {
     const res = await chat("Hi there!", SAMPLE_TOOLS);
     assert(res.ok, `Expected 200, got ${res.status}`);
-    const model = res.headers.get("x-clawrouter-model") ?? "";
-    const reasoning = res.headers.get("x-clawrouter-reasoning") ?? "";
+    const model = res.headers.get("x-tierflow-model") ?? "";
+    const reasoning = res.headers.get("x-tierflow-reasoning") ?? "";
     assert(
       AGENTIC_MODELS.some((m) => model.includes(m)),
       `Simple query WITH tools should use agentic model, got: ${model}`,
@@ -124,8 +124,8 @@ async function agenticOverrideTests() {
   await test("general query WITH tools → agentic model", async () => {
     const res = await chat("What is the weather like in London today?", SAMPLE_TOOLS);
     assert(res.ok, `Expected 200, got ${res.status}`);
-    const model = res.headers.get("x-clawrouter-model") ?? "";
-    const reasoning = res.headers.get("x-clawrouter-reasoning") ?? "";
+    const model = res.headers.get("x-tierflow-model") ?? "";
+    const reasoning = res.headers.get("x-tierflow-reasoning") ?? "";
     assert(
       AGENTIC_MODELS.some((m) => model.includes(m)),
       `General query WITH tools should use agentic model, got: ${model}`,
@@ -143,8 +143,8 @@ async function specializedWithToolsTests() {
   await test("coding query WITH tools → keeps coding model (not agentic)", async () => {
     const res = await chat("Write a Python quicksort implementation", SAMPLE_TOOLS);
     assert(res.ok, `Expected 200, got ${res.status}`);
-    const model = res.headers.get("x-clawrouter-model") ?? "";
-    const reasoning = res.headers.get("x-clawrouter-reasoning") ?? "";
+    const model = res.headers.get("x-tierflow-model") ?? "";
+    const reasoning = res.headers.get("x-tierflow-reasoning") ?? "";
     // Coding should stay coding, not be overridden to agentic
     // Per router code: only simple_chat and general get overridden
     if (reasoning.includes("coding")) {
@@ -160,7 +160,7 @@ async function specializedWithToolsTests() {
   await test("reasoning query WITH tools → keeps reasoning model", async () => {
     const res = await chat("Prove that sqrt(2) is irrational step by step", SAMPLE_TOOLS);
     assert(res.ok, `Expected 200, got ${res.status}`);
-    const reasoning = res.headers.get("x-clawrouter-reasoning") ?? "";
+    const reasoning = res.headers.get("x-tierflow-reasoning") ?? "";
     // If classified as reasoning, should keep specialized
     if (reasoning.includes("reasoning")) {
       assertIncludes(
@@ -193,7 +193,7 @@ async function agenticStatsTests() {
 // ═══════════════════════════════════════════
 
 (async () => {
-  console.log("Agentic Routing — Integration Tests (live FreeRouter)");
+  console.log("Agentic Routing — Integration Tests (live TierFlow)");
 
   try {
     await prerequisiteTests();

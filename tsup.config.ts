@@ -13,6 +13,7 @@ export default defineConfig({
   sourcemap: true,
   target: "node20",
   splitting: false,
+  external: ["@huggingface/transformers"],
   banner: {
     js: "// TierFlow — ML-powered AI model router",
   },

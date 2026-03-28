@@ -1,15 +1,9 @@
 /**
- * Default Routing Config — Customized for Direct API Keys
- * Forked from ClawRouter (MIT License). No payment dependencies.
+ * Default Routing Config
+ * Routing engine — originally from BlockRunAI/ClawRouter (MIT), extended for TierFlow.
  *
- * Tier models are mapped to providers YOU have API keys for.
- * Edit the `tiers` section to match your configured providers.
- *
- * Available providers (from openclaw.json):
- *   - anthropic: claude-opus-4-6
- *   - kimi-coding: kimi-for-coding (Kimi K2.5)
- *   - openai: gpt-4o, gpt-4o-mini, o3, o3-mini (add as needed)
- *   - google: gemini-2.5-pro, gemini-2.5-flash (add as needed)
+ * Tier models are mapped to providers you have API keys for.
+ * Edit the `tiers` section in your config file to match your providers.
  */
 
 import type { RoutingConfig } from "./types.js";
@@ -19,7 +13,7 @@ export const DEFAULT_ROUTING_CONFIG: RoutingConfig = {
   version: "2.0-direct",
 
   classifier: {
-    llmModel: "kimi-coding/kimi-for-coding", // cheapest for classification fallback
+    llmModel: "openai/gpt-4o-mini", // used for LLM-based classification fallback
     llmMaxTokens: 10,
     llmTemperature: 0,
     promptTruncationChars: 500,
@@ -574,13 +568,13 @@ export const DEFAULT_ROUTING_CONFIG: RoutingConfig = {
     confidenceThreshold: 0.5,
   },
 
-  // ─── TIER → MODEL MAPPING (YOUR API KEYS) ───
-  // These use model IDs as configured in your openclaw.json providers.
-  // Format: "provider/model-id" matching your openclaw.json config.
+  // ─── TIER → MODEL MAPPING ───
+  // Format: "provider/model-id" matching your configured providers.
+  // Override these in your tierflow.config.json.
 
   tiers: {
     SIMPLE: {
-      primary: "kimi-coding/kimi-for-coding",
+      primary: "openai/gpt-4o-mini",
       fallback: ["anthropic/claude-haiku-4-5"],
     },
     MEDIUM: {
@@ -600,7 +594,7 @@ export const DEFAULT_ROUTING_CONFIG: RoutingConfig = {
   // Agentic tier configs — models good at multi-step autonomous tasks
   agenticTiers: {
     SIMPLE: {
-      primary: "kimi-coding/kimi-for-coding",
+      primary: "openai/gpt-4o-mini",
       fallback: ["anthropic/claude-haiku-4-5"],
     },
     MEDIUM: {

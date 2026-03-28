@@ -60,7 +60,7 @@ pip install -r requirements.txt
 python server.py
 ```
 
-Without it, TierFlow uses the 15-dimension keyword scorer (still works, just less accurate).
+Without it, TierFlow uses the 14-dimension keyword scorer (still works, just less accurate).
 
 ## Verify
 

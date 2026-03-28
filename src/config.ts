@@ -3,9 +3,9 @@
  * Zero external deps. Falls back to hardcoded defaults if no config file exists.
  *
  * Config file search order:
- *   1. TIERFLOW_CONFIG or FREEROUTER_CONFIG env var
- *   2. ./tierflow.config.json or ./freerouter.config.json (cwd)
- *   3. ~/.config/tierflow/config.json or ~/.config/freerouter/config.json
+ *   1. TIERFLOW_CONFIG env var
+ *   2. ./tierflow.config.json (working directory)
+ *   3. ~/.config/tierflow/config.json
  */
 
 import { readFileSync, existsSync } from "node:fs";
@@ -16,9 +16,9 @@ import { logger } from "./logger.js";
 // ─── Config Types ───
 
 export type AuthConfig = {
-  type: "openclaw" | "env" | "file" | "keychain" | "none";
+  type: "profiles" | "env" | "file" | "keychain" | "none";
   key?: string; // env var name for type=env
-  profilesPath?: string; // for type=openclaw
+  profilesPath?: string; // for type=profiles
   filePath?: string; // for type=file
   service?: string; // for type=keychain
   account?: string; // for type=keychain
@@ -113,34 +113,33 @@ const DEFAULT_CONFIG: TierFlowConfig = {
       baseUrl: "https://api.anthropic.com",
       api: "anthropic",
     },
-    "kimi-coding": {
-      baseUrl: "https://api.kimi.com/coding/v1",
+    openai: {
+      baseUrl: "https://api.openai.com",
       api: "openai",
-      headers: { "User-Agent": "KimiCLI/0.77" },
+    },
+    ollama: {
+      baseUrl: "http://localhost:11434/v1",
+      api: "openai",
     },
   },
   tiers: {
-    SIMPLE: { primary: "kimi-coding/kimi-for-coding", fallback: ["anthropic/claude-haiku-4-5"] },
-    MEDIUM: { primary: "anthropic/claude-sonnet-4-5", fallback: ["anthropic/claude-opus-4-6"] },
-    COMPLEX: { primary: "anthropic/claude-opus-4-6", fallback: ["anthropic/claude-haiku-4-5"] },
-    REASONING: { primary: "anthropic/claude-opus-4-6", fallback: ["anthropic/claude-haiku-4-5"] },
+    SIMPLE: { primary: "ollama/llama3.2", fallback: ["openai/gpt-4o-mini"] },
+    MEDIUM: { primary: "openai/gpt-4o", fallback: ["anthropic/claude-sonnet-4-5"] },
+    COMPLEX: { primary: "anthropic/claude-sonnet-4-5", fallback: ["openai/gpt-4o"] },
+    REASONING: { primary: "anthropic/claude-opus-4-6", fallback: ["openai/o1"] },
   },
   agenticTiers: {
-    SIMPLE: { primary: "kimi-coding/kimi-for-coding", fallback: ["anthropic/claude-haiku-4-5"] },
-    MEDIUM: { primary: "anthropic/claude-sonnet-4-5", fallback: ["anthropic/claude-opus-4-6"] },
-    COMPLEX: { primary: "anthropic/claude-opus-4-6", fallback: ["anthropic/claude-haiku-4-5"] },
-    REASONING: { primary: "anthropic/claude-opus-4-6", fallback: ["anthropic/claude-haiku-4-5"] },
+    SIMPLE: { primary: "openai/gpt-4o-mini", fallback: ["ollama/llama3.2"] },
+    MEDIUM: { primary: "openai/gpt-4o", fallback: ["anthropic/claude-sonnet-4-5"] },
+    COMPLEX: { primary: "anthropic/claude-sonnet-4-5", fallback: ["openai/gpt-4o"] },
+    REASONING: { primary: "anthropic/claude-opus-4-6", fallback: ["openai/o1"] },
   },
   thinking: {
     adaptive: ["claude-opus-4-6", "claude-opus-4.6"],
     enabled: { models: ["claude-sonnet-4-5"], budget: 4096 },
   },
   auth: {
-    default: "openclaw",
-    openclaw: {
-      type: "openclaw",
-      profilesPath: "~/.openclaw/agents/main/agent/auth-profiles.json",
-    },
+    default: "env",
   },
 };
 

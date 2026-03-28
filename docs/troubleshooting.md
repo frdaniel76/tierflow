@@ -35,7 +35,7 @@ Model ID: `openrouter/google/gemini-2.5-flash-lite` → looks up `openrouter` pr
 
 ### ML classifier unavailable
 
-If LLMRouter service isn't running on `:18801`, TierFlow falls back to the 15-dimension keyword scorer. This is intentional — routing still works, just less accurately.
+If LLMRouter service isn't running on `:18801`, TierFlow falls back to the 14-dimension keyword scorer. This is intentional — routing still works, just less accurately.
 
 To start the ML classifier:
 

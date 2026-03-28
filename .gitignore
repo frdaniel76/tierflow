@@ -15,3 +15,10 @@ bench/results.json
 
 # ML embedding cache (generated at runtime)
 src/ml/embeddings-cache.json
+COMMUNITY_RELEASE_PLAN.md
+PII_PROXY_DESIGN.md
+docs/design-*.md
+docs/ml-router-design.md
+docs/subscription-failover.md
+test/Dockerfile.test
+test/Dockerfile.windows

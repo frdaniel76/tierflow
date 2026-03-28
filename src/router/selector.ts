@@ -1,6 +1,6 @@
 /**
  * Tier → Model Selection
- * Forked from ClawRouter (MIT License). No payment dependencies.
+ * Routing engine — originally from BlockRunAI/ClawRouter (MIT), extended for TierFlow.
  *
  * Maps a classification tier to the best model from configured providers.
  * Builds RoutingDecision metadata with cost estimates and savings.

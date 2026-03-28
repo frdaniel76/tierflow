@@ -1,7 +1,7 @@
 /**
  * Integration tests for response cache in the HTTP pipeline.
  *
- * Tests against the running FreeRouter (:18800) with cache enabled.
+ * Tests against the running TierFlow (:18800) with cache enabled.
  *
  * Usage:
  *   npx tsx test/cache-integration.test.ts
@@ -67,7 +67,7 @@ async function getStats(): Promise<Record<string, any>> {
 async function prerequisiteTests() {
   console.log("\n=== Prerequisites ===\n");
 
-  await test("FreeRouter is healthy", async () => {
+  await test("TierFlow is healthy", async () => {
     const res = await fetch(`${BASE}/health`, { signal: AbortSignal.timeout(5000) });
     assert(res.ok, `Expected 200, got ${res.status}`);
   });
@@ -254,7 +254,7 @@ async function performanceTests() {
 // ═══════════════════════════════════════════
 
 (async () => {
-  console.log("Cache — Integration Tests (live FreeRouter)");
+  console.log("Cache — Integration Tests (live TierFlow)");
 
   try {
     await prerequisiteTests();

@@ -1,5 +1,5 @@
 /**
- * PII Middleware — glue between FreeRouter's request pipeline and the vault.
+ * PII Middleware — glue between TierFlow's request pipeline and the vault.
  *
  * Provides message-level scrub/rehydrate functions and a streaming-safe
  * carry-buffer rehydration for SSE chunks.

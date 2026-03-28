@@ -9,7 +9,7 @@ docker-compose.yml
 Dockerfile
 tsconfig.json
 tsup.config.ts
-freerouter.config.json
+tierflow.config.json
 *.md
 !README.md
 !LICENSE

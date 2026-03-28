@@ -1,43 +1,17 @@
-version: "3.9"
-
 services:
-  llmrouter:
-    build:
-      context: ../llmrouter-service
-    image: tierflow-llmrouter:latest
-    environment:
-      LLMROUTER_HOST: "0.0.0.0"
-    ports:
-      - "127.0.0.1:18801:18801"
-    restart: unless-stopped
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "python",
-          "-c",
-          "import urllib.request; urllib.request.urlopen('http://localhost:18801/health')",
-        ]
-      interval: 10s
-      timeout: 5s
-      start_period: 20s
-      retries: 5
-
   tierflow:
     build:
       context: .
     image: tierflow:latest
-    depends_on:
-      llmrouter:
-        condition: service_healthy
     environment:
       TIERFLOW_HOST: "0.0.0.0"
       TIERFLOW_PORT: "18800"
-      # Override ML classifier URL to use Docker service name
-      LLMROUTER_URL: "http://llmrouter:18801/classify"
-      # API keys — set these in your .env file or pass via environment
+      # API keys — set in .env file or pass via environment
       # ANTHROPIC_API_KEY: ""
       # OPENAI_API_KEY: ""
+      # OPENROUTER_API_KEY: ""
+    env_file:
+      - .env
     volumes:
       # Mount config from host (optional — uses built-in defaults if absent)
       - ${TIERFLOW_CONFIG:-./tierflow.config.json}:/app/tierflow.config.json:ro

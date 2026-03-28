@@ -1,5 +1,5 @@
 /**
- * CtxPack Middleware — message-level context compression for FreeRouter.
+ * CtxPack Middleware — message-level context compression for TierFlow.
  *
  * Runs after PII scrub, before provider forwarding.
  * One-way transform (no rehydration needed on response).

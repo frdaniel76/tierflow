@@ -1,6 +1,6 @@
 /**
- * TierFlow Auth — loads API keys from OpenClaw auth-profiles.json
- * Zero-dep, reads from OpenClaw auth-profiles.json (configurable path)
+ * TierFlow Auth — API key management.
+ * Supports: environment variables, files, macOS keychain, profiles JSON, or none.
  */
 
 import { readFileSync } from "node:fs";
@@ -44,7 +44,7 @@ function loadAuthProfiles(): Map<string, ProviderAuth> {
     const p = defaultAuth.profilesPath;
     filePath = p.startsWith("~/") ? join(homedir(), p.slice(2)) : p;
   } else {
-    filePath = join(homedir(), ".openclaw", "agents", "main", "agent", "auth-profiles.json");
+    filePath = join(homedir(), ".config", "tierflow", "auth-profiles.json");
   }
   try {
     const raw = readFileSync(filePath, "utf-8");

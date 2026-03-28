@@ -1,42 +1,35 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 120">
   <defs>
     <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#10b981"/>
-      <stop offset="100%" style="stop-color:#059669"/>
+      <stop offset="0%" style="stop-color:#34d399"/>
+      <stop offset="100%" style="stop-color:#10b981"/>
     </linearGradient>
     <linearGradient id="flow" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" style="stop-color:#10b981;stop-opacity:0.9"/>
-      <stop offset="50%" style="stop-color:#34d399;stop-opacity:0.6"/>
-      <stop offset="100%" style="stop-color:#6ee7b7;stop-opacity:0.3"/>
+      <stop offset="0%" style="stop-color:#34d399;stop-opacity:0.9"/>
+      <stop offset="50%" style="stop-color:#6ee7b7;stop-opacity:0.6"/>
+      <stop offset="100%" style="stop-color:#a7f3d0;stop-opacity:0.3"/>
     </linearGradient>
   </defs>
 
   <!-- Icon: routing node diagram -->
   <g transform="translate(24, 22)">
-    <!-- Input node -->
     <circle cx="12" cy="38" r="8" fill="url(#accent)"/>
-
-    <!-- Three output tiers -->
-    <circle cx="64" cy="14" r="6" fill="#10b981" opacity="0.5"/>
-    <circle cx="64" cy="38" r="6" fill="#10b981" opacity="0.75"/>
-    <circle cx="64" cy="62" r="6" fill="#10b981"/>
-
-    <!-- Routing lines -->
+    <circle cx="64" cy="14" r="6" fill="#34d399" opacity="0.5"/>
+    <circle cx="64" cy="38" r="6" fill="#34d399" opacity="0.75"/>
+    <circle cx="64" cy="62" r="6" fill="#34d399"/>
     <line x1="20" y1="38" x2="58" y2="14" stroke="url(#flow)" stroke-width="2" stroke-linecap="round"/>
     <line x1="20" y1="38" x2="58" y2="38" stroke="url(#flow)" stroke-width="2.5" stroke-linecap="round"/>
     <line x1="20" y1="38" x2="58" y2="62" stroke="url(#flow)" stroke-width="2" stroke-linecap="round"/>
-
-    <!-- Active route highlight -->
-    <circle cx="64" cy="38" r="10" fill="none" stroke="#10b981" stroke-width="1.5" opacity="0.4"/>
+    <circle cx="64" cy="38" r="10" fill="none" stroke="#34d399" stroke-width="1.5" opacity="0.4"/>
   </g>
 
   <!-- Wordmark -->
   <text x="116" y="72" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="48" font-weight="700" letter-spacing="-1">
-    <tspan fill="#10b981">Tier</tspan><tspan fill="#1f2937">Flow</tspan>
+    <tspan fill="#34d399">Tier</tspan><tspan fill="#e5e7eb">Flow</tspan>
   </text>
 
   <!-- Tagline -->
-  <text x="118" y="94" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="14" fill="#6b7280" letter-spacing="0.5">
+  <text x="118" y="94" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="14" fill="#9ca3af" letter-spacing="0.5">
     Self-hosted AI model router
   </text>
 </svg>

@@ -9,4 +9,4 @@ docs
 *.md
 !README.md
 .env
-freerouter.config.json
+tierflow.config.json

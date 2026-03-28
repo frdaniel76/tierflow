@@ -1,15 +1,13 @@
 /**
- * Model Definitions — Direct API (No BlockRun/x402)
+ * Model Definitions — pricing catalog for cost estimation.
  *
- * Maps YOUR provider models with pricing for the cost calculator.
- * These match the models configured in your openclaw.json.
- *
+ * Maps provider models with pricing for the cost calculator.
  * Pricing is in USD per 1M tokens.
- * Add/remove models as you add providers to openclaw.json.
+ * Add/remove models to match your configured providers.
  */
 
 export type ModelDef = {
-  /** OpenClaw model ID: "provider/model-id" */
+  /** Model ID in "provider/model-id" format */
   id: string;
   name: string;
   inputPrice: number; // $/1M input tokens
@@ -37,20 +35,7 @@ export const MODELS: ModelDef[] = [
     agentic: true,
   },
 
-  // ═══ Kimi/Moonshot (configured, API key active) ═══
-  {
-    id: "kimi-coding/kimi-for-coding",
-    name: "Kimi K2.5",
-    inputPrice: 0.5,
-    outputPrice: 2.4,
-    contextWindow: 262_144,
-    maxOutput: 4_096,
-    reasoning: true,
-    vision: true,
-    agentic: true,
-  },
-
-  // ═══ OpenAI (API key available — add to openclaw.json) ═══
+  // ═══ OpenAI ═══
   {
     id: "openai/gpt-4o",
     name: "GPT-4o",
@@ -88,7 +73,7 @@ export const MODELS: ModelDef[] = [
     reasoning: true,
   },
 
-  // ═══ Google (service account available — add to openclaw.json) ═══
+  // ═══ Google ═══
   {
     id: "google/gemini-2.5-pro",
     name: "Gemini 2.5 Pro",

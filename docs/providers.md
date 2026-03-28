@@ -168,7 +168,7 @@ Uses the native Anthropic Messages API (not OpenAI-compat).
 | ------------ | -------------------------------------- | ------------------------------------------------------------------ |
 | `"env"`      | Read API key from environment variable | `{ "type": "env", "key": "GROQ_API_KEY" }`                         |
 | `"none"`     | No authentication (local providers)    | `{ "type": "none" }`                                               |
-| `"openclaw"` | Read from OpenClaw auth-profiles.json  | `{ "type": "openclaw" }`                                           |
+| `"profiles"` | Read from a JSON profiles file         | `{ "type": "profiles", "profilesPath": "/path/to/profiles.json" }` |
 | `"file"`     | Read key from a file                   | `{ "type": "file", "filePath": "/path/to/key" }`                   |
 | `"keychain"` | macOS Keychain                         | `{ "type": "keychain", "service": "tierflow", "account": "groq" }` |
 

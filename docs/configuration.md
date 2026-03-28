@@ -35,9 +35,9 @@ Generate a template: `npx tierflow --init`
     api: "anthropic" | "openai";             // API format
     headers?: Record<string, string>;        // extra HTTP headers
     auth?: {
-      type: "env" | "openclaw" | "file" | "keychain" | "none";
+      type: "env" | "file" | "keychain" | "profiles" | "none";
       key?: string;                          // env var name (for type=env)
-      profilesPath?: string;                 // for type=openclaw
+      profilesPath?: string;                 // for type=profiles
       filePath?: string;                     // for type=file
       service?: string;                      // for type=keychain
       account?: string;                      // for type=keychain
@@ -115,7 +115,7 @@ Generate a template: `npx tierflow --init`
 | ------------ | ------------------------------------- | ----------------------------------------------------------------------- |
 | `"env"`      | Read from environment variable        | `{ "type": "env", "key": "ANTHROPIC_API_KEY" }`                         |
 | `"none"`     | No auth (Ollama, LM Studio)           | `{ "type": "none" }`                                                    |
-| `"openclaw"` | Read from OpenClaw auth-profiles.json | `{ "type": "openclaw" }`                                                |
+| `"profiles"` | Read from a JSON profiles file        | `{ "type": "profiles", "profilesPath": "/path/to/auth-profiles.json" }` |
 | `"file"`     | Read key from file                    | `{ "type": "file", "filePath": "/path/to/key" }`                        |
 | `"keychain"` | macOS Keychain                        | `{ "type": "keychain", "service": "tierflow", "account": "anthropic" }` |
 

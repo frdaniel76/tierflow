@@ -1,6 +1,6 @@
 /**
  * Rule-Based Classifier (v2 — Weighted Scoring)
- * Forked from ClawRouter (MIT License). No payment dependencies.
+ * Routing engine — originally from BlockRunAI/ClawRouter (MIT), extended for TierFlow.
  *
  * Scores a request across 14 weighted dimensions and maps the aggregate
  * score to a tier using configurable boundaries. Confidence is calibrated
