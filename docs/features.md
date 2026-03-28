@@ -1,175 +1,113 @@
-# Advanced Features
+# Features
 
-ClawRouter v0.5+ includes intelligent routing features that work automatically.
+## ML-Powered Routing (v2)
 
-## Table of Contents
+8-category classification via external ML service (LLMRouter):
 
-- [Agentic Auto-Detection](#agentic-auto-detection)
-- [Tool Detection](#tool-detection)
-- [Context-Length-Aware Routing](#context-length-aware-routing)
-- [Model Aliases](#model-aliases)
-- [Free Tier Fallback](#free-tier-fallback)
-- [Session Persistence](#session-persistence)
-- [Cost Tracking with /stats](#cost-tracking-with-stats)
+| Category | Typical Use | Default Model |
+|----------|-------------|---------------|
+| simple_chat | Greetings, factual Q&A | Gemini Flash Lite (cheap) |
+| general | Explanations, summaries | DeepSeek V3 (balanced) |
+| coding | Write/fix/refactor code | Qwen3 Coder (free) |
+| reasoning | Math proofs, logic puzzles | GPT-oss / DeepSeek R1 |
+| creative | Poetry, stories, scripts | Step 3.5 Flash (free) |
+| data | Analysis, charts, ETL | Gemini Flash Lite (cheap) |
+| agentic | Tool calls, multi-step tasks | DeepSeek V3 (tool-capable) |
+| transcription | Audio processing | Gemini Flash Lite |
 
----
+All model assignments are configurable via `categories` in config.
 
-## Agentic Auto-Detection
+## Agentic Routing
 
-ClawRouter automatically detects multi-step agentic tasks and routes to models optimized for autonomous execution:
+Auto-detects tool calls (`tools` array in request) and routes to agentic-capable models. Separate `agenticTiers` config allows different model selection when tools are present.
 
-```
-"what is 2+2"                    → gemini-flash (standard)
-"build the project then run tests" → kimi-k2.5 (auto-agentic)
-"fix the bug and make sure it works" → kimi-k2.5 (auto-agentic)
-```
+## Mode Overrides
 
-**How it works:**
+Force a category with prompt prefixes:
 
-- Detects agentic keywords: file ops ("read", "edit"), execution ("run", "test", "deploy"), iteration ("fix", "debug", "verify")
-- Threshold: 2+ signals triggers auto-switch to agentic tiers
-- No config needed — works automatically
+| Prefix Style | Example |
+|-------------|---------|
+| Slash | `/code Write a parser` |
+| Bracket | `[reasoning] Prove this theorem` |
+| Word | `deep mode: Analyze for race conditions` |
 
-**Agentic tier models** (optimized for multi-step autonomy):
+Aliases: `simple`, `basic`, `cheap`, `medium`, `balanced`, `complex`, `code`, `max`, `reasoning`, `think`, `deep`, `creative`, `data`
 
-| Tier      | Agentic Model    | Why                            |
-| --------- | ---------------- | ------------------------------ |
-| SIMPLE    | claude-haiku-4.5 | Fast + reliable tool use       |
-| MEDIUM    | kimi-k2.5        | 200+ tool chains, 76% cheaper  |
-| COMPLEX   | claude-sonnet-4  | Best balance for complex tasks |
-| REASONING | kimi-k2.5        | Extended reasoning + execution |
+The prefix is stripped before forwarding.
 
-### Force Agentic Mode
+## PII Scrubbing
 
-You can also force agentic mode via config:
+Per-provider opt-in (`"pii": true`). 15 detection patterns across 5 ordered passes:
 
-```yaml
-# openclaw.yaml
-plugins:
-  - id: "@blockrun/clawrouter"
-    config:
-      routing:
-        overrides:
-          agenticMode: true # Always use agentic tiers
-```
+1. High-confidence: PEM blocks, API keys (sk-ant-, ghp_, etc.), connection strings, Bearer tokens
+2. Structured IDs: emails, credit cards, SSNs, UK NINOs
+3. Semi-structured: phone numbers, IPv4/IPv6, UK postcodes, file paths
+4. PEM headers (stray BEGIN lines)
+5. Entropy catch-all: password=, secret=, token= patterns
 
----
+**Type-preserving placeholders:** `p0{12hex}@maildomain.com` (email), `p0{12hex}-placeholder-key` (API key), etc. LLMs echo these correctly in tool calls.
 
-## Tool Detection
+**Encryption:** AES-256-GCM, memory-only (no persistence). Dedup via HMAC-SHA256.
 
-When your request includes a `tools` array (function calling), ClawRouter automatically switches to agentic tiers:
+**Streaming:** Carry buffer (max 40 chars) handles placeholders split across SSE chunks.
 
-```typescript
-// Request with tools → auto-agentic mode
-{
-  model: "blockrun/auto",
-  messages: [{ role: "user", content: "Check the weather" }],
-  tools: [{ type: "function", function: { name: "get_weather", ... } }]
-}
-// → Routes to claude-haiku-4.5 (excellent tool use)
-// → Instead of gemini-flash (may produce malformed tool calls)
-```
+**Modes:** `strict` (default, fail-closed) or `standard` (log + pass through).
 
-**Why this matters:** Some models (like `deepseek-reasoner`) are optimized for chain-of-thought reasoning but can generate malformed tool calls. Tool detection ensures requests with functions go to models proven to handle tool use correctly.
+Zero overhead when disabled.
 
----
+## CtxPack Compression
 
-## Context-Length-Aware Routing
+6 algorithmic passes applied to message content:
 
-ClawRouter automatically filters out models that can't handle your context size:
+| Pass | What It Does |
+|------|-------------|
+| `ansi` | Strip ANSI escape codes |
+| `whitespace` | Collapse blank lines, trim trailing whitespace |
+| `json` | Minify fenced JSON blocks |
+| `dedup` | Replace 3+ identical lines with `line (xN)` |
+| `comments` | Strip single-line comments from code fences |
+| `verbose` | Collapse long stack traces, shorten home paths |
 
-```
-150K token request:
-  Full chain: [grok-4-fast (131K), deepseek (128K), kimi (262K), gemini (1M)]
-  Filtered:   [kimi (262K), gemini (1M)]
-  → Skips models that would fail with "context too long" errors
-```
+30-70% token savings on typical messages. Per-provider opt-in (`"compress": true`).
 
-This prevents wasted API calls and faster fallback to capable models.
+## Response Cache
 
----
+- **Key:** SHA-256 hash of (model + normalized messages + tools flag)
+- **Policy:** LRU eviction with configurable TTL (default 300s) and max entries (default 5000)
+- **Excludes:** Streaming responses and tool call responses by default
+- **Headers:** `X-Cache: HIT` or `X-Cache: MISS`
+- **On hit:** Skips entire pipeline (no routing, no ML, no forwarding)
 
-## Model Aliases
+## Request Timeouts + Fallback
 
-Use short aliases instead of full model paths:
+Per-tier timeouts: SIMPLE 30s, MEDIUM 60s, COMPLEX/REASONING 120s.
 
-```bash
-/model free      # gpt-oss-120b (FREE!)
-/model sonnet    # anthropic/claude-sonnet-4
-/model opus      # anthropic/claude-opus-4
-/model haiku     # anthropic/claude-haiku-4.5
-/model gpt       # openai/gpt-4o
-/model gpt5      # openai/gpt-5.2
-/model deepseek  # deepseek/deepseek-chat
-/model reasoner  # deepseek/deepseek-reasoner
-/model kimi      # moonshot/kimi-k2.5
-/model gemini    # google/gemini-2.5-pro
-/model flash     # google/gemini-2.5-flash
-/model grok      # xai/grok-3
-/model grok-fast # xai/grok-4-fast-reasoning
-```
+On timeout or provider error, automatically tries fallback models from the tier/category config. Streaming stall timeout: 60s.
 
-All aliases work with `/model blockrun/xxx` or just `/model xxx`.
+## Web Dashboard
 
----
+Built-in monitoring at `GET /dashboard`:
+- Request counts, error rates, cache hit rate
+- Tier distribution bar chart
+- Category and model usage tables
+- Hourly activity chart (24h)
+- PII scrubbed/rehydrated counts
+- Compression stats (tokens saved)
+- Auto-refresh (5s/10s/30s), dark mode, responsive
 
-## Free Tier Fallback
-
-When your wallet balance hits $0, ClawRouter automatically falls back to the free model (`gpt-oss-120b`):
-
-```
-Wallet: $0.00
-Request: "Help me write a function"
-→ Routes to gpt-oss-120b (FREE)
-→ No "insufficient funds" error
-→ Keep building while you top up
-```
-
-You'll never get blocked by an empty wallet — the free tier keeps you running.
-
----
-
-## Session Persistence
-
-For multi-turn conversations, ClawRouter pins the model to prevent mid-task switching:
-
-```
-Turn 1: "Build a React component" → claude-sonnet-4
-Turn 2: "Add dark mode support"   → claude-sonnet-4 (pinned)
-Turn 3: "Now add tests"           → claude-sonnet-4 (pinned)
-```
-
-Sessions are identified by conversation ID and persist for 1 hour of inactivity.
-
----
-
-## Cost Tracking with /stats
-
-Track your savings in real-time:
+## CLI
 
 ```bash
-# In any OpenClaw conversation
-/stats
+npx freerouter              # start server
+npx freerouter --init       # generate config template
+npx freerouter --check      # validate config + connectivity
+npx freerouter --port 8080  # custom port
+npx freerouter --debug      # verbose logging
 ```
 
-Output:
+## Tool Call Translation
 
-```
-+============================================================+
-|              ClawRouter Usage Statistics                   |
-+============================================================+
-|  Period: last 7 days                                      |
-|  Total Requests: 442                                      |
-|  Total Cost: $1.73                                       |
-|  Baseline Cost (Opus): $20.13                            |
-|  Total Saved: $18.40 (91.4%)                             |
-+------------------------------------------------------------+
-|  Routing by Tier:                                          |
-|    SIMPLE     ===========           55.0% (243)            |
-|    MEDIUM     ======                30.8% (136)            |
-|    COMPLEX    =                      7.2% (32)             |
-|    REASONING  =                      7.0% (31)             |
-+============================================================+
-```
-
-Stats are stored locally at `~/.openclaw/blockrun/logs/` and aggregated on demand.
+Bidirectional Anthropic ↔ OpenAI format:
+- `tool_use` blocks ↔ `tool_calls` array
+- `input_json_delta` ↔ `arguments` (streaming)
+- Thinking block handling per provider

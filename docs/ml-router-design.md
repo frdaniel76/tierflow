@@ -1,8 +1,13 @@
 # FreeRouter ML-Powered Routing — Comprehensive Design
 
 **Version:** 2.0
-**Date:** 2026-03-23
-**Status:** DESIGN — Awaiting review
+**Date:** 2026-03-28
+**Status:** IMPLEMENTED
+
+> **Implementation notes:** The actual config key is `mlClassifier` (not `classifier`).
+> The embedding model used is `all-MiniLM-L6-v2` (not Longformer as originally proposed).
+> Latency is ~40ms (not ~20ms). Memory is ~80MB model + ~600MB Docker image.
+> The `shortcuts` config key was not implemented; shortcuts are hardcoded in `src/router/index.ts`.
 
 ---
 

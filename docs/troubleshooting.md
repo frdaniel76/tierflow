@@ -1,149 +1,117 @@
 # Troubleshooting
 
-Quick solutions for common ClawRouter issues.
-
-> Need help? [Open a Discussion](https://github.com/BlockRunAI/ClawRouter/discussions) or check [existing issues](https://github.com/BlockRunAI/ClawRouter/issues).
-
-## Table of Contents
-
-- [Quick Checklist](#quick-checklist)
-- [Common Errors](#common-errors)
-- [Security Scanner Warnings](#security-scanner-warnings)
-- [Port Conflicts](#port-conflicts)
-- [How to Update](#how-to-update)
-- [Verify Routing](#verify-routing)
-
----
-
 ## Quick Checklist
 
 ```bash
-# 1. Check your version (should be 0.5.7+)
-cat ~/.openclaw/extensions/clawrouter/package.json | grep version
+# 1. Check server is running
+curl http://localhost:18800/health
 
-# 2. Check proxy is running
-curl http://localhost:8402/health
+# 2. Validate config + API keys
+npx freerouter --check
 
-# 3. Watch routing in action
-openclaw logs --follow
-# Should see: gemini-2.5-flash $0.0012 (saved 99%)
+# 3. Check ML classifier (optional)
+curl http://localhost:18801/health
 
-# 4. View cost savings
-/stats
+# 4. View current config (secrets redacted)
+curl http://localhost:18800/config
+
+# 5. Check stats
+curl http://localhost:18800/stats
 ```
 
----
+## Common Issues
 
-## Common Errors
+### "Unsupported provider: xxx"
 
-### "Unknown model: blockrun/auto" or "Unknown model: auto"
+The model ID format is `provider/model-name`. The `provider` part must match a key in your `providers` config.
 
-Plugin isn't loaded or outdated. **Don't change the model name** — `blockrun/auto` is correct.
-
-**Fix:** Update to v0.3.21+ which handles both `blockrun/auto` and `auto` (OpenClaw strips provider prefix). See [How to Update](#how-to-update).
-
-### "No API key found for provider blockrun"
-
-Auth profile is missing or wasn't created properly.
-
-**Fix:** See [How to Update](#how-to-update) — the reinstall script automatically injects the auth profile.
-
-### "Config validation failed: plugin not found: clawrouter"
-
-Plugin directory was removed but config still references it. This blocks all OpenClaw commands until fixed.
-
-**Fix:** See [How to Update](#how-to-update) for complete cleanup steps.
-
-### "No USDC balance" / "Insufficient funds"
-
-Wallet needs funding.
-
-**Fix:**
-
-1. Find your wallet address (printed during install)
-2. Send USDC on **Base network** to that address
-3. $1-5 is enough for hundreds of requests
-4. Restart OpenClaw
-
----
-
-## Security Scanner Warnings
-
-### "WARNING: dangerous code patterns — possible credential harvesting"
-
-This is a **false positive**. ClawRouter legitimately:
-
-1. Reads `BLOCKRUN_WALLET_KEY` from environment (for authentication)
-2. Sends authenticated requests to BlockRun API (for x402 micropayments)
-
-This pattern triggers OpenClaw's security scanner, but it's the intended behavior — the wallet key is required to sign payment transactions. The code is fully open source and auditable.
-
-### "env-harvesting" Warning
-
-OpenClaw's security scanner may flag ClawRouter with:
-
+```json
+"providers": {
+  "openrouter": { "baseUrl": "https://openrouter.ai/api/v1", ... }
+}
 ```
-[env-harvesting] Environment variable access combined with network send
+Model ID: `openrouter/google/gemini-2.5-flash-lite` → looks up `openrouter` provider.
+
+### ML classifier unavailable
+
+If LLMRouter service isn't running on `:18801`, FreeRouter falls back to the 15-dimension keyword scorer. This is intentional — routing still works, just less accurately.
+
+To start the ML classifier:
+```bash
+cd llmrouter-service
+python server.py
 ```
 
-**This is a false positive.** The scanner's heuristic (`env variable + network request = suspicious`) flags all payment plugins, but this pattern is inherently required for non-custodial payments.
+Or with Docker: `docker compose up -d`
 
-ClawRouter reads `BLOCKRUN_WALLET_KEY` to sign x402 payment transactions — this is required and intentional:
+### API key not found
 
-- The wallet key is used **locally** for cryptographic signing (EIP-712)
-- The **signature** is transmitted, not the private key itself
-- The key **never leaves the machine** — only cryptographic proofs are sent
-- This is standard [x402 payment protocol](https://x402.org) behavior
-- Source code is [MIT licensed and fully auditable](https://github.com/BlockRunAI/ClawRouter)
+Check your auth config matches your env vars:
+```json
+"auth": { "type": "env", "key": "ANTHROPIC_API_KEY" }
+```
+Then: `export ANTHROPIC_API_KEY=sk-ant-...`
 
-See [`openclaw.security.json`](../openclaw.security.json) for detailed security documentation and [this discussion](https://x.com/bc1beat/status/2020158972561428686) for more context.
+For local providers (Ollama), use `"auth": { "type": "none" }`.
 
----
-
-## Port Conflicts
-
-### Port 8402 already in use
-
-As of v0.4.1, ClawRouter automatically detects and reuses an existing proxy on the configured port instead of failing with `EADDRINUSE`. You should no longer see this error.
-
-If you need to use a different port:
+### Port already in use
 
 ```bash
-# Set custom port via environment variable
-export BLOCKRUN_PROXY_PORT=8403
-openclaw gateway restart
+# Check what's using port 18800
+lsof -i :18800
+
+# Use a different port
+npx freerouter --port 18900
+# or set CLAWROUTER_PORT=18900
 ```
 
-To manually check/kill the process:
+### Config not loading
 
-```bash
-lsof -i :8402
-# Kill the process or restart OpenClaw
+Check the search order:
+1. `FREEROUTER_CONFIG` env var (explicit path)
+2. `./freerouter.config.json` (current directory)
+3. `~/.config/freerouter/config.json`
+
+Verify: `curl http://localhost:18800/config` shows which config path was loaded.
+
+### Timeout errors
+
+Increase per-tier timeouts in your config or check upstream provider health:
+
+```json
+"categories": {
+  "reasoning": { "primary": "...", "fallback": [...], "timeout": 180000 }
+}
 ```
 
----
+Default timeouts: SIMPLE 30s, MEDIUM 60s, COMPLEX/REASONING 120s.
 
-## How to Update
+### PII scrubbing issues
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/BlockRunAI/ClawRouter/main/scripts/reinstall.sh | bash
-openclaw gateway restart
+- **Placeholders in response:** Check rehydration is working. Look for `X-PII-Warning` header.
+- **False positives:** Exclude specific categories: `"pii": { "enabled": true, "exclude": ["postcode", "phone"] }`
+- **Debug mode:** `"pii": { "enabled": true, "debug_log_scrubbed": true }` logs scrubbed payloads.
+
+### Cache not working
+
+Verify cache is enabled:
+```json
+"cache": { "enabled": true, "ttl_seconds": 300, "max_entries": 5000 }
 ```
 
-This removes the old version, installs the latest, and restarts the gateway.
+Cache skips: streaming requests, tool call requests (by default). Check `X-Cache: HIT/MISS` header.
 
----
+## Logs
 
-## Verify Routing
-
-```bash
-openclaw logs --follow
+FreeRouter logs to stdout. Each routed request shows:
+```
+[N] Classified: tier=SIMPLE category=simple_chat model=openrouter/google/gemini-2.5-flash-lite confidence=0.98 | ml: simple_chat (conf=0.98, 35ms)
 ```
 
-You should see model selection for each request:
+Enable debug logging: `npx freerouter --debug` or pass `--debug` flag.
 
-```
-[plugins] [SIMPLE] google/gemini-2.5-flash $0.0012 (saved 99%)
-[plugins] [MEDIUM] deepseek/deepseek-chat $0.0003 (saved 99%)
-[plugins] [REASONING] deepseek/deepseek-reasoner $0.0005 (saved 99%)
-```
+## Getting Help
+
+- GitHub Issues: report bugs or request features
+- `curl http://localhost:18800/health` — version, uptime, stats
+- `curl http://localhost:18800/stats` — detailed request breakdown

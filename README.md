@@ -1,14 +1,10 @@
 # FreeRouter — Free, Self-Hosted AI Model Router
 
-<p align="center">
-  <img src="assets/logo.png" width="200" alt="FreeRouter Logo"/>
-</p>
+**Stop overpaying for AI. Route every request to the right model — automatically, with your own API keys.**
 
-**Stop overpaying for AI. Route every request to the right model — automatically, with your own API keys. No middleman, no markup.**
-
-[![OpenClaw](https://img.shields.io/badge/Built%20for-OpenClaw-blue)](https://github.com/openclaw/openclaw)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-153%2F153-brightgreen)](tests/)
+[![Tests](https://img.shields.io/badge/tests-40%2F40-brightgreen)](test/)
+[![Node](https://img.shields.io/badge/node-%3E%3D20-blue)](package.json)
 
 ---
 
@@ -18,113 +14,89 @@
 
 | Pain | How FreeRouter Fixes It |
 |------|------------------------|
-| 💸 **Middleman markup** — OpenRouter and similar services charge on top of provider prices | **Zero markup.** Self-hosted, runs locally. You pay providers directly. |
-| 🔥 **Every message hits your expensive model** — Opus at $75/M output tokens for "hello"? | **14-dimension classifier** routes simple messages to cheap models automatically. Save 60-80%. |
-| 🎰 **No control over routing** — auto-classifiers get it wrong sometimes | **Mode overrides.** Prefix `/max` or `[simple]` to force a tier when you know better. |
-| ⏳ **Proxies that hang** — upstream is slow, your app freezes | **Request timeouts + auto-fallback.** Times out → retries with fallback model. |
-| 🔧 **Hardcoded configs** — want to change a model? Edit source code, recompile, restart | **External config file.** Edit JSON, hit `/reload-config`. No restart needed. |
+| Every message hits your expensive model | **ML-powered classifier** routes to 8 specialized categories. Save 60-80%. |
+| No control over routing | **Mode overrides** — `/max`, `/simple`, `[code]` to force a category. |
+| Proxies that hang | **Per-tier timeouts + auto-fallback** to secondary models. |
+| PII leaks to third-party providers | **Built-in PII scrubbing** — auto-redact before forwarding, auto-rehydrate on response. |
+| Hardcoded configs | **External JSON config** — edit and hit `/reload-config`. No restart. |
 
 ## Features
 
-- **Smart routing** — 14-dimension weighted classifier scores every request and picks the best model
-- **Mode overrides** *(new in v1.3.0)* — force a tier with `/max`, `/simple`, `[complex]`, `deep mode:` etc.
-- **Zero cost** — no subscription, no per-token fees, no payment layer
-- **External config** — `freerouter.config.json` for providers, tiers, boundaries, auth
-- **Request timeouts** — per-tier timeouts with automatic fallback to secondary model
-- **Tool call translation** — bidirectional Anthropic ↔ OpenAI format translation
-- **OpenAI-compatible API** — drop-in replacement; works with any client that speaks `/v1/chat/completions`
-- **PII scrubbing** — auto-redact emails, phones, API keys, IPs before external requests; type-preserving placeholders; auto-rehydrate on response
-- **CtxPack compression** — algorithmic context compression (ANSI strip, whitespace collapse, JSON compact, line dedup, comment strip, stack trace trim); per-provider config; 30-70% token savings on typical messages
-- **Response cache** — exact-match hash cache with LRU eviction and TTL; skips entire pipeline on cache hit; excludes streaming and tool calls by default; `X-Cache: HIT/MISS` headers for observability
-- **250+ test suite** — core routing, streaming, tool calls, unicode, concurrency, mode overrides, PII middleware/integration, CtxPack compression, cache, ML classifier, agentic routing, stats accuracy
+- **ML-powered routing** — 8-category classifier via LLMRouter service (~40ms), falls back to 15-dimension keyword scorer
+- **PII scrubbing** — 15 detection patterns (emails, API keys, SSNs, credit cards, IPs, PEM keys, etc.), type-preserving placeholders, AES-256-GCM encryption, streaming-safe rehydration
+- **CtxPack compression** — 6 passes (ANSI strip, whitespace collapse, JSON compact, line dedup, comment strip, stack trace trim), 30-70% token savings
+- **Response cache** — LRU with TTL, SHA-256 exact-match, `X-Cache: HIT/MISS` headers
+- **Mode overrides** — `/max`, `/simple`, `[code]`, `deep mode:` etc. to force routing
+- **Agentic routing** — auto-detects tool calls and routes to agentic-capable models
+- **Web dashboard** — built-in monitoring at `/dashboard` with auto-refresh
+- **Docker Compose** — one-command startup for router + ML classifier
+- **CLI** — `npx freerouter --init`, `--check`, `--port`
+- **Zero runtime dependencies** — pure Node.js built-ins
+- **OpenAI-compatible API** — drop-in `/v1/chat/completions` proxy
+- **40 tests** — unit (cache, router, config) + integration (mock ML classifier)
 
 ## How It Works
 
 ```
-Your App → FreeRouter (:18800) → Classifier → Best Model
-                                    ├── SIMPLE    → Kimi K2.5     (near-zero cost)
-                                    ├── MEDIUM    → Sonnet 4.5    (balanced)
-                                    ├── COMPLEX   → Opus 4.6      (powerful)
-                                    └── REASONING → Opus 4.6      (max thinking)
+Your App --> FreeRouter (:18800) --> ML Classifier (:18801) --> Best Model
+
+                    8 Categories:
+                    simple_chat   --> Gemini Flash Lite   (near-zero cost)
+                    general       --> DeepSeek V3         (balanced)
+                    coding        --> Qwen3 Coder         (free)
+                    reasoning     --> GPT-oss / DeepSeek R1 (deep thinking)
+                    creative      --> Step 3.5 Flash      (free)
+                    data          --> Gemini Flash Lite    (cheap)
+                    agentic       --> DeepSeek V3         (tool-capable)
+                    transcription --> Gemini Flash Lite    (cheap)
+
+                    Fallback: 15-dimension keyword scorer (<1ms)
 ```
 
-The classifier scores each message on 14 dimensions (vocabulary complexity, reasoning depth, code complexity, domain specificity, etc.) and routes to the cheapest model that can handle it. Context-aware — includes last 3 messages in scoring.
-
-## Mode Overrides *(v1.3.0)*
-
-Sometimes you know better than the classifier. Prefix your prompt to force a tier:
-
-### Slash Prefix
-```
-/simple What's 2+2?
-/max Analyze this distributed system architecture for race conditions
-/reasoning Prove that P(A|B) = P(B|A)P(A)/P(B)
-```
-
-### Bracket Prefix
-```
-[complex] Refactor this module to use dependency injection
-[simple] Translate "hello" to French
-```
-
-### Word Prefix
-```
-deep mode: Why does this recursive CTE produce duplicates?
-basic mode, What time is it in Tokyo?
-```
-
-### Alias Table
-
-| Aliases | Routes to |
-|---------|-----------|
-| `simple`, `basic`, `cheap` | SIMPLE — cheapest model |
-| `medium`, `balanced` | MEDIUM — general purpose |
-| `complex`, `advanced` | COMPLEX — powerful model |
-| `max`, `reasoning`, `think`, `deep` | REASONING — maximum thinking |
-
-The prefix is **stripped** before forwarding — the LLM never sees it. When no prefix is detected, normal classification runs.
+The ML classifier uses sentence embeddings (all-MiniLM-L6-v2) + KNN to categorize queries in ~40ms. Each category maps to the cheapest model that handles it well. Models and mappings are fully configurable.
 
 ## Quick Start
 
-### 1. Clone & Build
+### Option A: npx (recommended)
 
 ```bash
-git clone https://github.com/openfreerouter/freerouter.git
+npx freerouter --init     # generate config template
+npx freerouter            # start the router
+```
+
+### Option B: Clone & Build
+
+```bash
+git clone https://github.com/frdaniel76/freerouter.git
 cd freerouter
 npm install
-npx tsc
+npm run build
+npm start
 ```
 
-### 2. Configure
-
-Copy and edit the config file:
+### Option C: Docker
 
 ```bash
-cp freerouter.config.json ~/.config/freerouter/config.json
-# Edit providers, API keys, tier mappings
+docker compose up -d      # starts router + ML classifier
 ```
 
-Or set API keys via environment variables. See [Configuration](#configuration) below.
+See [docs/docker.md](docs/docker.md) for details.
 
-### 3. Run
+### Use It
 
-```bash
-node dist/src/server.js
-# Listening on http://localhost:18800
-```
-
-### 4. Use
-
-Point any OpenAI-compatible client at `http://localhost:18800/v1/chat/completions`.
+Point any OpenAI-compatible client at `http://localhost:18800`:
 
 ```bash
 # Health check
 curl http://localhost:18800/health
 
-# Chat
+# Chat (auto-routes to best model)
 curl http://localhost:18800/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{"model":"auto","messages":[{"role":"user","content":"Hello!"}]}'
+
+# Open dashboard
+open http://localhost:18800/dashboard
 ```
 
 ## Configuration
@@ -140,24 +112,180 @@ If no config file exists, built-in defaults apply.
 
 ```json
 {
+  "port": 18800,
+  "host": "127.0.0.1",
   "providers": {
-    "anthropic": { "baseUrl": "https://api.anthropic.com", "api": "anthropic" },
-    "kimi": { "baseUrl": "https://api.moonshot.cn", "api": "openai" }
+    "anthropic": {
+      "baseUrl": "https://api.anthropic.com",
+      "api": "anthropic",
+      "auth": { "type": "env", "key": "ANTHROPIC_API_KEY" }
+    },
+    "openrouter": {
+      "baseUrl": "https://openrouter.ai/api/v1",
+      "api": "openai",
+      "auth": { "type": "env", "key": "OPENROUTER_API_KEY" },
+      "pii": true,
+      "compress": true
+    },
+    "ollama": {
+      "baseUrl": "http://localhost:11434/v1",
+      "api": "openai",
+      "auth": { "type": "none" }
+    }
+  },
+  "categories": {
+    "simple_chat": { "primary": "openrouter/google/gemini-2.5-flash-lite", "fallback": [], "timeout": 30000 },
+    "coding":      { "primary": "openrouter/qwen/qwen3-coder:free", "fallback": [], "timeout": 120000 },
+    "reasoning":   { "primary": "anthropic/claude-opus-4-6", "fallback": [], "timeout": 120000 }
   },
   "tiers": {
-    "SIMPLE": { "model": "kimi-for-coding", "provider": "kimi", "fallback": "claude-haiku-4-5-20250315" },
-    "MEDIUM": { "model": "claude-sonnet-4-5-20250514", "provider": "anthropic" },
-    "COMPLEX": { "model": "claude-opus-4-0-20250115", "provider": "anthropic" },
-    "REASONING": { "model": "claude-opus-4-0-20250115", "provider": "anthropic" }
-  }
+    "SIMPLE":    { "primary": "openrouter/google/gemini-2.5-flash-lite", "fallback": [] },
+    "MEDIUM":    { "primary": "openrouter/deepseek/deepseek-v3.2", "fallback": [] },
+    "COMPLEX":   { "primary": "anthropic/claude-sonnet-4-5", "fallback": [] },
+    "REASONING": { "primary": "anthropic/claude-opus-4-6", "fallback": [] }
+  },
+  "mlClassifier": {
+    "url": "http://127.0.0.1:18801/classify",
+    "timeout_ms": 500,
+    "fallback_category": "general"
+  },
+  "cache": { "enabled": true, "ttl_seconds": 300, "max_entries": 5000 }
 }
 ```
 
-Reload without restart: `curl http://localhost:18800/reload-config`
+Reload without restart: `curl -X POST http://localhost:18800/reload-config`
+
+See [docs/providers.md](docs/providers.md) for provider cookbook (Groq, Together, Mistral, DeepSeek, Ollama, etc.).
+
+## Mode Overrides
+
+Force a category when you know better than the classifier:
+
+```
+/simple What's 2+2?
+/max Prove that P(A|B) = P(B|A)P(A)/P(B)
+/code Write a binary search in TypeScript
+[creative] Write a haiku about debugging
+deep mode: Analyze this distributed system for race conditions
+```
+
+| Aliases | Routes to |
+|---------|-----------|
+| `simple`, `basic`, `cheap` | simple_chat |
+| `medium`, `balanced` | general |
+| `complex`, `advanced`, `code` | coding |
+| `max`, `reasoning`, `think`, `deep` | reasoning |
+| `creative` | creative |
+| `data` | data |
+
+The prefix is **stripped** before forwarding — the LLM never sees it.
+
+## Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/v1/chat/completions` | POST | Main chat endpoint (OpenAI-compatible) |
+| `/v1/models` | GET | List available models (config-driven) |
+| `/health` | GET | Health check with uptime, stats, version |
+| `/stats` | GET | Request statistics (tiers, models, PII, cache, cost) |
+| `/config` | GET | View current config (secrets redacted) |
+| `/reload` | POST | Reload auth keys + config |
+| `/reload-config` | POST | Reload config file + auth |
+| `/dashboard` | GET | Web monitoring dashboard |
+
+## The Routing Engine
+
+### v2: ML Classifier (Primary)
+
+Calls the LLMRouter service (`localhost:18801`) which uses sentence-transformer embeddings + KNN to classify queries into 8 categories in ~40ms. Requires the companion `llmrouter-service` (Python).
+
+### v1: 15-Dimension Keyword Scorer (Fallback)
+
+When the ML service is unavailable, falls back to a rule-based scorer across 15 weighted dimensions:
+
+| Dimension | Weight | What It Measures |
+|-----------|--------|-----------------|
+| reasoningMarkers | 0.25 | Logical reasoning keywords |
+| technicalTerms | 0.18 | Specialized vocabulary |
+| codePresence | 0.12 | Programming keywords |
+| multiStepPatterns | 0.12 | Multi-step instructions |
+| domainSpecificity | 0.12 | Domain-specific terms |
+| simpleIndicators | 0.10 | Greetings, simple questions |
+| imperativeVerbs | 0.06 | Action verbs |
+| creativeMarkers | 0.05 | Creative writing keywords |
+| questionComplexity | 0.05 | Question structure |
+| tokenCount | 0.04 | Message length |
+| constraintCount | 0.04 | Constraint indicators |
+| agenticTask | 0.04 | Agentic/tool keywords |
+| outputFormat | 0.03 | Output format requests |
+| referenceComplexity | 0.02 | Reference patterns |
+| negationComplexity | 0.01 | Negation patterns |
+
+Multilingual keyword detection: English, Chinese, Japanese, Russian, German.
+
+## PII Scrubbing
+
+Enable per-provider with `"pii": true` in config. 15 detection patterns across 5 ordered passes:
+
+| Pass | Patterns | Categories |
+|------|----------|------------|
+| 1. High-confidence structured | PEM blocks, API keys, connection strings, Bearer tokens | pem, apikey, conn, cred |
+| 2. Structured identifiers | Emails, credit cards, SSNs, UK NINOs | email, cc, ssn, nino |
+| 3. Semi-structured | Phone numbers, IPv4/IPv6, UK postcodes, file paths | phone, ip, post, path |
+| 4. PEM headers | Stray PEM BEGIN lines | pem |
+| 5. Entropy catch-all | password=, secret=, token= patterns | secret |
+
+Placeholders are **type-preserving** (`p0{hex}@maildomain.com` for emails, `p0{hex}-placeholder-key` for API keys) so LLMs echo them correctly in tool calls. Encrypted with AES-256-GCM, memory-only.
+
+Zero overhead when disabled (default).
+
+## Project Structure
+
+```
+freerouter/
+├── src/
+│   ├── server.ts            # HTTP server, route handlers, stats
+│   ├── provider.ts          # Multi-provider forwarding + SSE translation
+│   ├── auth.ts              # API key management (env, file, keychain, none)
+│   ├── config.ts            # Config loader + types
+│   ├── models.ts            # Model catalog + pricing
+│   ├── usage.ts             # Token usage + cost tracking
+│   ├── logger.ts            # Logging
+│   ├── dashboard.ts         # Built-in web dashboard
+│   ├── cli.ts               # CLI entry point (npx freerouter)
+│   ├── index.ts             # Library exports
+│   ├── router/
+│   │   ├── index.ts         # ML classifier + legacy scorer integration
+│   │   ├── rules.ts         # 15-dimension keyword scorer
+│   │   ├── selector.ts      # Tier → model selection + cost estimation
+│   │   ├── config.ts        # Default routing config + weights
+│   │   └── types.ts         # Category, Tier, RoutingDecision types
+│   ├── pii/
+│   │   ├── vault.ts         # AES-256-GCM encryption + type-preserving placeholders
+│   │   ├── middleware.ts     # Scrub/rehydrate pipeline + streaming carry buffer
+│   │   ├── patterns.ts      # 15 PII detection regexes
+│   │   └── vault-store.ts   # Multi-session vault management
+│   ├── compress/
+│   │   ├── passes.ts        # 6 compression passes
+│   │   └── middleware.ts     # Message-level compression
+│   └── cache/
+│       └── store.ts         # LRU cache with TTL + SHA-256 hashing
+├── test/
+│   ├── unit/                # Cache, router, config unit tests
+│   ├── integration/         # Mock ML server integration tests
+│   └── *.test.ts            # Legacy test files (PII, compression, etc.)
+├── bench/                   # Benchmark suite (100 prompts)
+├── demo/                    # Static comparison page
+├── docs/                    # Documentation
+├── Dockerfile               # Multi-stage Node.js build
+├── docker-compose.yml       # Router + ML classifier stack
+├── freerouter.config.example.json
+└── package.json
+```
 
 ## OpenClaw Integration
 
-Add to your `openclaw.json`:
+Add FreeRouter as a provider in your OpenClaw config:
 
 ```json
 {
@@ -174,95 +302,12 @@ Add to your `openclaw.json`:
 }
 ```
 
-## Endpoints
-
-| Endpoint | Description |
-|----------|-------------|
-| `POST /v1/chat/completions` | Main chat endpoint (OpenAI-compatible) |
-| `GET /health` | Health check with uptime and timeout count |
-| `GET /stats` | Request statistics by tier |
-| `GET /v1/models` | List available models |
-| `GET /config` | View current config (secrets redacted) |
-| `POST /reload` | Reload auth keys |
-| `POST /reload-config` | Reload config file |
-
-## The 14-Dimension Classifier
-
-Each message is scored across 14 dimensions:
-
-| Dimension | What It Measures |
-|-----------|-----------------|
-| Token count | Message length |
-| Vocabulary complexity | Rare/technical words |
-| Syntax complexity | Nested clauses, conditionals |
-| Domain specificity | Specialized knowledge needed |
-| Ambiguity | How open-ended the request is |
-| Context dependency | Needs prior conversation |
-| Reasoning depth | Logical steps required |
-| Creativity level | Original generation needed |
-| Emotional complexity | Nuance in tone/sentiment |
-| Multimodality | References to images/files |
-| Instruction complexity | Multi-step instructions |
-| Knowledge recency | Needs current information |
-| Code complexity | Programming difficulty |
-| Mathematical complexity | Formal math/proofs |
-
-Scores are weighted and combined. Tier boundaries are configurable.
-
-## Cost Impact
-
-| Scenario | Estimated Daily Cost |
-|----------|---------------------|
-| All Opus (no routing) | ~$50/day |
-| With FreeRouter | ~$10-15/day |
-| **Savings** | **60-80%** |
-
-Most messages are simple. Those go to Kimi at near-zero cost. Only complex work hits Opus.
-
-## Project Structure
-
-```
-freerouter/
-├── src/
-│   ├── server.ts          # HTTP server + mode override detection
-│   ├── provider.ts        # Multi-provider forwarding + SSE translation
-│   ├── auth.ts            # API key management
-│   ├── config.ts          # External config loader
-│   ├── logger.ts          # Request logging
-│   └── router/
-│       ├── index.ts       # 14-dimension classifier
-│       ├── config.ts      # Tier mappings + scoring weights
-│       └── rules.ts       # Keyword-based overrides
-├── src/pii/
-│   ├── index.ts          # PII module entry
-│   ├── middleware.ts      # Request/response PII middleware
-│   ├── patterns.ts       # PII detection patterns
-│   ├── vault.ts          # PII vault (redact/rehydrate)
-│   └── vault-store.ts    # Vault persistence
-├── src/compress/
-│   ├── index.ts          # CtxPack module entry
-│   ├── middleware.ts      # Message-level compression middleware
-│   └── passes.ts         # 6 compression passes (ansi, whitespace, json, dedup, comments, verbose)
-├── src/cache/
-│   ├── index.ts          # Cache module entry
-│   └── store.ts          # LRU cache with TTL, normalize, hash key generation
-├── test/
-│   ├── cache-*.test.ts    # Cache tests (store unit, integration)
-│   ├── compress-*.test.ts # CtxPack tests (passes, middleware)
-│   ├── pii-*.test.ts     # PII tests (middleware, integration, streaming, gaps)
-│   ├── usage.test.ts     # Usage tracking tests
-│   ├── e2e.ts            # End-to-end tests
-│   ├── fallback.ts       # Fallback chain tests
-│   └── resilience-*.ts   # Resilience tests (errors, lifecycle, stability)
-├── freerouter.config.json # Example config
-├── tsconfig.json
-└── package.json
-```
-
 ## Credits
 
-Forked from [BlockRunAI/ClawRouter](https://github.com/BlockRunAI/ClawRouter) (MIT License). Routing engine preserved; x402 payment protocol removed entirely. Credit to BlockRunAI for the original classifier design.
+Forked from [BlockRunAI/ClawRouter](https://github.com/BlockRunAI/ClawRouter) (MIT License). Original 15-dimension routing engine preserved and extended; x402 payment protocol removed. Credit to BlockRunAI for the classifier design.
+
+**New in FreeRouter:** ML-powered 8-category routing, PII scrubbing, CtxPack compression, response caching, web dashboard, CLI, Docker support.
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE) — Copyright BlockRunAI (original) + frdaniel76 (FreeRouter extensions)

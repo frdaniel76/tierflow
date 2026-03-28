@@ -1,28 +1,48 @@
 # Changelog
 
-## [2.0.0] — 2026-03-23
+## [2.0.0] — 2026-03-28
 
 ### ML-Powered Category Routing
 
-Replaced the 14-dimension keyword scorer with an ML classifier service.
+Replaced the 15-dimension keyword scorer as primary routing engine with an ML classifier service.
 
 #### Architecture
 - LLMRouter microservice (Python FastAPI) on localhost:18801
 - KNN classifier with sentence-transformers embeddings (all-MiniLM-L6-v2, 80MB)
 - 160 curated training examples across 8 categories
-- ~40ms classification latency, graceful fallback when ML service is down
+- ~40ms classification latency, graceful fallback to keyword scorer when ML is down
 
-#### 8 Categories → Specialized Models
-| Category | Model | Cost |
-|----------|-------|------|
-| simple_chat | Gemini Flash | $0.50/M |
-| general | DeepSeek V3.2 | $2.74/M |
+#### 8 Categories (models configurable per deployment)
+| Category | Default Model | Cost |
+|----------|---------------|------|
+| simple_chat | Gemini Flash Lite | ~$0.50/M |
+| general | DeepSeek V3.2 | ~$2.74/M |
 | coding | Qwen3 Coder | Free |
-| reasoning | DeepSeek R1 | $4.36/M |
+| reasoning | GPT-oss / DeepSeek R1 | ~$4/M |
 | creative | Step 3.5 Flash | Free |
-| data | Gemini Flash | $0.50/M |
-| agentic | DeepSeek V3.2 | $2.74/M |
-| transcription | Local whisper | Free |
+| data | Gemini Flash Lite | ~$0.50/M |
+| agentic | DeepSeek V3.2 | ~$2.74/M |
+| transcription | Gemini Flash Lite | ~$0.50/M |
+
+#### Community Release Features (v2.0.0)
+- **Web dashboard** at `GET /dashboard` — tier distribution, model usage, cache stats, hourly chart, auto-refresh
+- **Docker Compose** — `docker compose up` for router + ML classifier
+- **CLI** — `npx freerouter --init`, `--check`, `--port`, `--version`
+- **Provider plugins** — `"none"` auth type for Ollama, config-driven `/v1/models`, provider cookbook
+- **Benchmark suite** — 100 prompts, accuracy + cost savings metrics
+- **GitHub Actions CI** — Node 20+22 matrix, 40 tests (unit + integration)
+- **npm package** — `bin` entry, publishable to npm
+
+#### CtxPack Compression
+- 6 algorithmic passes: ANSI strip, whitespace collapse, JSON compact, line dedup, comment strip, stack trace trim
+- Per-provider opt-in (`"compress": true`)
+- 30-70% token savings on typical messages
+
+#### Response Cache
+- LRU with TTL (default 300s, max 5000 entries)
+- SHA-256 exact-match keying
+- `X-Cache: HIT/MISS` headers
+- Excludes streaming and tool calls by default
 
 #### Key Improvements
 - "Tell me a joke" → simple_chat (was REASONING due to keyword matching)
@@ -39,22 +59,22 @@ Replaced the 14-dimension keyword scorer with an ML classifier service.
 
 Placeholders now look like the original data type — LLMs understand what the data IS and echo it correctly in tool calls.
 
-#### Placeholder Templates
+#### Placeholder Templates (actual from `src/pii/vault.ts`)
 | Category | Template | Example |
 |----------|----------|---------|
 | email | `p0{hex}@maildomain.com` | `p0a1b2c3d4e5f6@maildomain.com` |
-| apikey | `sk-p0{hex}-placeholder` | `sk-p0a1b2c3d4e5f6-placeholder` |
+| apikey | `p0{hex}-placeholder-key` | `p0a1b2c3d4e5f6-placeholder-key` |
 | conn | `p0{hex}://placeholder/db` | `p0a1b2c3d4e5f6://placeholder/db` |
-| cred | `Bearer p0{hex}-placeholder` | `Bearer p0a1b2c3d4e5f6-placeholder` |
-| cc | `0000-p0{hex}-0000` | `0000-p0a1b2c3d4e5f6-0000` |
-| ssn | `900-p0{hex}` | `900-p0a1b2c3d4e5f6` |
-| phone | `+0-555-p0{hex}` | `+0-555-p0a1b2c3d4e5f6` |
+| cred | `p0{hex}-placeholder-token` | `p0a1b2c3d4e5f6-placeholder-token` |
+| cc | `p0{hex}-0000-card` | `p0a1b2c3d4e5f6-0000-card` |
+| ssn | `p0{hex}-ssn` | `p0a1b2c3d4e5f6-ssn` |
+| phone | `p0{hex}-phone` | `p0a1b2c3d4e5f6-phone` |
 | ip | `p0{hex}.0.0.1` | `p0a1b2c3d4e5f6.0.0.1` |
-| path | `/pii/p0{hex}/redacted` | `/pii/p0a1b2c3d4e5f6/redacted` |
-| pem | `-----BEGIN PII p0{hex} KEY-----` | `-----BEGIN PII p0a1b2... KEY-----` |
-| nino | `QQp0{hex}C` | `QQp0a1b2c3d4e5f6C` |
-| post | `ZZp0{hex}` | `ZZp0a1b2c3d4e5f6` |
-| secret | `{keyword}=p0{hex}-redacted` | `password=p0a1b2c3d4e5f6-redacted` |
+| path | `p0{hex}/pii/redacted` | `p0a1b2c3d4e5f6/pii/redacted` |
+| pem | `p0{hex}-PII-KEY` | `p0a1b2c3d4e5f6-PII-KEY` |
+| nino | `p0{hex}-nino` | `p0a1b2c3d4e5f6-nino` |
+| post | `p0{hex}-postcode` | `p0a1b2c3d4e5f6-postcode` |
+| secret | `p0{hex}-{keyword}` | `p0a1b2c3d4e5f6-password` |
 
 - Universal ID marker: `p0[0-9a-f]{12}` — present in every placeholder
 - `secret` category preserves the keyword prefix (password, token, api_key, etc.)
@@ -67,11 +87,11 @@ Placeholders now look like the original data type — LLMs understand what the d
 
 ### PII Tool Call Hardening & Placeholder Format Change
 
-#### Placeholder Format
+#### Placeholder Format (intermediate — superseded by v1.5.0)
 - Changed from `<<category:hexid>>` to `__PII_category_hexid__`
 - Old format was parsed/stripped by LLMs (especially DeepSeek) which broke tool call rehydration
-- New format is treated as an opaque identifier — LLMs echo it verbatim
-- Added fallback regex to handle cases where LLMs strip the `__` delimiters
+- New format treated as an opaque identifier — LLMs echo it verbatim
+- *Note: This format was replaced in v1.5.0 by type-preserving `p0{hex}` placeholders*
 
 #### Streaming Tool Call Carry Buffer
 - Added per-tool-call carry buffers for streaming argument deltas (OpenAI + Anthropic paths)
@@ -137,7 +157,7 @@ When no prefix is detected, falls back to normal 14-dimension classification —
 - Deep-merges file config over built-in defaults — fully backward compatible (works without config file)
 - New `/config` endpoint — view current config with secrets redacted
 - New `/reload-config` endpoint — reload config without restarting the proxy
-- Auth types: `openclaw` (reads auth-profiles.json), `env` (environment variables), per-provider overrides
+- Auth types: `openclaw` (reads auth-profiles.json), `env` (environment variables), `file`, `keychain` (macOS), `none` (local providers), per-provider overrides
 
 #### Reliability
 - **Request timeouts** — `AbortSignal.timeout()` per tier: SIMPLE 30s, MEDIUM 60s, COMPLEX/REASONING 120s

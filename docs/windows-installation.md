@@ -1,173 +1,78 @@
 # Windows Installation Guide
 
-## Current Status
+## Prerequisites
 
-**⚠️ Windows installation is temporarily unavailable** due to an OpenClaw CLI bug.
+- **Node.js 20+** — download from [nodejs.org](https://nodejs.org/)
+- **Git** — download from [git-scm.com](https://git-scm.com/)
+- **Python 3.10+** (optional, for ML classifier) — download from [python.org](https://python.org/)
 
-### The Issue
-
-When attempting to install ClawRouter on Windows, users encounter this error:
-
-```
-Error: spawn EINVAL
-at ChildProcess.spawn (node:internal/child_process:420:11)
-```
-
-This is an **OpenClaw framework bug**, not a ClawRouter issue. The OpenClaw CLI cannot spawn child processes correctly on Windows. ClawRouter itself is fully compatible with Windows - our code works perfectly once installed.
-
-## Recommended Approach
-
-**Wait for OpenClaw to fix Windows support.** ClawRouter works perfectly on:
-
-- ✅ **Linux** (Ubuntu, Debian, RHEL, Alpine, etc.)
-- ✅ **macOS** (Intel and Apple Silicon)
-
-## Manual Installation (Advanced Users)
-
-If you need Windows support immediately, you can install ClawRouter manually:
-
-### Prerequisites
+## Option A: npm (Recommended)
 
 ```powershell
-# Install Node.js 20+ and npm
-# Download from: https://nodejs.org/
-
-# Install OpenClaw globally
-npm install -g openclaw@latest
+# Install and run
+npx freerouter --init
+npx freerouter
 ```
 
-### Step 1: Install Plugin Manually
+## Option B: Clone & Build
 
 ```powershell
-# Navigate to OpenClaw plugins directory
-cd $env:USERPROFILE\.openclaw\plugins
-
-# Create directory if it doesn't exist
-New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.openclaw\plugins"
-
-# Install ClawRouter directly
-npm install @blockrun/clawrouter@latest
+git clone https://github.com/frdaniel76/freerouter.git
+cd freerouter
+npm install
+npm run build
+npm start
 ```
 
-### Step 2: Configure OpenClaw
+## Option C: Docker
 
-Edit `%USERPROFILE%\.openclaw\openclaw.json` and add the BlockRun provider:
-
-```json
-{
-  "models": {
-    "providers": {
-      "blockrun": {
-        "baseUrl": "https://api.blockrun.ai",
-        "api": "blockrun",
-        "models": [
-          {
-            "id": "auto",
-            "name": "Smart Router",
-            "api": "blockrun",
-            "reasoning": false,
-            "input": ["text"],
-            "cost": { "input": 3, "output": 15 }
-          }
-        ]
-      }
-    }
-  },
-  "agents": {
-    "defaults": {
-      "model": {
-        "primary": "blockrun/auto"
-      }
-    }
-  }
-}
-```
-
-### Step 3: Start Gateway
+Requires Docker Desktop for Windows.
 
 ```powershell
-openclaw gateway restart
+docker compose up -d
 ```
 
-### Step 4: Fund Your Wallet
+## Configuration
 
-The wallet address will be displayed in the gateway logs or use the `/wallet` command in OpenClaw.
+Generate a config template:
+```powershell
+npx freerouter --init
+# Creates: %USERPROFILE%\.config\freerouter\config.json
+```
 
-Fund it with $5 USDC on Base network:
+Set API keys:
+```powershell
+$env:ANTHROPIC_API_KEY = "sk-ant-..."
+$env:OPENROUTER_API_KEY = "sk-or-..."
+```
 
-- Coinbase: Buy USDC, send to Base
-- Bridge: Move USDC from any chain to Base
-- CEX: Withdraw USDC to Base network
+Or in `.env` file for Docker.
 
-## Testing Infrastructure
+## ML Classifier (Optional)
 
-ClawRouter has full Windows testing infrastructure ready:
-
-- **GitHub Actions workflow**: [.github/workflows/test-windows.yml](../.github/workflows/test-windows.yml)
-- **Windows test script**: [test/test-model-selection.ps1](../test/test-model-selection.ps1)
-- **Docker support**: [test/Dockerfile.windows](../test/Dockerfile.windows)
-
-Once OpenClaw fixes their Windows CLI bug, our tests will automatically verify Windows compatibility.
-
-## Troubleshooting
-
-### "Plugin not found" Error
-
-The plugin was installed manually, so OpenClaw might not detect it. Restart the gateway:
+For ML-powered routing, also start the LLMRouter service:
 
 ```powershell
-openclaw gateway stop
-openclaw gateway start
+cd llmrouter-service
+pip install -r requirements.txt
+python server.py
 ```
 
-### Wallet Not Generated
+Without it, FreeRouter uses the 15-dimension keyword scorer (still works, just less accurate).
 
-ClawRouter auto-generates a wallet at `%USERPROFILE%\.openclaw\blockrun\wallet.key`. If it wasn't created:
+## Verify
 
 ```powershell
-# Create directory
-New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.openclaw\blockrun"
+# Health check
+curl http://localhost:18800/health
 
-# Generate wallet using ClawRouter directly (requires Node.js code)
+# Dashboard
+start http://localhost:18800/dashboard
+
+# Validate setup
+npx freerouter --check
 ```
 
-Alternatively, use your own wallet:
+## Firewall
 
-```powershell
-$env:BLOCKRUN_WALLET_KEY="0x..."
-```
-
-### Proxy Not Starting
-
-Check if the proxy is running:
-
-```powershell
-curl http://localhost:8402/health
-```
-
-If not running, check gateway logs for errors.
-
-## Updates
-
-**How to get updates once OpenClaw fixes Windows support:**
-
-```powershell
-# Once official support is available:
-openclaw plugins update @blockrun/clawrouter
-
-# Or reinstall:
-openclaw plugins uninstall @blockrun/clawrouter
-openclaw plugins install @blockrun/clawrouter@latest
-```
-
-## Support
-
-- **GitHub Issues**: [BlockRunAI/ClawRouter](https://github.com/BlockRunAI/ClawRouter/issues)
-- **Telegram**: [t.me/blockrunAI](https://t.me/blockrunAI)
-- **X/Twitter**: [@BlockRunAI](https://x.com/BlockRunAI)
-
----
-
-**Status updated**: February 11, 2026
-
-ClawRouter is ready for Windows. We're waiting on OpenClaw to fix their CLI bug.
+FreeRouter binds to `127.0.0.1` by default (localhost only). If you need network access, change `host` in config to `"0.0.0.0"` and allow port 18800 in Windows Firewall.

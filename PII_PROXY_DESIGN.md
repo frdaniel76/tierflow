@@ -1,8 +1,14 @@
 # FreeRouter PII Proxy — Design & Implementation Plan
 
-**Version:** 1.5.0
-**Date:** 2026-03-22
-**Status:** IMPLEMENTED — 153/153 tests passing (v1.5.0: type-preserving placeholders)
+**Version:** 2.0.0
+**Date:** 2026-03-28
+**Status:** IMPLEMENTED — Type-preserving placeholders with AES-256-GCM encryption
+
+> **Note:** Some sections of this design doc describe the original `<<category:hexid>>` placeholder
+> format from the initial design. The implemented format uses `p0{12hex}` prefix-based
+> type-preserving placeholders (see Section 4 for actual templates). The streaming carry buffer
+> (Section 7) was reimplemented to use `p0` prefix detection instead of `<<>>` delimiters.
+> Max carry buffer: 40 chars (not 24).
 
 ---
 
@@ -105,9 +111,10 @@ export type ProviderConfigEntry = {
 // NEW type
 export type PiiConfig = {
   enabled: boolean;
-  mode?: "strict" | "standard";       // strict = fail-closed, standard = log + pass
+  mode?: "strict" | "standard";       // strict (default) = fail-closed, standard = log + pass
   exclude?: string[];                 // categories to skip (e.g. ["postcode", "phone"])
-  debug_log_scrubbed?: boolean;       // TEMPORARY — logs scrubbed (safe) payload for verification. Remove after validation.
+  scrub_system?: boolean;             // opt-in: scrub system/developer messages (default: false)
+  debug_log_scrubbed?: boolean;       // TEMPORARY — logs scrubbed (safe) payload for verification
 };
 ```
 
@@ -230,6 +237,7 @@ export interface ScrubResult {
 export function scrubMessages(
   messages: ChatMessage[],
   exclude?: string[],
+  scrubSystem?: boolean,    // opt-in: scrub system/developer messages
 ): ScrubResult;
 
 /**
