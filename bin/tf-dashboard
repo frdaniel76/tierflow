@@ -162,7 +162,7 @@ async function render() {
   lines.push(hline(ML, MR));
 
   // Controls
-  lines.push(row(`${DIM}[q]uit  [r]efresh  [1-4] preset  [t]est providers${RESET}`));
+  lines.push(row(`${DIM}[c]onfig  [q]uit  [r]efresh  [1-4] preset  [t]est providers${RESET}`));
   lines.push(hline(BL, BR));
 
   process.stdout.write(CLEAR + lines.join('\n') + '\n');
@@ -171,11 +171,147 @@ async function render() {
 // ─── Keyboard Controls ───
 
 let timer = null;
+let viewMode = 'stats'; // 'stats' or 'config'
 const presetNames = ['free', 'smart_saver', 'quality_first', 'maximum'];
+const catIcons = { simple_chat:'💬', general:'🌐', coding:'⚙ ', reasoning:'🧮', creative:'✍ ', data:'📊', agentic:'🤖', transcription:'🎤' };
+
+function levelBar(level, max=5) {
+  let s = '';
+  for (let i = 1; i <= max; i++) {
+    if (i <= level) s += GREEN + '●' + RESET;
+    else s += DIM + '○' + RESET;
+  }
+  return s;
+}
+
+async function renderConfig() {
+  const [quality, cfg] = await Promise.all([
+    fetchJSON('/quality-tiers'),
+    fetchJSON('/config'),
+  ]);
+
+  if (!cfg) {
+    process.stdout.write(CLEAR);
+    console.log(`\n  ${RED}Could not load config from ${BASE}${RESET}\n`);
+    return;
+  }
+
+  // If /quality-tiers doesn't exist (old server), build from /config
+  const hasQuality = quality && quality.categories;
+  const config = cfg.config || {};
+  const preset = hasQuality ? (quality.activePreset || 'custom') : 'unknown';
+  const presetLabel = hasQuality
+    ? (quality.presets?.find(p => p.name === preset)?.label || preset)
+    : 'Restart server to enable';
+
+  const lines = [];
+
+  // Header
+  lines.push(hline(TL, TR));
+  lines.push(row(`${BOLD}${GREEN}Tier${WHITE}Flow${RESET} ${BOLD}Quality Configuration${RESET}`));
+  lines.push(hline(ML, MR));
+
+  // Active preset
+  lines.push(row(`Active Preset: ${BOLD}${CYAN}${presetLabel}${RESET}  (Global Level: ${BOLD}${quality.globalLevel}${RESET}/5)`));
+  lines.push(emptyRow());
+
+  // Preset selector
+  const presetLine = quality.presets.map(p => {
+    const active = p.name === preset;
+    const num = presetNames.indexOf(p.name) + 1;
+    if (active) return `${BG_GREEN}${WHITE}${BOLD} ${num}:${p.label} ${RESET}`;
+    return `${DIM}[${num}]${p.label}${RESET}`;
+  }).join('  ');
+  lines.push(row(presetLine));
+  lines.push(hline(ML, MR));
+
+  // Column headers
+  lines.push(row(`${DIM}   Category       Level   Model                        $/M out  Ctx${RESET}`));
+  lines.push(hline(ML, MR));
+
+  // Per-category rows — use quality tiers if available, else fall back to config
+  const categories = hasQuality ? quality.categories : null;
+  const configCats = config.categories || {};
+  const catKeys = categories ? Object.keys(categories) : Object.keys(configCats);
+
+  for (const cat of catKeys) {
+    const icon = catIcons[cat] || '◆ ';
+    const catName = padRight(cat, 14);
+
+    if (categories && categories[cat]) {
+      const info = categories[cat];
+      const lv = info.overrideLevel || 0;
+      const level = lv > 0 && lv <= 5 ? info.levels[lv - 1] : null;
+      const levelStr = lv > 0 ? levelBar(lv) : `${DIM}--${RESET}   `;
+      const modelShort = level
+        ? padRight(level.model.replace('openrouter/', '').slice(0, 28), 28)
+        : padRight(info.currentModel.replace('openrouter/', '').slice(0, 28), 28);
+      const price = level
+        ? (level.inputPrice === 0 && level.outputPrice === 0
+            ? `${GREEN}Free${RESET}   `
+            : padLeft('$' + level.outputPrice.toFixed(2), 7))
+        : `${DIM}  --${RESET}   `;
+      const ctx = level
+        ? padLeft(level.contextWindow >= 1e6 ? (level.contextWindow/1e6).toFixed(0)+'M' : (level.contextWindow/1e3).toFixed(0)+'k', 5)
+        : `${DIM}   --${RESET}`;
+      lines.push(row(`${icon} ${catName} ${levelStr}  ${modelShort} ${price} ${ctx}`));
+    } else {
+      // Fallback: just show model from config
+      const model = configCats[cat]?.primary || 'not set';
+      const modelShort = padRight(model.replace('openrouter/', '').slice(0, 28), 28);
+      lines.push(row(`${icon} ${catName} ${DIM}--${RESET}    ${modelShort} ${DIM}  --     --${RESET}`));
+    }
+  }
+
+  lines.push(hline(ML, MR));
+
+  // Model details — only if quality tiers are available
+  if (hasQuality) {
+    lines.push(row(`${BOLD}Model Options per Category${RESET}  ${DIM}(▸ = active)${RESET}`));
+    lines.push(hline(ML, MR));
+
+    for (const [cat, info] of Object.entries(categories)) {
+      const lv = info.overrideLevel || 0;
+      const icon = catIcons[cat] || '◆ ';
+      lines.push(row(`${icon} ${BOLD}${cat}${RESET}`));
+
+      for (const level of info.levels) {
+        const active = level.level === lv;
+        const marker = active ? `${GREEN}▸${RESET}` : ' ';
+        const lvNum = active ? `${BOLD}${GREEN}${level.level}${RESET}` : `${DIM}${level.level}${RESET}`;
+        const label = padRight(level.label, 9);
+        const model = padRight(level.model.replace('openrouter/', '').slice(0, 25), 25);
+        const price = level.inputPrice === 0 && level.outputPrice === 0
+          ? `${GREEN}Free${RESET}     `
+          : `$${padLeft(level.inputPrice.toFixed(2), 5)}/${padLeft(level.outputPrice.toFixed(2), 5)}`;
+        const speed = level.speedTier === 'fast' ? `${GREEN}fast${RESET}` : level.speedTier === 'slow' ? `${YELLOW}slow${RESET}` : `${BLUE}med${RESET} `;
+        const benchStr = Object.entries(level.benchmarks || {}).slice(0, 2).map(([k,v]) => `${DIM}${k}:${v}${RESET}`).join(' ');
+
+        lines.push(row(`${marker}${lvNum} ${label} ${model} ${price}  ${speed} ${benchStr}`));
+      }
+      lines.push(emptyRow());
+    }
+  } else {
+    lines.push(emptyRow());
+    lines.push(row(`${DIM}Restart TierFlow server for quality tier details${RESET}`));
+    lines.push(row(`${DIM}(run: npm run build && npm start)${RESET}`));
+  }
+
+  lines.push(hline(ML, MR));
+  lines.push(row(`${DIM}[s]tats  [q]uit  [r]efresh  [1-4] apply preset  [5] set level${RESET}`));
+  lines.push(hline(BL, BR));
+
+  process.stdout.write(CLEAR + lines.join('\n') + '\n');
+}
+
+async function renderCurrent() {
+  if (viewMode === 'config') await renderConfig();
+  else await render();
+}
 
 function startPolling() {
   if (timer) clearInterval(timer);
-  timer = setInterval(render, INTERVAL);
+  timer = setInterval(renderCurrent, INTERVAL);
 }
 
 if (process.stdin.isTTY) {
@@ -190,6 +326,14 @@ if (process.stdin.isTTY) {
       process.exit(0);
     }
     if (key === 'r') {
+      await renderCurrent();
+    }
+    if (key === 'c') {
+      viewMode = 'config';
+      await renderConfig();
+    }
+    if (key === 's') {
+      viewMode = 'stats';
       await render();
     }
     if (key >= '1' && key <= '4') {
@@ -202,6 +346,46 @@ if (process.stdin.isTTY) {
         });
         await render();
       } catch {}
+    }
+    if (key === '5') {
+      // Set individual category level
+      process.stdout.write(CLEAR + SHOW_CURSOR);
+      console.log('\n  Set category quality level\n');
+      const quality = await fetchJSON('/quality-tiers');
+      if (quality?.categories) {
+        const cats = Object.keys(quality.categories);
+        cats.forEach((c, i) => {
+          const lv = quality.categories[c].overrideLevel || '?';
+          const icon = catIcons[c] || '  ';
+          console.log(`  ${i+1}. ${icon} ${padRight(c, 15)} Level ${lv}/5`);
+        });
+        console.log(`\n  Enter: category# level (e.g. "3 4" = coding level 4)`);
+        console.log(`  Or press Enter to cancel.\n`);
+        process.stdout.write('  > ');
+        process.stdin.setRawMode(false);
+        const line = await new Promise(resolve => {
+          process.stdin.once('data', d => resolve(d.toString().trim()));
+        });
+        process.stdin.setRawMode(true);
+        const parts = line.split(/\s+/);
+        if (parts.length === 2) {
+          const catIdx = parseInt(parts[0]) - 1;
+          const level = parseInt(parts[1]);
+          if (catIdx >= 0 && catIdx < cats.length && level >= 1 && level <= 5) {
+            await fetch(BASE + '/quality-level', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ category: cats[catIdx], level }),
+            });
+            console.log(`  ${GREEN}Set ${cats[catIdx]} to level ${level}${RESET}`);
+          } else {
+            console.log(`  ${RED}Invalid input${RESET}`);
+          }
+          await new Promise(r => setTimeout(r, 1000));
+        }
+        process.stdout.write(HIDE_CURSOR);
+        await renderCurrent();
+      }
     }
     if (key === 't') {
       // Test all providers
