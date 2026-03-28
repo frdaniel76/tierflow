@@ -47,7 +47,7 @@ export async function route(
   options: RouterOptions,
   metadata?: RouteMetadata,
 ): Promise<RoutingDecision> {
-  const { config, modelPricing } = options;
+  const { config } = options;
   const estimatedTotalTokens = Math.ceil(`${systemPrompt ?? ""} ${prompt}`.length / 4);
 
   // ─── v2: Category-based routing (if categories configured) ───

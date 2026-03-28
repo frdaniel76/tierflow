@@ -5,12 +5,7 @@
  */
 
 import { getAuth } from "./auth.js";
-import {
-  getConfig,
-  toInternalApiType,
-  supportsAdaptiveThinking as configSupportsAdaptive,
-  getThinkingBudget,
-} from "./config.js";
+import { getConfig, toInternalApiType, supportsAdaptiveThinking } from "./config.js";
 import { logger } from "./logger.js";
 import { rehydrateText, rehydrateChunk } from "./pii/index.js";
 import { recordUsage } from "./usage.js";
@@ -23,7 +18,7 @@ const OPUS_OUTPUT_PRICE = 75 / 1_000_000; // $75/1M tokens
 function computeBaselineCost(promptTokens: number, completionTokens: number): number {
   return promptTokens * OPUS_INPUT_PRICE + completionTokens * OPUS_OUTPUT_PRICE;
 }
-import type { IncomingMessage, ServerResponse } from "node:http";
+import type { ServerResponse } from "node:http";
 // --- Timeout Configuration ---
 const TIER_TIMEOUTS: Record<string, number> = {
   SIMPLE: 30_000,
@@ -118,13 +113,6 @@ export function parseModelId(modelId: string): { provider: string; model: string
   const slash = modelId.indexOf("/");
   if (slash === -1) return { provider: "anthropic", model: modelId };
   return { provider: modelId.slice(0, slash), model: modelId.slice(slash + 1) };
-}
-
-/**
- * Check if a model supports adaptive thinking (Opus 4.6+)
- */
-function supportsAdaptiveThinking(modelId: string): boolean {
-  return modelId.includes("opus-4-6") || modelId.includes("opus-4.6");
 }
 
 /**
@@ -299,7 +287,7 @@ async function forwardToAnthropic(
   res: ServerResponse,
   stream: boolean,
   piiSession?: string | null,
-  piiMode?: "strict" | "standard",
+  _piiMode?: "strict" | "standard",
 ): Promise<void> {
   const auth = getAuth("anthropic");
   if (!auth?.token) throw new Error("No Anthropic auth token");
@@ -481,7 +469,7 @@ async function forwardToAnthropic(
       id: `chatcmpl-${Date.now()}`,
       object: "chat.completion",
       created: Math.floor(Date.now() / 1000),
-      model: `clawrouter/${modelName}`,
+      model: `anthropic/${modelName}`,
       choices: [{ index: 0, message, finish_reason: finishReason }],
       usage: {
         prompt_tokens: data.usage?.input_tokens ?? 0,
@@ -534,7 +522,7 @@ async function forwardToAnthropic(
     id: `chatcmpl-${Date.now()}`,
     object: "chat.completion.chunk",
     created: Math.floor(Date.now() / 1000),
-    model: `clawrouter/${modelName}`,
+    model: `anthropic/${modelName}`,
     choices: [{ index: 0, delta, finish_reason: finish }],
   });
 
@@ -765,7 +753,7 @@ async function forwardToOpenAI(
 
   if (!stream) {
     const data = (await response.json()) as Record<string, unknown>;
-    if (data.model) data.model = `clawrouter/${modelName}`;
+    if (data.model) data.model = `${provider}/${modelName}`;
 
     // Normalize non-standard fields from providers (e.g. Gemini via OpenRouter)
     delete (data as any).provider;
@@ -880,7 +868,7 @@ async function forwardToOpenAI(
             }
             try {
               const chunk = JSON.parse(jsonStr);
-              if (chunk.model) chunk.model = `clawrouter/${modelName}`;
+              if (chunk.model) chunk.model = `${provider}/${modelName}`;
 
               // Capture usage from streaming chunk (OpenRouter sends it in the last chunk)
               if (chunk.usage) streamUsage = chunk.usage;
@@ -986,7 +974,7 @@ async function forwardToOpenAI(
         id: `chatcmpl-${Date.now()}`,
         object: "chat.completion.chunk",
         created: Math.floor(Date.now() / 1000),
-        model: `clawrouter/${modelName}`,
+        model: `${provider}/${modelName}`,
         choices: [{ index: 0, delta: { content: flushed }, finish_reason: null }],
       };
       res.write(`data: ${JSON.stringify(flushChunk)}\n\n`);
@@ -1000,7 +988,7 @@ async function forwardToOpenAI(
             id: `chatcmpl-${Date.now()}`,
             object: "chat.completion.chunk",
             created: Math.floor(Date.now() / 1000),
-            model: `clawrouter/${modelName}`,
+            model: `${provider}/${modelName}`,
             choices: [
               {
                 index: 0,

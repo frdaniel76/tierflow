@@ -6,7 +6,6 @@
  * Fail-open: on error, logs and passes uncompressed.
  */
 
-import { logger } from "../logger.js";
 import { ALL_PASSES, PASS_FNS } from "./passes.js";
 import type { PassName } from "./passes.js";
 import type { ChatMessage } from "../provider.js";

@@ -5,7 +5,6 @@
  * carry-buffer rehydration for SSE chunks.
  */
 
-import { SecretVault, PII_ID_MARKER } from "./vault.js";
 import { VaultStore } from "./vault-store.js";
 import { logger } from "../logger.js";
 import type { ChatMessage } from "../provider.js";
@@ -24,18 +23,6 @@ export interface ScrubResult {
 }
 
 // ─── Message Scrubbing ───
-
-/**
- * Extract text content from a message, handling both string and array formats.
- */
-function getTextContent(content: ChatMessage["content"]): string {
-  if (typeof content === "string") return content;
-  if (content === null || content === undefined) return "";
-  return content
-    .filter((b) => b.type === "text")
-    .map((b) => b.text ?? "")
-    .join("\n");
-}
 
 /**
  * Deep-clone a ChatMessage to avoid mutating the original.

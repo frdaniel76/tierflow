@@ -44,7 +44,6 @@ import { scrubMessages, destroySession, piiVaultStore } from "./pii/index.js";
 import { compressMessages } from "./compress/index.js";
 import type { PassName } from "./compress/index.js";
 import { LRUCache, buildCacheKey } from "./cache/index.js";
-import type { CacheGlobalConfig } from "./config.js";
 import { getUsageStats } from "./usage.js";
 import { getDashboardHTML } from "./dashboard.js";
 import {
@@ -174,62 +173,6 @@ function extractPromptForClassification(messages: ChatRequest["messages"]): {
 }
 
 /**
- * Detect user-requested mode override in prompt text.
- * Users can prefix or include mode directives to force a specific tier:
- *   "simple mode: ..."  or  "/simple ..."   → SIMPLE
- *   "medium mode: ..."  or  "/medium ..."   → MEDIUM
- *   "complex mode: ..." or  "/complex ..."  → COMPLEX
- *   "max mode: ..."     or  "/max ..."      → REASONING
- *   "reasoning mode: ..." or "/reasoning ..." → REASONING
- *
- * Returns the forced tier and cleaned prompt (directive stripped), or null if no override.
- */
-function detectModeOverride(prompt: string): { tier: string; cleanedPrompt: string } | null {
-  const modeMap: Record<string, string> = {
-    simple: "SIMPLE",
-    basic: "SIMPLE",
-    cheap: "SIMPLE",
-    medium: "MEDIUM",
-    balanced: "MEDIUM",
-    complex: "COMPLEX",
-    advanced: "COMPLEX",
-    max: "REASONING",
-    reasoning: "REASONING",
-    think: "REASONING",
-    deep: "REASONING",
-  };
-
-  // Pattern 1: "/mode ..." at start of message
-  const slashMatch = prompt.match(/^\/([a-z]+)\s+/i);
-  if (slashMatch) {
-    const mode = slashMatch[1].toLowerCase();
-    if (modeMap[mode]) {
-      return { tier: modeMap[mode], cleanedPrompt: prompt.slice(slashMatch[0].length).trim() };
-    }
-  }
-
-  // Pattern 2: "mode mode: ..." or "mode mode, ..." at start
-  const prefixMatch = prompt.match(/^([a-z]+)\s+mode[:\s,]+/i);
-  if (prefixMatch) {
-    const mode = prefixMatch[1].toLowerCase();
-    if (modeMap[mode]) {
-      return { tier: modeMap[mode], cleanedPrompt: prompt.slice(prefixMatch[0].length).trim() };
-    }
-  }
-
-  // Pattern 3: "[mode]" at start
-  const bracketMatch = prompt.match(/^\[([a-z]+)\]\s*/i);
-  if (bracketMatch) {
-    const mode = bracketMatch[1].toLowerCase();
-    if (modeMap[mode]) {
-      return { tier: modeMap[mode], cleanedPrompt: prompt.slice(bracketMatch[0].length).trim() };
-    }
-  }
-
-  return null;
-}
-
-/**
  * Handle POST /v1/chat/completions
  */
 async function handleChatCompletions(req: IncomingMessage, res: ServerResponse) {
@@ -294,11 +237,7 @@ async function handleChatCompletions(req: IncomingMessage, res: ServerResponse) 
   let reasoning: string;
   let category: string | undefined;
 
-  if (
-    requestedModel === "auto" ||
-    requestedModel === "clawrouter/auto" ||
-    requestedModel === "blockrun/auto"
-  ) {
+  if (requestedModel === "auto" || requestedModel === "tierflow/auto") {
     // Run the ML classifier (handles mode overrides, tools, audio internally)
     const routingCfg = getRoutingConfig();
     const hasTools = chatReq.tools && chatReq.tools.length > 0;

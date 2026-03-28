@@ -5,9 +5,8 @@
  * all 8 routing categories at once. Optional per-category overrides.
  */
 
-import { getConfig, getConfigPath, type FreeRouterConfig } from "./config.js";
-import { readFileSync, writeFileSync, renameSync } from "node:fs";
-import { join, dirname } from "node:path";
+import { getConfig, getConfigPath } from "./config.js";
+import { writeFileSync, renameSync } from "node:fs";
 import { logger } from "./logger.js";
 
 // ─── Types ───

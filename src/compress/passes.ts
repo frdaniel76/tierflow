@@ -121,7 +121,7 @@ export function stripComments(text: string): string {
         "",
       ].includes(l)
     ) {
-      stripped = stripped.replace(LINE_COMMENT_RE, (m, indent: string) => {
+      stripped = stripped.replace(LINE_COMMENT_RE, (_m, _indent: string) => {
         // Keep if it looks like a URL was on the line
         return "";
       });

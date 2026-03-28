@@ -3,7 +3,7 @@
  * Zero-dep, reads from OpenClaw auth-profiles.json (configurable path)
  */
 
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { getConfig } from "./config.js";
 import { join } from "node:path";
 import { homedir } from "node:os";

@@ -80,7 +80,7 @@ export type CacheGlobalConfig = {
   exclude_tools?: boolean; // default: true
 };
 
-export type FreeRouterConfig = {
+export type TierFlowConfig = {
   port: number;
   host: string;
   providers: Record<string, ProviderConfigEntry>;
@@ -105,7 +105,7 @@ export type FreeRouterConfig = {
 
 // ─── Defaults (current hardcoded behavior) ───
 
-const DEFAULT_CONFIG: FreeRouterConfig = {
+const DEFAULT_CONFIG: TierFlowConfig = {
   port: 18800,
   host: "127.0.0.1",
   providers: {
@@ -146,27 +146,8 @@ const DEFAULT_CONFIG: FreeRouterConfig = {
 
 // ─── Singleton ───
 
-let _config: FreeRouterConfig | null = null;
+let _config: TierFlowConfig | null = null;
 let _configPath: string | null = null;
-
-/**
- * Resolve ~ to home directory in paths.
- */
-function resolvePath(p: string): string {
-  if (p.startsWith("~/") || p === "~") {
-    return join(homedir(), p.slice(1));
-  }
-  return p;
-}
-
-/**
- * Resolve $ENV_VAR references in string values.
- */
-function resolveEnvVars(value: string): string {
-  return value.replace(/\$([A-Z_][A-Z0-9_]*)/g, (_match, name) => {
-    return process.env[name] ?? "";
-  });
-}
 
 /**
  * Deep-merge source into target (source wins). Arrays are replaced, not merged.
@@ -221,7 +202,7 @@ function findConfigFile(): string | null {
 /**
  * Load config from file, merging with defaults.
  */
-export function loadConfig(): FreeRouterConfig {
+export function loadConfig(): TierFlowConfig {
   const configPath = findConfigFile();
 
   if (!configPath) {
@@ -233,13 +214,13 @@ export function loadConfig(): FreeRouterConfig {
 
   try {
     const raw = readFileSync(configPath, "utf-8");
-    const fileConfig = JSON.parse(raw) as Partial<FreeRouterConfig>;
+    const fileConfig = JSON.parse(raw) as Partial<TierFlowConfig>;
 
     // Deep-merge file config over defaults
     _config = deepMerge(
       DEFAULT_CONFIG as unknown as Record<string, unknown>,
       fileConfig as unknown as Record<string, unknown>,
-    ) as unknown as FreeRouterConfig;
+    ) as unknown as TierFlowConfig;
     _configPath = configPath;
 
     logger.info(`Loaded config from ${configPath}`);
@@ -259,7 +240,7 @@ export function loadConfig(): FreeRouterConfig {
 /**
  * Reload config from file (for /reload endpoint).
  */
-export function reloadConfig(): FreeRouterConfig {
+export function reloadConfig(): TierFlowConfig {
   _config = null;
   return loadConfig();
 }
@@ -267,7 +248,7 @@ export function reloadConfig(): FreeRouterConfig {
 /**
  * Get the current config (loads if not yet loaded).
  */
-export function getConfig(): FreeRouterConfig {
+export function getConfig(): TierFlowConfig {
   if (!_config) return loadConfig();
   return _config;
 }
