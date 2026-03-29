@@ -47,6 +47,8 @@ import { LRUCache, buildCacheKey } from "./cache/index.js";
 import { getUsageStats } from "./usage.js";
 import { getDashboardHTML } from "./dashboard.js";
 import { initClassifier, getClassifierStatus } from "./ml/index.js";
+import { scan, shouldBlock, getScannerStatus, type ScanResult } from "./security/index.js";
+import { startPeriodicSync, getLastSyncResult } from "./models-sync.js";
 import {
   getQualityTiersResponse,
   applyPreset,
@@ -84,6 +86,15 @@ const stats = {
   byModel: {} as Record<string, number>,
   pii: { scrubbed: 0, rehydrated: 0, errors: 0 },
   compress: { compressed: 0, tokensSaved: 0, errors: 0 },
+  security: {
+    scanned: 0,
+    clean: 0,
+    warnings: 0,
+    blocked: 0,
+    byCategory: {} as Record<string, number>,
+    avgScanTimeMs: 0,
+    totalScanTimeMs: 0,
+  },
 };
 
 // ─── Response Cache ───
@@ -229,6 +240,63 @@ async function handleChatCompletions(req: IncomingMessage, res: ServerResponse) 
 
   if (!prompt) {
     return sendError(res, 400, "No user message found");
+  }
+
+  // ─── Security Scan ───
+  const securityCfg = getConfig().security;
+  if (securityCfg?.enabled !== false) {
+    const scanText = systemPrompt ? systemPrompt + "\n" + prompt : prompt;
+    const scanResult: ScanResult = scan(scanText, securityCfg);
+
+    // Update stats
+    stats.security.scanned++;
+    stats.security.totalScanTimeMs += scanResult.scan_time_ms;
+    stats.security.avgScanTimeMs =
+      Math.round((stats.security.totalScanTimeMs / stats.security.scanned) * 100) / 100;
+
+    if (scanResult.severity === "CLEAN") {
+      stats.security.clean++;
+      res.setHeader("X-TierFlow-Security", "CLEAN");
+    } else {
+      // Track categories
+      for (const threat of scanResult.threats) {
+        stats.security.byCategory[threat.category] =
+          (stats.security.byCategory[threat.category] || 0) + 1;
+      }
+
+      const categories = [...new Set(scanResult.threats.map((t) => t.category))].join(",");
+
+      if (shouldBlock(scanResult, securityCfg?.threshold || "HIGH")) {
+        stats.security.blocked++;
+        res.setHeader("X-TierFlow-Security", `BLOCKED:${categories}`);
+        if (securityCfg?.logThreats !== false) {
+          logger.warn(
+            `[security] BLOCKED ${scanResult.severity}: ${categories} (${scanResult.scan_time_ms}ms)`,
+          );
+        }
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(
+          JSON.stringify({
+            error: {
+              message: "Request blocked by TierFlow security scanner",
+              type: "security_blocked",
+              categories: [...new Set(scanResult.threats.map((t) => t.category))],
+              severity: scanResult.severity,
+              code: "security_threat_detected",
+            },
+          }),
+        );
+        return;
+      } else {
+        stats.security.warnings++;
+        res.setHeader("X-TierFlow-Security", `WARNING:${categories}`);
+        if (securityCfg?.logThreats !== false) {
+          logger.info(
+            `[security] WARNING: ${categories} (${scanResult.scan_time_ms}ms) — forwarding`,
+          );
+        }
+      }
+    }
   }
 
   // Route through classifier
@@ -559,6 +627,8 @@ function handleHealth(_req: IncomingMessage, res: ServerResponse) {
       version: "2.0.0",
       uptime: process.uptime(),
       mlClassifier: getClassifierStatus(),
+      securityScanner: getScannerStatus(),
+      modelSync: getLastSyncResult(),
       stats: {
         ...stats,
         cache: responseCache?.getStats() ?? {
@@ -755,6 +825,9 @@ server.listen(PORT, HOST, async () => {
       logger.info(`   ML: local classifier not available (install @huggingface/transformers for local ML)`);
     }
   });
+  // Start periodic model pricing sync from OpenRouter (every 24h)
+  startPeriodicSync(modelPricing);
+  logger.info(`   Models: ${modelPricing.size} in pricing map (auto-sync from OpenRouter every 24h)`);
   if (responseCache)
     logger.info(
       `   Cache: enabled (TTL=${getConfig().cache?.ttl_seconds ?? 300}s, max=${getConfig().cache?.max_entries ?? 5000})`,

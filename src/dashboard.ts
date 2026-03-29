@@ -229,6 +229,12 @@ export function getDashboardHTML(): string {
         <div style="font-size:11px;color:var(--fg3);margin-top:8px" id="compress-help" style="display:none">CtxPack applies 6 compression passes (ANSI, whitespace, JSON, dedup, comments, stack traces) to reduce token count before forwarding.</div>
       </div>
     </div>
+
+    <div class="section">
+      <h2>Security Scanner</h2>
+      <div id="security-stats" class="no-data">No requests scanned yet</div>
+      <div style="font-size:11px;color:var(--fg3);margin-top:8px">252 patterns across 8 categories and 9 languages detect prompt injection, data exfiltration, command injection, and secret leakage.</div>
+    </div>
   </div>
 
   <!-- ═══ MODELS TAB ═══ -->
@@ -280,9 +286,13 @@ export function getDashboardHTML(): string {
         <div id="ml-status-detail"><div class="no-data">Loading...</div></div>
       </div>
       <div class="section">
-        <h2>System</h2>
-        <div id="system-info"><div class="no-data">Loading...</div></div>
+        <h2>Security Scanner</h2>
+        <div id="security-status-detail"><div class="no-data">Loading...</div></div>
       </div>
+    </div>
+    <div class="section">
+      <h2>System</h2>
+      <div id="system-info"><div class="no-data">Loading...</div></div>
     </div>
   </div>
 
@@ -437,6 +447,23 @@ async function refresh() {
         (pii.errors ? '<span class="info-label">Errors</span><span class="info-value" style="color:var(--red)">'+pii.errors+'</span>' : '') +
         '</div>';
       $('pii-stats').classList.remove('no-data');
+    }
+
+    // Security stats
+    const sec = stats.security||{};
+    if (sec.scanned > 0) {
+      const catEntries = Object.entries(sec.byCategory||{}).sort((a,b) => (b[1] as number) - (a[1] as number));
+      $('security-stats').innerHTML =
+        '<div class="info-grid">' +
+        '<span class="info-label">Scanned</span><span class="info-value">'+sec.scanned+'</span>' +
+        '<span class="info-label">Clean</span><span class="info-value" style="color:var(--accent)">'+sec.clean+'</span>' +
+        '<span class="info-label">Warnings</span><span class="info-value" style="color:var(--yellow)">'+(sec.warnings||0)+'</span>' +
+        '<span class="info-label">Blocked</span><span class="info-value" style="color:var(--red)">'+(sec.blocked||0)+'</span>' +
+        '<span class="info-label">Avg scan time</span><span class="info-value">'+(sec.avgScanTimeMs||0)+'ms</span>' +
+        '</div>' +
+        (catEntries.length > 0 ? '<div style="margin-top:10px;font-size:12px"><strong>By category:</strong>' +
+          catEntries.map(([cat,cnt]) => '<div style="margin-top:4px;color:var(--fg2)">' + cat + ': <span style="color:var(--red)">' + cnt + '</span></div>').join('') + '</div>' : '');
+      $('security-stats').classList.remove('no-data');
     }
 
     // Compression stats (separate section)
@@ -631,6 +658,21 @@ async function loadIntegrations() {
         '<span class="info-label">Status</span><span class="info-value" style="color:var(--yellow)">Loading...</span>' +
         '</div>' +
         '<div style="font-size:11px;color:var(--fg3);margin-top:10px">The ML classifier loads on first request. If unavailable, TierFlow falls back to a 14-dimension rule-based scorer (&lt;1ms).</div>';
+    }
+
+    // Security scanner — use health endpoint data
+    const sec = health.securityScanner;
+    if (sec && sec.available) {
+      $('security-status-detail').innerHTML =
+        '<div class="info-grid">' +
+        '<span class="info-label">Status</span><span class="info-value" style="color:var(--accent)">\\u2713 Active</span>' +
+        '<span class="info-label">Patterns</span><span class="info-value">'+sec.totalPatterns+'</span>' +
+        '<span class="info-label">Categories</span><span class="info-value">'+sec.categories+'</span>' +
+        '<span class="info-label">Languages</span><span class="info-value">'+sec.languages.join(', ')+'</span>' +
+        '</div>' +
+        '<div style="font-size:11px;color:var(--fg3);margin-top:10px">Scans every request for prompt injection, data exfiltration, command injection, social engineering, and secret leakage. Blocks HIGH/CRITICAL threats.</div>';
+    } else {
+      $('security-status-detail').innerHTML = '<div class="no-data">Security scanner not available</div>';
     }
 
     // System

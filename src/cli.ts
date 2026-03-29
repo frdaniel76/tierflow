@@ -122,30 +122,49 @@ async function generateConfig() {
         api: "openai",
         auth: { type: "env", key: "OPENAI_API_KEY" },
       },
+      google: {
+        baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
+        api: "openai",
+        auth: { type: "env", key: "GOOGLE_API_KEY" },
+      },
+      xai: {
+        baseUrl: "https://api.x.ai/v1",
+        api: "openai",
+        auth: { type: "env", key: "XAI_API_KEY" },
+      },
+      deepseek: {
+        baseUrl: "https://api.deepseek.com",
+        api: "openai",
+        auth: { type: "env", key: "DEEPSEEK_API_KEY" },
+      },
+      mistral: {
+        baseUrl: "https://api.mistral.ai/v1",
+        api: "openai",
+        auth: { type: "env", key: "MISTRAL_API_KEY" },
+      },
+      openrouter: {
+        baseUrl: "https://openrouter.ai/api/v1",
+        api: "openai",
+        auth: { type: "env", key: "OPENROUTER_API_KEY" },
+        pii: true,
+      },
       ollama: {
-        baseUrl: "http://localhost:11434",
+        baseUrl: "http://localhost:11434/v1",
         api: "openai",
         auth: { type: "none" },
       },
     },
-    tiers: {
-      SIMPLE: {
-        primary: "ollama/llama3.2",
-        fallback: ["openai/gpt-4o-mini"],
-      },
-      MEDIUM: {
-        primary: "openai/gpt-4o",
-        fallback: ["anthropic/claude-sonnet-4-5"],
-      },
-      COMPLEX: {
-        primary: "anthropic/claude-sonnet-4-5",
-        fallback: ["openai/gpt-4o"],
-      },
-      REASONING: {
-        primary: "anthropic/claude-opus-4-6",
-        fallback: ["openai/o1"],
-      },
+    categories: {
+      simple_chat: { primary: "openrouter/google/gemini-2.5-flash-lite", fallback: ["ollama/llama3.2"] },
+      general: { primary: "openrouter/deepseek/deepseek-v3.2", fallback: ["openrouter/google/gemini-2.5-flash"] },
+      coding: { primary: "openrouter/qwen/qwen3-coder:free", fallback: ["openrouter/mistralai/devstral-2512"] },
+      reasoning: { primary: "openrouter/deepseek/deepseek-r1", fallback: ["openrouter/openai/o3-mini"] },
+      creative: { primary: "openrouter/deepseek/deepseek-v3.2", fallback: ["openrouter/anthropic/claude-sonnet-4-5"] },
+      data: { primary: "openrouter/google/gemini-2.5-flash-lite", fallback: ["openrouter/google/gemini-2.5-flash"] },
+      agentic: { primary: "openrouter/deepseek/deepseek-v3.2", fallback: ["openrouter/anthropic/claude-sonnet-4-5"] },
+      transcription: { primary: "openrouter/google/gemini-2.5-flash-lite", fallback: ["openrouter/google/gemini-2.5-flash"] },
     },
+    cache: { enabled: true, ttl_seconds: 300 },
     auth: { default: "env" },
   };
 

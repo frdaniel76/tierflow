@@ -101,6 +101,15 @@ export type TierFlowConfig = {
     [strategy: string]: unknown;
   };
   scoring?: Record<string, unknown>;
+  security?: {
+    enabled?: boolean;
+    threshold?: string;
+    categories?: Record<string, boolean>;
+    allowlist?: string[];
+    maxScanLength?: number;
+    scanResponses?: boolean;
+    logThreats?: boolean;
+  };
 };
 
 // ─── Defaults (current hardcoded behavior) ───
@@ -115,6 +124,22 @@ const DEFAULT_CONFIG: TierFlowConfig = {
     },
     openai: {
       baseUrl: "https://api.openai.com",
+      api: "openai",
+    },
+    google: {
+      baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
+      api: "openai",
+    },
+    xai: {
+      baseUrl: "https://api.x.ai/v1",
+      api: "openai",
+    },
+    deepseek: {
+      baseUrl: "https://api.deepseek.com",
+      api: "openai",
+    },
+    mistral: {
+      baseUrl: "https://api.mistral.ai/v1",
       api: "openai",
     },
     ollama: {

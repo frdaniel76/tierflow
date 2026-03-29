@@ -138,7 +138,14 @@ Every category is fully configurable — primary model, fallback chain, and time
 - **Mode overrides** — `/simple`, `/max`, `[code]`, `deep mode:` prefixes to force routing
 - **Automatic fallback** — per-tier fallback chains when primary models fail
 
-### Privacy & Security
+### Security
+- **Prompt injection detection** — 252 patterns across 9 languages (EN, RU, ZH, KO, JA, AR, DE, FR, PT)
+- **8 threat categories** — prompt injection, data exfiltration, command injection, social engineering, secret leakage, SSRF, encoding evasion, file system attacks
+- **Evasion-resistant** — normalizer defeats base64, leet speak, zero-width characters, spaced letters, HTML obfuscation
+- **Configurable threshold** — block CRITICAL only, or WARNING and above
+- **Security headers** — `X-TierFlow-Security: CLEAN|WARNING|BLOCKED` on every response
+
+### Privacy
 - **PII scrubbing** — 15 detection patterns (emails, API keys, SSNs, credit cards, IPs, PEM keys, etc.)
 - **Type-preserving placeholders** — `p0abc@maildomain.com` for emails so LLMs maintain format
 - **AES-256-GCM encryption** — PII vault is encrypted in memory, never written to disk
@@ -242,6 +249,7 @@ Prefixes are stripped before forwarding — the LLM never sees them.
 |---------|----------|---------|------------|---------|
 | Self-hosted | Yes | Yes | No (SaaS) | No (SaaS) |
 | ML-powered routing | Yes (8 categories) | No | No | No |
+| Prompt injection detection | Built-in (252 patterns, 9 languages) | No | No | No |
 | PII scrubbing | Built-in (15 patterns) | No | No | No |
 | Context compression | Built-in (30-70% savings) | No | No | No |
 | Zero dependencies | Yes | No (200+) | N/A | N/A |
@@ -320,7 +328,9 @@ TierFlow powers the routing layer of [OpenClaw](https://github.com/frdaniel76/op
 
 Routing engine originally forked from [BlockRunAI/ClawRouter](https://github.com/BlockRunAI/ClawRouter) (MIT License). The 14-dimension keyword scorer is preserved and extended. Credit to BlockRunAI for the original classifier design.
 
-**Built on top:** ML-powered 8-category routing, PII scrubbing, CtxPack compression, response caching, agentic detection, web dashboard, CLI, and Docker support.
+Security scanning patterns from [Claw Sentinel](https://github.com/Oleglegegg) by oleglegegg (MIT License). 252 patterns covering prompt injection (9 languages), data exfiltration, command injection, and secret leakage.
+
+**Built on top:** ML-powered 8-category routing, security scanner, PII scrubbing, CtxPack compression, response caching, agentic detection, web dashboard, CLI, and Docker support.
 
 ## License
 
