@@ -452,7 +452,7 @@ async function refresh() {
     // Security stats
     const sec = stats.security||{};
     if (sec.scanned > 0) {
-      const catEntries = Object.entries(sec.byCategory||{}).sort((a,b) => (b[1] as number) - (a[1] as number));
+      const catEntries = Object.entries(sec.byCategory||{}).sort((a,b) => Number(b[1]) - Number(a[1]));
       $('security-stats').innerHTML =
         '<div class="info-grid">' +
         '<span class="info-label">Scanned</span><span class="info-value">'+sec.scanned+'</span>' +
