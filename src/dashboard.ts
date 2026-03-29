@@ -157,6 +157,50 @@ export function getDashboardHTML(): string {
   footer { text-align: center; color: var(--fg3); font-size: 12px; padding: 24px 0; border-top: 1px solid var(--border); margin-top: 24px; }
   footer a { color: var(--blue); text-decoration: none; }
   footer a:hover { text-decoration: underline; }
+
+  /* ─── Table overflow wrapper ─── */
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+  /* ─── Responsive ─── */
+  @media (max-width: 768px) {
+    .container { padding: 12px; }
+    header { padding: 0 0 12px 0; margin-bottom: 16px; }
+    .logo h1 { font-size: 18px; }
+    .tab-bar { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; flex-wrap: nowrap; }
+    .tab { padding: 8px 12px; font-size: 12px; white-space: nowrap; }
+    .cards { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+    .card { padding: 14px; }
+    .card-value { font-size: 24px; }
+    .savings-pct { font-size: 24px; }
+    .stats-row { grid-template-columns: 1fr; }
+    .info-grid { grid-template-columns: 1fr 1fr; }
+    .cat-override-row { flex-wrap: wrap; gap: 6px; }
+    .cat-name { width: auto; min-width: 80px; }
+    .cat-model { width: auto; max-width: none; flex-basis: 100%; order: 5; padding-left: 30px; }
+    .cat-price { width: auto; text-align: left; flex-basis: 100%; order: 6; padding-left: 30px; }
+    .cat-slider { min-width: 80px; }
+    .preset-grid { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+    .section { padding: 14px; }
+    .section h2 { font-size: 12px; margin-bottom: 12px; }
+    .docs-grid { grid-template-columns: 1fr; }
+    .about-hero { padding: 24px 12px; }
+    .about-hero h2 { font-size: 20px; }
+    .apply-bar { flex-wrap: wrap; }
+  }
+
+  @media (max-width: 480px) {
+    .container { padding: 8px; }
+    .cards { grid-template-columns: 1fr 1fr; gap: 8px; }
+    .card { padding: 10px; }
+    .card-value { font-size: 20px; }
+    .card-label { font-size: 10px; }
+    .savings-pct { font-size: 20px; }
+    .info-grid { grid-template-columns: 1fr; }
+    .preset-grid { grid-template-columns: 1fr; }
+    .tier-label { width: 60px; font-size: 10px; }
+    .tier-pct { width: 40px; font-size: 11px; }
+    header { flex-direction: column; align-items: flex-start; }
+  }
 </style>
 </head>
 <body>
@@ -194,7 +238,7 @@ export function getDashboardHTML(): string {
 
     <div class="section">
       <h2>Cost Efficiency</h2>
-      <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px"><span>Your cost: <strong id="eff-actual">$0</strong></span><span>Always-best baseline: <strong id="eff-baseline">$0</strong></span></div>
+      <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px;flex-wrap:wrap;gap:4px"><span>Your cost: <strong id="eff-actual">$0</strong></span><span>Always-best baseline: <strong id="eff-baseline">$0</strong></span></div>
       <div class="cost-bar-track"><div class="cost-bar-fill" id="eff-bar" style="width:100%"></div></div>
       <div style="font-size:11px;color:var(--fg3);margin-top:4px">Green bar = your actual cost as % of what the most expensive model would cost</div>
     </div>
@@ -207,13 +251,13 @@ export function getDashboardHTML(): string {
     <div class="stats-row">
       <div class="section">
         <h2>By Category</h2>
-        <table id="cat-table"><thead><tr><th>Category</th><th class="num">Reqs</th><th class="num">Cost</th><th class="num">Saved</th></tr></thead>
-        <tbody><tr><td colspan="4" class="no-data">No data yet</td></tr></tbody></table>
+        <div class="table-wrap"><table id="cat-table"><thead><tr><th>Category</th><th class="num">Reqs</th><th class="num">Cost</th><th class="num">Saved</th></tr></thead>
+        <tbody><tr><td colspan="4" class="no-data">No data yet</td></tr></tbody></table></div>
       </div>
       <div class="section">
         <h2>By Model</h2>
-        <table id="mod-table"><thead><tr><th>Model</th><th class="num">Reqs</th><th class="num">Tokens</th><th class="num">Cost</th></tr></thead>
-        <tbody><tr><td colspan="4" class="no-data">No data yet</td></tr></tbody></table>
+        <div class="table-wrap"><table id="mod-table"><thead><tr><th>Model</th><th class="num">Reqs</th><th class="num">Tokens</th><th class="num">Cost</th></tr></thead>
+        <tbody><tr><td colspan="4" class="no-data">No data yet</td></tr></tbody></table></div>
       </div>
     </div>
 
@@ -242,10 +286,10 @@ export function getDashboardHTML(): string {
     <div class="section">
       <h2>Model Catalog</h2>
       <p style="font-size:13px;color:var(--fg2);margin-bottom:16px">Models available for routing. Pricing is per 1M tokens. TierFlow routes each request to the cheapest model that can handle it.</p>
-      <table class="model-table" id="models-table">
+      <div class="table-wrap"><table class="model-table" id="models-table">
         <thead><tr><th>Model</th><th>Provider</th><th class="num">Input $/1M</th><th class="num">Output $/1M</th><th class="num">Context</th><th>Capabilities</th></tr></thead>
         <tbody><tr><td colspan="6" class="no-data">Loading...</td></tr></tbody>
-      </table>
+      </table></div>
     </div>
   </div>
 
@@ -320,7 +364,7 @@ export function getDashboardHTML(): string {
     </div>
     <div class="section">
       <h2>API Endpoints</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Endpoint</th><th>Method</th><th>Description</th></tr></thead>
         <tbody>
           <tr><td><code>/v1/chat/completions</code></td><td>POST</td><td>OpenAI-compatible chat — set model to "auto" for smart routing</td></tr>
@@ -331,7 +375,7 @@ export function getDashboardHTML(): string {
           <tr><td><code>/reload-config</code></td><td>POST</td><td>Hot-reload config without restart</td></tr>
           <tr><td><code>/dashboard</code></td><td>GET</td><td>This dashboard</td></tr>
         </tbody>
-      </table>
+      </table></div>
     </div>
   </div>
 
