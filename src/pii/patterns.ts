@@ -62,9 +62,12 @@ export const UK_NINO = /\b[A-CEGHJ-PR-TW-Z]{2}\d{6}[A-D]\b/gi;
 // UK postcodes are uppercase in practice — remove case-insensitive flag to reduce false positives
 export const UK_POSTCODE = /\b[A-Z]{1,2}\d{1,2}[A-Z]?\s?\d[A-Z]{2}\b/g;
 
-// L-3 fix: expanded file path detection — /home/, /Users/, /root/, /etc/, /var/, C:\Users\, D:\Users\
+// L-3 fix: structure-preserving path scrubbing — captures ONLY the home dir
+// prefix (the PII part: username). Directory structure after the username passes
+// through unscrubbed so LLMs can reason about file paths in tool calls.
+// Dropped /etc/ and /var/ — system paths, not user PII.
 export const FILE_PATH =
-  /(?:\/home\/|\/Users\/|\/root\/|\/etc\/|\/var\/|[A-Z]:\\Users\\)[A-Za-z0-9_.-]+(?:[\/\\][A-Za-z0-9_./\\-]*)*/g;
+  /(?:\/home\/|\/Users\/)[A-Za-z0-9_.-]+|\/root(?=\/|$)|[A-Z]:\\Users\\[A-Za-z0-9_.-]+/g;
 
 /**
  * Ordered detection passes. Earlier passes have higher priority.

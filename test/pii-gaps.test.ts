@@ -140,10 +140,12 @@ async function formatValidationTests() {
     vault.destroy();
   });
 
-  await test("path → p0{hex}/redacted", () => {
+  await test("path → structure-preserving (only home dir scrubbed)", () => {
     const vault = new SecretVault();
     const result = vault.redact("File at /Users/testuser/secrets.txt");
-    assertMatch(result.text, /p0[0-9a-f]{12}\/pii\/redacted/);
+    assertMatch(result.text, /p0[0-9a-f]{12}/);
+    assertNotIncludes(result.text, "/Users/testuser");
+    assertIncludes(result.text, "/secrets.txt"); // path structure preserved
     vault.destroy();
   });
 
@@ -451,10 +453,12 @@ async function fullToolCallFlowTests() {
     ]);
     const content = scrubbed.messages[0].content as string;
     const emailPh = content.match(/p0[0-9a-f]{12}@maildomain\.com/)![0];
-    const pathPh = content.match(/p0[0-9a-f]{12}\/pii\/redacted/)![0];
+    // Structure-preserving: only home dir is scrubbed, path structure remains
+    const pathPh = content.match(/p0[0-9a-f]{12}(?=\/)/)![0];
+    assertIncludes(content, "/secrets.txt"); // path structure preserved
 
     // Simulate LLM text response
-    const llmText = `I'll look up ${emailPh} and read ${pathPh}`;
+    const llmText = `I'll look up ${emailPh} and read ${pathPh}/secrets.txt`;
     const restoredText = rehydrateText(llmText, scrubbed.sessionId);
     assertIncludes(restoredText, "john@acme.com");
     assertIncludes(restoredText, "/Users/testuser/secrets.txt");
@@ -648,7 +652,9 @@ async function streamingMultiTypeTests() {
   await test("streaming: path placeholder split and rehydrated", () => {
     const scrubbed = scrubMessages([{ role: "user", content: "File: /Users/testuser/secret.txt" }]);
     const content = scrubbed.messages[0].content as string;
-    assertMatch(content, /p0[0-9a-f]{12}\/pii\/redacted/);
+    // Structure-preserving: only home dir prefix is replaced
+    assertMatch(content, /p0[0-9a-f]{12}/);
+    assertIncludes(content, "/secret.txt"); // path structure preserved
     const mid = Math.floor(content.length / 2);
     const result = feedToolArgChunks(
       [content.slice(0, mid), content.slice(mid)],

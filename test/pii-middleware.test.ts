@@ -309,19 +309,15 @@ async function patternDetectionTests() {
     vault.destroy();
   });
 
-  await test("detects file paths (/etc/...)", () => {
+  await test("does NOT scrub system paths (/etc/, /var/) — not user PII", () => {
     const vault = new SecretVault();
-    const result = vault.redact("Check /etc/passwd for users");
-    assert(result.count >= 1, `Expected ≥1, got ${result.count}`);
-    assertNotIncludes(result.text, "/etc/passwd");
-    vault.destroy();
-  });
+    const r1 = vault.redact("Check /etc/passwd for users");
+    assert(r1.count === 0, `Expected 0, got ${r1.count} — /etc/ should not be scrubbed`);
+    assertIncludes(r1.text, "/etc/passwd");
 
-  await test("detects file paths (/var/...)", () => {
-    const vault = new SecretVault();
-    const result = vault.redact("Logs at /var/log/syslog");
-    assert(result.count >= 1, `Expected ≥1, got ${result.count}`);
-    assertNotIncludes(result.text, "/var/log");
+    const r2 = vault.redact("Logs at /var/log/syslog");
+    assert(r2.count === 0, `Expected 0, got ${r2.count} — /var/ should not be scrubbed`);
+    assertIncludes(r2.text, "/var/log/syslog");
     vault.destroy();
   });
 }

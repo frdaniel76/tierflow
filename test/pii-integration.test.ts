@@ -620,11 +620,13 @@ async function toolCallsRehydrationTests() {
     assert(scrubResult.scrubbed, "Should scrub path");
     const scrubbedContent = scrubResult.messages[0].content as string;
     assertNotIncludes(scrubbedContent, "/Users/testuser");
-    assertMatch(scrubbedContent, /p0[0-9a-f]{12}\/pii\/redacted/, "Should have path placeholder");
+    // Structure-preserving: only home dir prefix is scrubbed, path structure remains
+    assertMatch(scrubbedContent, /p0[0-9a-f]{12}/, "Should have path placeholder");
+    assertIncludes(scrubbedContent, "/.openclaw/workspace/TOOLS.md"); // structure preserved
 
-    // Simulate model returning a tool call with the scrubbed path
-    const pathPlaceholder = scrubbedContent.match(/p0[0-9a-f]{12}\/pii\/redacted/)?.[0] ?? "";
-    const toolArgs = `{"file_path": "${pathPlaceholder}"}`;
+    // Simulate model returning a tool call with the scrubbed path (placeholder + remaining path)
+    const pathPrefix = scrubbedContent.match(/p0[0-9a-f]{12}/)?.[0] ?? "";
+    const toolArgs = `{"file_path": "${pathPrefix}/.openclaw/workspace/TOOLS.md"}`;
     const rehydrated = rehydrateText(toolArgs, scrubResult.sessionId);
     assertIncludes(rehydrated, "/Users/testuser/.openclaw/workspace/TOOLS.md");
     assertNotIncludes(rehydrated, "p0");
@@ -655,9 +657,10 @@ async function toolCallsRehydrationTests() {
     const scrubbedContent = scrubResult.messages[0].content as string;
 
     // Model returns tool call using both placeholders
-    const pathPh = scrubbedContent.match(/p0[0-9a-f]{12}\/pii\/redacted/)?.[0] ?? "";
+    // Structure-preserving: path placeholder only replaces home dir prefix
+    const pathPh = scrubbedContent.match(/p0[0-9a-f]{12}(?=\/)/)?.[0] ?? "";
     const emailPh = scrubbedContent.match(/p0[0-9a-f]{12}@maildomain\.com/)?.[0] ?? "";
-    const toolArgs = `{"source": "${pathPh}", "recipient": "${emailPh}"}`;
+    const toolArgs = `{"source": "${pathPh}/secret.txt", "recipient": "${emailPh}"}`;
     const rehydrated = rehydrateText(toolArgs, scrubResult.sessionId);
     assertIncludes(rehydrated, "/Users/testuser/secret.txt");
     assertIncludes(rehydrated, "john@acme.com");
@@ -669,10 +672,12 @@ async function toolCallsRehydrationTests() {
     const scrubResult = scrubMessages(messages);
     assert(scrubResult.scrubbed, "Should scrub");
     const scrubbedContent = scrubResult.messages[0].content as string;
-    const pathPh = scrubbedContent.match(/p0[0-9a-f]{12}\/pii\/redacted/)?.[0] ?? "";
+    // Structure-preserving: placeholder replaces only home dir prefix
+    const pathPh = scrubbedContent.match(/p0[0-9a-f]{12}/)?.[0] ?? "";
+    assertIncludes(scrubbedContent, "/data.json"); // structure preserved
 
     // Simulate streaming tool args in chunks (placeholder might split)
-    const fullArgs = `{"file_path": "${pathPh}"}`;
+    const fullArgs = `{"file_path": "${pathPh}/data.json"}`;
     const mid = Math.floor(fullArgs.length / 2);
     const chunks = [fullArgs.slice(0, mid), fullArgs.slice(mid)];
     const result = feedChunks(chunks, scrubResult.sessionId);
@@ -689,14 +694,16 @@ async function toolCallsRehydrationTests() {
     assert(scrubResult.scrubbed, "Should scrub");
     const scrubbedContent = scrubResult.messages[0].content as string;
     const emailPh = scrubbedContent.match(/p0[0-9a-f]{12}@maildomain\.com/)?.[0] ?? "";
-    const pathPh = scrubbedContent.match(/p0[0-9a-f]{12}\/pii\/redacted/)?.[0] ?? "";
+    // Structure-preserving: only home dir prefix is replaced
+    const pathPh = scrubbedContent.match(/p0[0-9a-f]{12}(?=\/)/)?.[0] ?? "";
+    assertIncludes(scrubbedContent, "/notes.txt"); // structure preserved
 
     // Model returns text with email placeholder AND tool call with path placeholder
     const textResponse = `I found info about ${emailPh}`;
     const rehydratedText = rehydrateText(textResponse, scrubResult.sessionId);
     assertIncludes(rehydratedText, "john@acme.com");
 
-    const toolArgs = `{"file_path": "${pathPh}"}`;
+    const toolArgs = `{"file_path": "${pathPh}/notes.txt"}`;
     const rehydratedArgs = rehydrateText(toolArgs, scrubResult.sessionId);
     assertIncludes(rehydratedArgs, "/Users/testuser/notes.txt");
     destroySession(scrubResult.sessionId);

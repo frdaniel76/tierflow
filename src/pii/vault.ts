@@ -64,7 +64,7 @@ const PLACEHOLDER_TEMPLATES: Record<string, (id: string, keyword?: string) => st
   ssn: (id) => `p0${id}-ssn`,
   phone: (id) => `p0${id}-phone`,
   ip: (id) => `p0${id}.0.0.1`,
-  path: (id) => `p0${id}/pii/redacted`,
+  path: (id) => `p0${id}`,
   pem: (id) => `p0${id}-PII-KEY`,
   nino: (id) => `p0${id}-nino`,
   post: (id) => `p0${id}-postcode`,
@@ -80,7 +80,7 @@ const REHYDRATE_PATTERNS: Array<{ regex: RegExp; idGroup: number }> = [
   { regex: /p0([0-9a-f]{12})-placeholder-key/g, idGroup: 1 }, // apikey
   { regex: /p0([0-9a-f]{12}):\/\/placeholder\/db/g, idGroup: 1 }, // conn
   { regex: /p0([0-9a-f]{12})-0000-card/g, idGroup: 1 }, // cc
-  { regex: /p0([0-9a-f]{12})\/pii\/redacted/g, idGroup: 1 }, // path
+  { regex: /p0([0-9a-f]{12})(?=\/)/g, idGroup: 1 }, // path (structure-preserving, lookahead for /)
   { regex: /p0([0-9a-f]{12})-postcode/g, idGroup: 1 }, // post
   { regex: /p0([0-9a-f]{12})-PII-KEY/g, idGroup: 1 }, // pem
   { regex: /p0([0-9a-f]{12})-phone/g, idGroup: 1 }, // phone

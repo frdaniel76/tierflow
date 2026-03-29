@@ -303,7 +303,7 @@ function isPartialSuffix(s: string): boolean {
     "-placeholder-key", // apikey
     "://placeholder/db", // conn
     "-0000-card", // cc
-    "/pii/redacted", // path
+    // path: no suffix — placeholder is bare p0{hex}, rehydrated via (?=/) lookahead
     "-postcode", // post
     "-PII-KEY", // pem
     "-phone", // phone
