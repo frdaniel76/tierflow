@@ -245,7 +245,8 @@ async function handleChatCompletions(req: IncomingMessage, res: ServerResponse) 
   // ─── Security Scan ───
   const securityCfg = getConfig().security;
   if (securityCfg?.enabled !== false) {
-    const scanText = systemPrompt ? systemPrompt + "\n" + prompt : prompt;
+    // Only scan user message — system prompt is trusted (your own config)
+    const scanText = prompt;
     const scanResult: ScanResult = scan(scanText, securityCfg);
 
     // Update stats
