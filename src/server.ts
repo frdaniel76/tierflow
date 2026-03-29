@@ -23,7 +23,7 @@ import {
   setCurrentCategory,
   type ChatRequest,
 } from "./provider.js";
-import { reloadAuth } from "./auth.js";
+import { reloadAuth, setProviderKey, getProviderKeyStatus } from "./auth.js";
 import {
   loadConfig,
   getConfig,
@@ -784,6 +784,21 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse) {
       const result = await testProvider(body.provider);
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(result));
+    } else if (method === "POST" && url === "/provider-key") {
+      const body = JSON.parse(await readBody(req));
+      const { provider, apiKey } = body;
+      if (!provider || typeof provider !== "string") {
+        sendError(res, 400, "Provide { provider, apiKey }");
+      } else if (!apiKey || typeof apiKey !== "string") {
+        sendError(res, 400, "Provide { provider, apiKey }");
+      } else {
+        setProviderKey(provider, apiKey);
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: true, provider }));
+      }
+    } else if (method === "GET" && url === "/provider-keys") {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(getProviderKeyStatus()));
     } else if (method === "GET" && url === "/models-info") {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ models: MODELS }));

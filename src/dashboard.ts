@@ -617,8 +617,8 @@ $('global-slider').addEventListener('input', (e) => {
 // ─── Integrations tab ───
 async function loadIntegrations() {
   try {
-    const [cr, hr] = await Promise.all([fetch('/config'), fetch('/health')]);
-    const cfgData = await cr.json(), health = await hr.json();
+    const [cr, hr, kr] = await Promise.all([fetch('/config'), fetch('/health'), fetch('/provider-keys')]);
+    const cfgData = await cr.json(), health = await hr.json(), keyStatus = await kr.json();
     const cfg = cfgData.config || {};
 
     // Providers
@@ -627,18 +627,32 @@ async function loadIntegrations() {
       const hasPii = p.pii === true || (p.pii && p.pii.enabled);
       const hasComp = p.compress === true || (p.compress && p.compress.enabled);
       const isDisabled = p.disabled === true;
-      const piiLabel = hasPii ? 'PII scrubbing enabled \u2014 sensitive data is redacted before sending to this provider' : 'PII scrubbing disabled \u2014 data sent as-is (safe for local/trusted providers)';
-      const compLabel = hasComp ? 'Compression enabled \u2014 CtxPack reduces token count before sending' : 'Compression disabled \u2014 full context sent to provider';
+      const ks = keyStatus[name] || {};
+      const hasKey = ks.configured;
+      const envKey = ks.envKey || '';
+      const piiLabel = hasPii ? 'PII scrubbing enabled' : 'PII scrubbing disabled';
+      const compLabel = hasComp ? 'Compression enabled' : 'Compression disabled';
+      const keyStatusHtml = hasKey
+        ? '<span style="color:var(--accent);font-size:12px">\\u2713 API key configured</span>'
+        : '<span style="color:var(--yellow);font-size:12px">\\u26A0 No API key</span>';
+      const keyInputHtml = hasKey
+        ? '<div style="margin-top:8px;font-size:12px;color:var(--fg3)">Key: '+envKey+' <button class="test-btn" style="margin-left:8px" onclick="showKeyInput(\\''+name+'\\',\\''+envKey+'\\')">Change</button></div>'
+        : '<div style="margin-top:8px"><div style="display:flex;gap:8px;align-items:center">' +
+          '<input type="password" id="key-input-'+name+'" placeholder="Enter '+envKey+'" style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:6px 10px;color:var(--fg);font-size:12px;font-family:monospace">' +
+          '<button class="test-btn" onclick="saveKey(\\''+name+'\\')">Save</button></div>' +
+          '<div id="key-status-'+name+'" style="font-size:11px;margin-top:4px"></div></div>';
       return '<div class="provider-card"><div class="provider-header">' +
-        '<span class="status-dot '+(isDisabled?'off':'ok')+'"></span>' +
+        '<span class="status-dot '+(hasKey && !isDisabled?'ok':'off')+'"></span>' +
         '<span class="provider-name">'+name+'</span>' +
         '<span class="provider-api">'+((p.api)||'openai')+'</span>' +
         '<span style="flex:1"></span>' +
-        '<button class="test-btn" onclick="testProv(\\''+name+'\\')">Test Connection</button></div>' +
-        '<div style="font-size:12px;color:var(--fg2);margin-bottom:10px">'+((p.baseUrl)||'')+'</div>' +
-        '<div title="'+piiLabel+'"><span class="chip '+(hasPii?'on':'off')+'">'+(hasPii?'\\u2713 PII Scrubbing':'\\u2212 PII Scrubbing')+'</span>' +
-        '<span title="'+compLabel+'" class="chip '+(hasComp?'on':'off')+'">'+(hasComp?'\\u2713 Compression':'\\u2212 Compression')+'</span></div>' +
-        '<div id="test-result-'+name+'" style="font-size:12px;margin-top:8px"></div></div>';
+        keyStatusHtml +
+        '<button class="test-btn" style="margin-left:8px" onclick="testProv(\\''+name+'\\')">Test</button></div>' +
+        '<div style="font-size:12px;color:var(--fg2);margin-bottom:8px">'+((p.baseUrl)||'')+'</div>' +
+        '<div title="'+piiLabel+'"><span class="chip '+(hasPii?'on':'off')+'">'+(hasPii?'\\u2713 PII':'\\u2212 PII')+'</span>' +
+        '<span title="'+compLabel+'" class="chip '+(hasComp?'on':'off')+'">'+(hasComp?'\\u2713 Compress':'\\u2212 Compress')+'</span></div>' +
+        keyInputHtml +
+        '<div id="test-result-'+name+'" style="font-size:12px;margin-top:6px"></div></div>';
     }).join('') || '<div class="no-data">No providers configured</div>';
 
     // ML classifier — use health endpoint data (not config)
@@ -688,6 +702,37 @@ async function loadIntegrations() {
       '<div style="margin-top:12px"><button class="test-btn" onclick="reloadCfg()">Reload Config</button></div>';
   } catch(e) { console.error('Integrations load failed:', e); }
 }
+
+window.saveKey = async function(name) {
+  const input = document.getElementById('key-input-' + name);
+  const status = document.getElementById('key-status-' + name);
+  if (!input) return;
+  const apiKey = input.value.trim();
+  if (!apiKey) { if (status) status.innerHTML = '<span style="color:var(--red)">Enter an API key</span>'; return; }
+  if (status) status.innerHTML = '<span style="color:var(--fg3)">Saving...</span>';
+  try {
+    const r = await fetch('/provider-key', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({provider:name, apiKey:apiKey}) });
+    const data = await r.json();
+    if (data.ok) {
+      if (status) status.innerHTML = '<span style="color:var(--accent)">\\u2713 Saved! Key is active.</span>';
+      input.value = '';
+      setTimeout(() => loadIntegrations(), 1000);
+    } else {
+      if (status) status.innerHTML = '<span style="color:var(--red)">Error: '+(data.error||'unknown')+'</span>';
+    }
+  } catch(e) { if (status) status.innerHTML = '<span style="color:var(--red)">Error: '+e.message+'</span>'; }
+};
+
+window.showKeyInput = function(name, envKey) {
+  const card = document.getElementById('test-result-' + name);
+  if (!card) return;
+  card.parentElement.querySelector('[id^="key-status"]')?.remove();
+  const div = card.previousElementSibling || card;
+  div.outerHTML = '<div style="margin-top:8px"><div style="display:flex;gap:8px;align-items:center">' +
+    '<input type="password" id="key-input-'+name+'" placeholder="New '+envKey+'" style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:6px 10px;color:var(--fg);font-size:12px;font-family:monospace">' +
+    '<button class="test-btn" onclick="saveKey(\\''+name+'\\')">Save</button></div>' +
+    '<div id="key-status-'+name+'" style="font-size:11px;margin-top:4px"></div></div>';
+};
 
 window.testProv = async function(name) {
   const el = document.getElementById('test-result-' + name);
