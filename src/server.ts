@@ -15,7 +15,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { route } from "./router/index.js";
 import { getRoutingConfig } from "./router/config.js";
-import { buildPricingMap } from "./models.js";
+import { buildPricingMap, MODELS } from "./models.js";
 import {
   forwardRequest,
   TimeoutError,
@@ -714,6 +714,9 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse) {
       const result = await testProvider(body.provider);
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(result));
+    } else if (method === "GET" && url === "/models-info") {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ models: MODELS }));
     } else if (method === "GET" && (url === "/dashboard" || url === "/")) {
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
       res.end(getDashboardHTML());

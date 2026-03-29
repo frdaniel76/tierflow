@@ -1,5 +1,5 @@
 /**
- * TierFlow Dashboard — monitoring, quality tiers, and integrations.
+ * TierFlow Dashboard — monitoring, models, quality tiers, integrations, about.
  * Vanilla HTML/JS, no framework, no build step.
  * Served at GET /dashboard, polls GET /stats every 5s.
  */
@@ -13,118 +13,162 @@ export function getDashboardHTML(): string {
 <title>TierFlow Dashboard</title>
 <style>
   :root {
-    --bg: #0f1117; --bg2: #1a1d27; --bg3: #242837;
-    --fg: #e4e6eb; --fg2: #9ca3af; --fg3: #6b7280;
-    --accent: #22c55e; --accent2: #16a34a;
-    --blue: #3b82f6; --yellow: #eab308; --red: #ef4444; --purple: #a855f7;
-    --border: #2d3348; --radius: 8px;
+    --bg: #0d1117; --bg2: #161b22; --bg3: #21262d;
+    --fg: #e6edf3; --fg2: #8b949e; --fg3: #484f58;
+    --accent: #3fb950; --accent2: #238636; --accent-bg: #3fb95015;
+    --blue: #58a6ff; --yellow: #d29922; --red: #f85149; --purple: #bc8cff; --cyan: #39d2c0;
+    --border: #30363d; --radius: 8px;
+    --shadow: 0 1px 3px rgba(0,0,0,.3);
   }
   @media (prefers-color-scheme: light) {
     :root {
-      --bg: #f8fafc; --bg2: #ffffff; --bg3: #f1f5f9;
-      --fg: #1e293b; --fg2: #64748b; --fg3: #94a3b8;
-      --accent: #16a34a; --accent2: #15803d;
-      --blue: #2563eb; --yellow: #ca8a04; --red: #dc2626; --purple: #9333ea;
-      --border: #e2e8f0;
+      --bg: #f6f8fa; --bg2: #ffffff; --bg3: #f0f3f6;
+      --fg: #1f2328; --fg2: #656d76; --fg3: #8b949e;
+      --accent: #1a7f37; --accent2: #116329; --accent-bg: #1a7f3710;
+      --blue: #0969da; --yellow: #9a6700; --red: #cf222e; --purple: #8250df; --cyan: #0d9488;
+      --border: #d0d7de;
+      --shadow: 0 1px 3px rgba(0,0,0,.08);
     }
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--fg); min-height: 100vh; }
-  .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
-  header { display: flex; justify-content: space-between; align-items: center; padding: 16px 0; margin-bottom: 0; flex-wrap: wrap; gap: 12px; }
-  header h1 { font-size: 20px; font-weight: 600; }
-  header h1 span { color: var(--accent); }
-  .header-right { display: flex; align-items: center; gap: 16px; font-size: 13px; color: var(--fg2); }
-  select { background: var(--bg3); color: var(--fg); border: 1px solid var(--border); border-radius: 4px; padding: 4px 8px; font-size: 12px; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--fg); min-height: 100vh; font-size: 14px; line-height: 1.5; }
 
-  /* Tabs */
-  .tab-bar { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
-  .tab { background: none; border: none; border-bottom: 2px solid transparent; padding: 10px 20px; cursor: pointer; color: var(--fg2); font-size: 14px; font-weight: 500; }
-  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .container { max-width: 1200px; margin: 0 auto; padding: 24px; }
+
+  /* ─── Header ─── */
+  header { display: flex; justify-content: space-between; align-items: center; padding: 0 0 20px 0; border-bottom: 1px solid var(--border); margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
+  .logo { display: flex; align-items: center; gap: 10px; }
+  .logo h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; }
+  .logo h1 .t { color: var(--accent); }
+  .logo .version { font-size: 11px; background: var(--bg3); color: var(--fg2); padding: 2px 8px; border-radius: 12px; font-weight: 500; }
+  .header-right { display: flex; align-items: center; gap: 16px; font-size: 13px; color: var(--fg2); }
+  .header-right select { background: var(--bg3); color: var(--fg); border: 1px solid var(--border); border-radius: 6px; padding: 5px 10px; font-size: 12px; cursor: pointer; }
+  .header-right select:hover { border-color: var(--fg3); }
+  .status-badge { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+  .status-badge .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); animation: pulse 2s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+  /* ─── Tabs ─── */
+  .tab-bar { display: flex; gap: 2px; background: var(--bg3); border-radius: 8px; padding: 3px; margin-bottom: 24px; width: fit-content; }
+  .tab { background: none; border: none; border-radius: 6px; padding: 8px 18px; cursor: pointer; color: var(--fg2); font-size: 13px; font-weight: 500; transition: all 0.15s; }
+  .tab:hover { color: var(--fg); }
+  .tab.active { color: var(--fg); background: var(--bg2); box-shadow: var(--shadow); }
   .tab-panel { display: none; }
   .tab-panel.active { display: block; }
 
-  /* Cards */
-  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px; }
-  .card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
-  .card-label { font-size: 12px; color: var(--fg3); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
-  .card-value { font-size: 28px; font-weight: 700; }
-  .card-sub { font-size: 12px; color: var(--fg2); margin-top: 2px; }
-  .section { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 20px; }
-  .section h2 { font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--fg2); }
+  /* ─── Cards ─── */
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+  .card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); }
+  .card-label { font-size: 11px; color: var(--fg3); text-transform: uppercase; letter-spacing: 0.8px; font-weight: 600; margin-bottom: 8px; }
+  .card-value { font-size: 32px; font-weight: 800; letter-spacing: -1px; }
+  .card-sub { font-size: 12px; color: var(--fg2); margin-top: 4px; }
+
+  /* ─── Sections ─── */
+  .section { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 20px; box-shadow: var(--shadow); }
+  .section h2 { font-size: 13px; font-weight: 600; margin-bottom: 16px; color: var(--fg2); text-transform: uppercase; letter-spacing: 0.5px; }
+
+  /* ─── Tables ─── */
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  th { text-align: left; color: var(--fg3); font-weight: 500; padding: 6px 8px; border-bottom: 1px solid var(--border); font-size: 11px; text-transform: uppercase; }
-  td { padding: 8px; border-bottom: 1px solid var(--border); }
+  th { text-align: left; color: var(--fg3); font-weight: 600; padding: 8px 10px; border-bottom: 1px solid var(--border); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+  td { padding: 10px; border-bottom: 1px solid var(--border); }
   tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--bg3); }
   .num { text-align: right; font-variant-numeric: tabular-nums; }
-  .no-data { color: var(--fg3); font-style: italic; padding: 20px; text-align: center; }
-  .stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+  .no-data { color: var(--fg3); font-style: italic; padding: 24px; text-align: center; }
+  .stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
 
-  /* Tier bars */
-  .tier-row { display: flex; align-items: center; gap: 8px; font-size: 13px; margin-bottom: 6px; }
-  .tier-label { width: 90px; font-weight: 500; }
-  .tier-track { flex: 1; height: 24px; background: var(--bg3); border-radius: 4px; overflow: hidden; }
-  .tier-fill { height: 100%; border-radius: 4px; display: flex; align-items: center; padding: 0 8px; font-size: 11px; font-weight: 600; color: #fff; min-width: fit-content; transition: width 0.5s; }
-  .tier-pct { width: 50px; text-align: right; font-size: 12px; color: var(--fg2); }
+  /* ─── Tier bars ─── */
+  .tier-row { display: flex; align-items: center; gap: 10px; font-size: 13px; margin-bottom: 8px; }
+  .tier-label { width: 90px; font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.3px; }
+  .tier-track { flex: 1; height: 28px; background: var(--bg3); border-radius: 6px; overflow: hidden; }
+  .tier-fill { height: 100%; border-radius: 6px; display: flex; align-items: center; padding: 0 10px; font-size: 11px; font-weight: 700; color: #fff; min-width: fit-content; transition: width 0.5s ease; }
+  .tier-pct { width: 55px; text-align: right; font-size: 12px; color: var(--fg2); font-weight: 500; }
 
-  /* Mini bars */
-  .mini-bar-row { display: flex; align-items: center; gap: 8px; font-size: 12px; margin-bottom: 6px; }
-  .mini-bar-label { width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--fg2); }
-  .mini-bar-track { flex: 1; height: 14px; background: var(--bg3); border-radius: 3px; overflow: hidden; }
-  .mini-bar-fill { height: 100%; border-radius: 3px; transition: width 0.4s; }
-  .mini-bar-val { width: 50px; text-align: right; color: var(--fg2); }
+  /* ─── Savings ─── */
+  .savings-pct { font-size: 32px; font-weight: 800; color: var(--accent); letter-spacing: -1px; }
+  .cost-bar-track { height: 10px; background: var(--bg3); border-radius: 6px; overflow: hidden; margin: 10px 0; }
+  .cost-bar-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); border-radius: 6px; transition: width 0.5s ease; }
 
-  /* Savings */
-  .savings-pct { font-size: 28px; font-weight: 700; color: var(--accent); }
-  .cost-bar-track { height: 8px; background: var(--bg3); border-radius: 4px; overflow: hidden; margin: 8px 0; }
-  .cost-bar-fill { height: 100%; background: var(--accent); border-radius: 4px; transition: width 0.5s; }
-
-  /* Quality tab */
-  .preset-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 20px; }
-  .preset-card { background: var(--bg2); border: 2px solid var(--border); border-radius: var(--radius); padding: 16px; cursor: pointer; transition: border-color 0.2s; text-align: center; }
-  .preset-card:hover { border-color: var(--fg3); }
-  .preset-card.active { border-color: var(--accent); }
-  .preset-icon { font-size: 28px; margin-bottom: 8px; }
-  .preset-name { font-weight: 600; font-size: 15px; margin-bottom: 4px; }
-  .preset-desc { font-size: 12px; color: var(--fg2); margin-bottom: 8px; }
-  .preset-cost { font-size: 13px; color: var(--accent); font-weight: 600; }
+  /* ─── Quality tab ─── */
+  .preset-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 20px; }
+  .preset-card { background: var(--bg2); border: 2px solid var(--border); border-radius: var(--radius); padding: 20px; cursor: pointer; transition: all 0.2s; text-align: center; }
+  .preset-card:hover { border-color: var(--fg3); transform: translateY(-1px); }
+  .preset-card.active { border-color: var(--accent); background: var(--accent-bg); }
+  .preset-icon { font-size: 32px; margin-bottom: 10px; }
+  .preset-name { font-weight: 700; font-size: 15px; margin-bottom: 4px; }
+  .preset-desc { font-size: 12px; color: var(--fg2); margin-bottom: 10px; line-height: 1.4; }
+  .preset-cost { font-size: 13px; color: var(--accent); font-weight: 700; }
   .global-slider-section { margin-bottom: 20px; }
-  .global-slider { width: 100%; accent-color: var(--accent); }
-  .slider-labels { display: flex; justify-content: space-between; font-size: 11px; color: var(--fg3); margin-top: 4px; }
+  .global-slider { width: 100%; accent-color: var(--accent); height: 6px; }
+  .slider-labels { display: flex; justify-content: space-between; font-size: 11px; color: var(--fg3); margin-top: 6px; font-weight: 500; }
   .cat-overrides { margin-top: 16px; }
-  .cat-override-row { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+  .cat-override-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
   .cat-override-row:last-child { border-bottom: none; }
-  .cat-icon { font-size: 16px; width: 24px; }
-  .cat-name { width: 100px; font-weight: 500; }
+  .cat-icon { font-size: 16px; width: 24px; text-align: center; }
+  .cat-name { width: 100px; font-weight: 600; }
   .cat-slider { flex: 1; accent-color: var(--accent); }
-  .cat-model { font-size: 11px; color: var(--fg2); width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .cat-price { font-size: 11px; color: var(--fg3); width: 100px; text-align: right; }
-  .apply-bar { display: flex; align-items: center; gap: 16px; padding: 12px 0; }
-  .apply-btn { background: var(--accent); color: #fff; border: none; border-radius: 6px; padding: 10px 24px; font-size: 14px; font-weight: 600; cursor: pointer; }
-  .apply-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .cat-model { font-size: 12px; color: var(--fg2); width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cat-price { font-size: 12px; color: var(--fg3); width: 100px; text-align: right; font-weight: 500; }
+  .apply-bar { display: flex; align-items: center; gap: 16px; padding: 16px 0; }
+  .apply-btn { background: var(--accent2); color: #fff; border: none; border-radius: 8px; padding: 10px 28px; font-size: 14px; font-weight: 600; cursor: pointer; transition: background 0.15s; }
+  .apply-btn:hover { background: var(--accent); }
+  .apply-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 
-  /* Integrations tab */
-  .provider-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 12px; }
-  .provider-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
-  .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
-  .status-dot.ok { background: var(--accent); }
+  /* ─── Provider cards ─── */
+  .provider-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 12px; box-shadow: var(--shadow); }
+  .provider-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .provider-name { font-weight: 700; font-size: 15px; }
+  .provider-api { color: var(--fg3); font-size: 12px; background: var(--bg3); padding: 2px 8px; border-radius: 4px; }
+  .status-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  .status-dot.ok { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
   .status-dot.off { background: var(--fg3); }
-  .chip { padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; display: inline-block; margin: 2px; }
-  .chip.on { background: #16a34a22; color: var(--accent); }
-  .chip.off { background: var(--bg3); color: var(--fg3); }
-  .test-btn { padding: 4px 12px; border-radius: 4px; background: var(--bg3); border: 1px solid var(--border); color: var(--fg2); font-size: 12px; cursor: pointer; }
-  .test-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .chip { padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; margin: 3px 2px; }
+  .chip.on { background: var(--accent-bg); color: var(--accent); border: 1px solid var(--accent); }
+  .chip.off { background: var(--bg3); color: var(--fg3); border: 1px solid var(--border); }
+  .test-btn { padding: 6px 14px; border-radius: 6px; background: var(--bg3); border: 1px solid var(--border); color: var(--fg2); font-size: 12px; cursor: pointer; font-weight: 500; transition: all 0.15s; }
+  .test-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-bg); }
 
-  footer { text-align: center; color: var(--fg3); font-size: 12px; padding: 20px 0; }
+  /* ─── Models tab ─── */
+  .model-table th { position: sticky; top: 0; background: var(--bg2); }
+  .model-badge { font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 600; margin-left: 4px; }
+  .model-badge.reasoning { background: #bc8cff20; color: var(--purple); }
+  .model-badge.vision { background: #58a6ff20; color: var(--blue); }
+  .model-badge.agentic { background: #39d2c020; color: var(--cyan); }
+  .model-badge.free { background: var(--accent-bg); color: var(--accent); }
+  .model-provider { font-size: 11px; color: var(--fg3); }
+
+  /* ─── Info cards (ML, System) ─── */
+  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 13px; }
+  .info-label { color: var(--fg3); font-weight: 500; }
+  .info-value { color: var(--fg); font-weight: 600; }
+  .info-value code { background: var(--bg3); padding: 2px 6px; border-radius: 4px; font-size: 12px; }
+
+  /* ─── About tab ─── */
+  .about-hero { text-align: center; padding: 40px 20px; }
+  .about-hero h2 { font-size: 24px; font-weight: 800; margin-bottom: 8px; }
+  .about-hero p { color: var(--fg2); max-width: 500px; margin: 0 auto; }
+  .docs-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+  .doc-link { display: block; background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; text-decoration: none; color: var(--fg); transition: all 0.15s; }
+  .doc-link:hover { border-color: var(--accent); transform: translateY(-1px); box-shadow: var(--shadow); }
+  .doc-link .doc-title { font-weight: 700; font-size: 14px; margin-bottom: 4px; }
+  .doc-link .doc-desc { font-size: 12px; color: var(--fg2); }
+
+  /* ─── Footer ─── */
+  footer { text-align: center; color: var(--fg3); font-size: 12px; padding: 24px 0; border-top: 1px solid var(--border); margin-top: 24px; }
+  footer a { color: var(--blue); text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
 </style>
 </head>
 <body>
 <div class="container">
   <header>
-    <h1><span>Tier</span>Flow</h1>
+    <div class="logo">
+      <h1><span class="t">Tier</span>Flow</h1>
+      <span class="version" id="version-badge">v2.0.0</span>
+    </div>
     <div class="header-right">
-      <span id="uptime">--</span>
-      <label>Refresh: <select id="refresh-rate">
+      <div class="status-badge"><span class="dot"></span> <span id="uptime">--</span></div>
+      <label>Refresh <select id="refresh-rate">
         <option value="5000">5s</option><option value="10000">10s</option>
         <option value="30000">30s</option><option value="0">Off</option>
       </select></label>
@@ -133,8 +177,10 @@ export function getDashboardHTML(): string {
 
   <div class="tab-bar">
     <button class="tab active" data-tab="stats">Stats</button>
+    <button class="tab" data-tab="models">Models</button>
     <button class="tab" data-tab="quality">Quality</button>
     <button class="tab" data-tab="integrations">Integrations</button>
+    <button class="tab" data-tab="about">About</button>
   </div>
 
   <!-- ═══ STATS TAB ═══ -->
@@ -143,13 +189,14 @@ export function getDashboardHTML(): string {
       <div class="card"><div class="card-label">Total Requests</div><div class="card-value" id="total-requests">--</div><div class="card-sub" id="errors-sub">0 errors</div></div>
       <div class="card"><div class="card-label">Cache Hit Rate</div><div class="card-value" id="cache-rate">--</div><div class="card-sub" id="cache-sub">0 hits / 0 misses</div></div>
       <div class="card"><div class="card-label">Actual Cost</div><div class="card-value" id="total-cost">--</div><div class="card-sub" id="tokens-sub">0 tokens</div></div>
-      <div class="card"><div class="card-label">Savings</div><div class="savings-pct" id="savings-pct">--%</div><div class="card-sub" id="savings-sub">$0 saved vs Opus baseline</div></div>
+      <div class="card"><div class="card-label">Cost Savings</div><div class="savings-pct" id="savings-pct">--%</div><div class="card-sub" id="savings-sub">$0 saved vs always-best</div></div>
     </div>
 
     <div class="section">
       <h2>Cost Efficiency</h2>
-      <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px"><span>Your cost: <strong id="eff-actual">$0</strong></span><span>Opus baseline: <strong id="eff-baseline">$0</strong></span></div>
+      <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px"><span>Your cost: <strong id="eff-actual">$0</strong></span><span>Always-best baseline: <strong id="eff-baseline">$0</strong></span></div>
       <div class="cost-bar-track"><div class="cost-bar-fill" id="eff-bar" style="width:100%"></div></div>
+      <div style="font-size:11px;color:var(--fg3);margin-top:4px">Green bar = your actual cost as % of what the most expensive model would cost</div>
     </div>
 
     <div class="section">
@@ -161,18 +208,38 @@ export function getDashboardHTML(): string {
       <div class="section">
         <h2>By Category</h2>
         <table id="cat-table"><thead><tr><th>Category</th><th class="num">Reqs</th><th class="num">Cost</th><th class="num">Saved</th></tr></thead>
-        <tbody><tr><td colspan="4" class="no-data">No data</td></tr></tbody></table>
+        <tbody><tr><td colspan="4" class="no-data">No data yet</td></tr></tbody></table>
       </div>
       <div class="section">
         <h2>By Model</h2>
         <table id="mod-table"><thead><tr><th>Model</th><th class="num">Reqs</th><th class="num">Tokens</th><th class="num">Cost</th></tr></thead>
-        <tbody><tr><td colspan="4" class="no-data">No data</td></tr></tbody></table>
+        <tbody><tr><td colspan="4" class="no-data">No data yet</td></tr></tbody></table>
       </div>
     </div>
 
+    <div class="stats-row">
+      <div class="section">
+        <h2>PII Scrubbing</h2>
+        <div id="pii-stats" class="no-data">No PII activity yet</div>
+        <div style="font-size:11px;color:var(--fg3);margin-top:8px" id="pii-help" style="display:none">PII (emails, API keys, SSNs, etc.) is auto-scrubbed before sending to external providers, then rehydrated in the response. Data never leaves your machine.</div>
+      </div>
+      <div class="section">
+        <h2>Context Compression</h2>
+        <div id="compress-stats" class="no-data">No compression activity yet</div>
+        <div style="font-size:11px;color:var(--fg3);margin-top:8px" id="compress-help" style="display:none">CtxPack applies 6 compression passes (ANSI, whitespace, JSON, dedup, comments, stack traces) to reduce token count before forwarding.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ MODELS TAB ═══ -->
+  <div id="tab-models" class="tab-panel">
     <div class="section">
-      <h2>PII &amp; Compression</h2>
-      <div id="pii-compress" class="no-data">No activity</div>
+      <h2>Model Catalog</h2>
+      <p style="font-size:13px;color:var(--fg2);margin-bottom:16px">Models available for routing. Pricing is per 1M tokens. TierFlow routes each request to the cheapest model that can handle it.</p>
+      <table class="model-table" id="models-table">
+        <thead><tr><th>Model</th><th>Provider</th><th class="num">Input $/1M</th><th class="num">Output $/1M</th><th class="num">Context</th><th>Capabilities</th></tr></thead>
+        <tbody><tr><td colspan="6" class="no-data">Loading...</td></tr></tbody>
+      </table>
     </div>
   </div>
 
@@ -180,15 +247,18 @@ export function getDashboardHTML(): string {
   <div id="tab-quality" class="tab-panel">
     <div class="section">
       <h2>Choose a Profile</h2>
+      <p style="font-size:13px;color:var(--fg2);margin-bottom:16px">Profiles change which models are used for each category. Select a profile, then click Apply to update your running config.</p>
       <div class="preset-grid" id="preset-grid"><div class="no-data">Loading...</div></div>
     </div>
     <div class="section global-slider-section">
       <h2>Fine-Tune</h2>
+      <p style="font-size:13px;color:var(--fg2);margin-bottom:12px">Slide to adjust the cost/quality balance globally across all categories.</p>
       <input type="range" min="1" max="5" value="2" class="global-slider" id="global-slider">
       <div class="slider-labels"><span>Budget</span><span>Value</span><span>Balanced</span><span>Premium</span><span>Best</span></div>
     </div>
     <div class="section">
       <h2>Per-Category Overrides</h2>
+      <p style="font-size:13px;color:var(--fg2);margin-bottom:12px">Override the quality level for individual categories. Drag to select which model tier handles each type of request.</p>
       <div id="cat-overrides"><div class="no-data">Loading...</div></div>
     </div>
     <div class="apply-bar">
@@ -201,27 +271,76 @@ export function getDashboardHTML(): string {
   <div id="tab-integrations" class="tab-panel">
     <div class="section">
       <h2>API Providers</h2>
+      <p style="font-size:13px;color:var(--fg2);margin-bottom:16px">Configured LLM providers. Click Test to verify connectivity. PII scrubbing and compression are per-provider settings.</p>
       <div id="providers-list"><div class="no-data">Loading...</div></div>
     </div>
-    <div class="section">
-      <h2>ML Classifier</h2>
-      <div id="ml-status-detail"><div class="no-data">Loading...</div></div>
-    </div>
-    <div class="section">
-      <h2>System</h2>
-      <div id="system-info"><div class="no-data">Loading...</div></div>
+    <div class="stats-row">
+      <div class="section">
+        <h2>ML Classifier</h2>
+        <div id="ml-status-detail"><div class="no-data">Loading...</div></div>
+      </div>
+      <div class="section">
+        <h2>System</h2>
+        <div id="system-info"><div class="no-data">Loading...</div></div>
+      </div>
     </div>
   </div>
 
-  <footer>TierFlow v2.0 &mdash; Stats since <span id="started">--</span></footer>
+  <!-- ═══ ABOUT TAB ═══ -->
+  <div id="tab-about" class="tab-panel">
+    <div class="section about-hero">
+      <h2><span style="color:var(--accent)">Tier</span>Flow</h2>
+      <p>Self-hosted AI model router with ML-powered classification, PII scrubbing, and automatic fallback.</p>
+      <div style="margin-top:16px;font-size:13px;color:var(--fg2)">
+        <span id="about-version">v2.0.0</span> &middot; MIT License &middot; Zero Dependencies
+      </div>
+    </div>
+    <div class="section">
+      <h2>Documentation</h2>
+      <div class="docs-grid">
+        <a class="doc-link" href="https://github.com/frdaniel76/tierflow" target="_blank"><div class="doc-title">GitHub Repository</div><div class="doc-desc">Source code, issues, and releases</div></a>
+        <a class="doc-link" href="https://github.com/frdaniel76/tierflow/blob/main/README.md" target="_blank"><div class="doc-title">Getting Started</div><div class="doc-desc">Quick start, install options, configuration</div></a>
+        <a class="doc-link" href="https://github.com/frdaniel76/tierflow/blob/main/docs/architecture.md" target="_blank"><div class="doc-title">Architecture</div><div class="doc-desc">System design and component overview</div></a>
+        <a class="doc-link" href="https://github.com/frdaniel76/tierflow/blob/main/docs/configuration.md" target="_blank"><div class="doc-title">Configuration</div><div class="doc-desc">Full config reference and examples</div></a>
+        <a class="doc-link" href="https://github.com/frdaniel76/tierflow/blob/main/docs/providers.md" target="_blank"><div class="doc-title">Provider Cookbook</div><div class="doc-desc">Setup guides for each LLM provider</div></a>
+        <a class="doc-link" href="https://github.com/frdaniel76/tierflow/blob/main/docs/live-benchmarks.md" target="_blank"><div class="doc-title">Live Benchmarks</div><div class="doc-desc">Real cost-savings data from actual API calls</div></a>
+        <a class="doc-link" href="https://github.com/frdaniel76/tierflow/blob/main/docs/docker.md" target="_blank"><div class="doc-title">Docker Setup</div><div class="doc-desc">Docker Compose deployment guide</div></a>
+        <a class="doc-link" href="https://github.com/frdaniel76/tierflow/blob/main/docs/troubleshooting.md" target="_blank"><div class="doc-title">Troubleshooting</div><div class="doc-desc">Common issues and solutions</div></a>
+      </div>
+    </div>
+    <div class="section">
+      <h2>API Endpoints</h2>
+      <table>
+        <thead><tr><th>Endpoint</th><th>Method</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>/v1/chat/completions</code></td><td>POST</td><td>OpenAI-compatible chat — set model to "auto" for smart routing</td></tr>
+          <tr><td><code>/v1/models</code></td><td>GET</td><td>List configured models</td></tr>
+          <tr><td><code>/health</code></td><td>GET</td><td>Health check, uptime, classifier status</td></tr>
+          <tr><td><code>/stats</code></td><td>GET</td><td>Request statistics, costs, token usage</td></tr>
+          <tr><td><code>/config</code></td><td>GET</td><td>Current config (secrets redacted)</td></tr>
+          <tr><td><code>/reload-config</code></td><td>POST</td><td>Hot-reload config without restart</td></tr>
+          <tr><td><code>/dashboard</code></td><td>GET</td><td>This dashboard</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <footer>
+    <a href="https://github.com/frdaniel76/tierflow" target="_blank">TierFlow</a> &middot;
+    <span id="footer-version">v2.0.0</span> &middot;
+    Stats since <span id="started">--</span> &middot;
+    <a href="https://github.com/frdaniel76/tierflow/issues" target="_blank">Report Issue</a> &middot;
+    <a href="https://github.com/frdaniel76/tierflow/releases" target="_blank">Check for Updates</a>
+  </footer>
 </div>
 
 <script>
 const $ = id => document.getElementById(id);
 const fmt = n => n >= 1e6 ? (n/1e6).toFixed(1)+'M' : n >= 1e3 ? (n/1e3).toFixed(1)+'k' : String(n);
 const fmtCost = n => n === 0 ? 'Free' : n < 0.001 ? '$'+n.toFixed(6) : n < 1 ? '$'+n.toFixed(4) : '$'+n.toFixed(2);
-const tierColors = { SIMPLE:'#22c55e', MEDIUM:'#3b82f6', COMPLEX:'#eab308', REASONING:'#a855f7' };
-const catIcons = { simple_chat:'\\uD83D\\uDCAC', general:'\\uD83C\\uDF10', coding:'\\u2699', reasoning:'\\uD83E\\uDDEE', creative:'\\u270D', data:'\\uD83D\\uDCCA', agentic:'\\uD83E\\uDD16', transcription:'\\uD83C\\uDFA4' };
+const fmtCtx = n => n >= 1e6 ? (n/1e6).toFixed(1)+'M' : n >= 1e3 ? Math.round(n/1e3)+'K' : String(n);
+const tierColors = { SIMPLE:'#3fb950', MEDIUM:'#58a6ff', COMPLEX:'#d29922', REASONING:'#bc8cff' };
+const catIcons = { simple_chat:'\\uD83D\\uDCAC', general:'\\uD83C\\uDF10', coding:'\\u2699\\uFE0F', reasoning:'\\uD83E\\uDDEE', creative:'\\u270D\\uFE0F', data:'\\uD83D\\uDCCA', agentic:'\\uD83E\\uDD16', transcription:'\\uD83C\\uDFA4' };
 
 let refreshTimer = null, qualityData = null, pendingPreset = null, pendingOverrides = {};
 
@@ -235,6 +354,7 @@ document.querySelectorAll('.tab').forEach(t => {
     localStorage.setItem('tf-tab', t.dataset.tab);
     if (t.dataset.tab === 'quality' && !qualityData) loadQuality();
     if (t.dataset.tab === 'integrations') loadIntegrations();
+    if (t.dataset.tab === 'models') loadModels();
   });
 });
 
@@ -246,6 +366,13 @@ async function refresh() {
     const [sr, hr] = await Promise.all([fetch('/stats'), fetch('/health')]);
     const stats = await sr.json(), health = await hr.json();
     window._lastStats = stats;
+    window._lastHealth = health;
+
+    // Version
+    const ver = 'v' + (health.version || '2.0.0');
+    $('version-badge').textContent = ver;
+    $('about-version').textContent = ver;
+    $('footer-version').textContent = ver;
 
     $('uptime').textContent = formatUptime(health.uptime);
     $('started').textContent = new Date(stats.started).toLocaleString();
@@ -264,7 +391,7 @@ async function refresh() {
     const saved = Math.max(0, baseline - actual);
     const savPct = baseline > 0 ? (saved/baseline*100) : 0;
     $('savings-pct').textContent = savPct.toFixed(1) + '%';
-    $('savings-sub').textContent = fmtCost(saved) + ' saved vs Opus';
+    $('savings-sub').textContent = fmtCost(saved) + ' saved vs always-best';
 
     $('eff-actual').textContent = fmtCost(actual);
     $('eff-baseline').textContent = fmtCost(baseline);
@@ -287,7 +414,7 @@ async function refresh() {
     if (ck.length) {
       $('cat-table').querySelector('tbody').innerHTML = ck.map(k => {
         const sv = Math.max(0, (bc[k].baselineCost||0) - bc[k].cost);
-        return '<tr><td>'+k+'</td><td class="num">'+bc[k].requests+'</td><td class="num">'+fmtCost(bc[k].cost)+'</td><td class="num" style="color:var(--accent)">'+fmtCost(sv)+'</td></tr>';
+        return '<tr><td>'+(catIcons[k]||'')+' '+k+'</td><td class="num">'+bc[k].requests+'</td><td class="num">'+fmtCost(bc[k].cost)+'</td><td class="num" style="color:var(--accent)">'+fmtCost(sv)+'</td></tr>';
       }).join('');
     }
 
@@ -300,14 +427,68 @@ async function refresh() {
       ).join('');
     }
 
-    // PII & Compression
-    const pii = stats.pii||{}, comp = stats.compress||{};
-    if (pii.scrubbed > 0 || comp.compressed > 0) {
-      $('pii-compress').innerHTML = '<span>PII: '+pii.scrubbed+' scrubbed, '+pii.rehydrated+' rehydrated'+(pii.errors?' <span style="color:var(--red)">'+pii.errors+' errors</span>':'')+'</span>' +
-        (comp.compressed > 0 ? ' &middot; <span>CtxPack: '+comp.compressed+' compressed, '+fmt(comp.tokensSaved)+' tokens saved</span>' : '');
-      $('pii-compress').classList.remove('no-data');
+    // PII stats (separate section)
+    const pii = stats.pii||{};
+    if (pii.scrubbed > 0 || pii.rehydrated > 0) {
+      $('pii-stats').innerHTML =
+        '<div class="info-grid">' +
+        '<span class="info-label">Scrubbed</span><span class="info-value">'+pii.scrubbed+' items</span>' +
+        '<span class="info-label">Rehydrated</span><span class="info-value">'+pii.rehydrated+' items</span>' +
+        (pii.errors ? '<span class="info-label">Errors</span><span class="info-value" style="color:var(--red)">'+pii.errors+'</span>' : '') +
+        '</div>';
+      $('pii-stats').classList.remove('no-data');
+    }
+
+    // Compression stats (separate section)
+    const comp = stats.compress||{};
+    if (comp.compressed > 0) {
+      $('compress-stats').innerHTML =
+        '<div class="info-grid">' +
+        '<span class="info-label">Compressed</span><span class="info-value">'+comp.compressed+' requests</span>' +
+        '<span class="info-label">Tokens Saved</span><span class="info-value" style="color:var(--accent)">'+fmt(comp.tokensSaved)+'</span>' +
+        (comp.errors ? '<span class="info-label">Errors</span><span class="info-value" style="color:var(--red)">'+comp.errors+'</span>' : '') +
+        '</div>';
+      $('compress-stats').classList.remove('no-data');
     }
   } catch(e) { console.error('Refresh failed:', e); }
+}
+
+// ─── Models tab ───
+async function loadModels() {
+  try {
+    const r = await fetch('/models-info');
+    const data = await r.json();
+    const models = data.models || [];
+
+    if (!models.length) {
+      $('models-table').querySelector('tbody').innerHTML = '<tr><td colspan="6" class="no-data">No models configured</td></tr>';
+      return;
+    }
+
+    // Sort by provider then price
+    models.sort((a,b) => {
+      const pa = a.id.split('/')[0], pb = b.id.split('/')[0];
+      if (pa !== pb) return pa.localeCompare(pb);
+      return a.inputPrice - b.inputPrice;
+    });
+
+    $('models-table').querySelector('tbody').innerHTML = models.map(m => {
+      const provider = m.id.split('/')[0];
+      const badges = [];
+      if (m.inputPrice === 0 && m.outputPrice === 0) badges.push('<span class="model-badge free">FREE</span>');
+      if (m.reasoning) badges.push('<span class="model-badge reasoning">Reasoning</span>');
+      if (m.vision) badges.push('<span class="model-badge vision">Vision</span>');
+      if (m.agentic) badges.push('<span class="model-badge agentic">Agentic</span>');
+      return '<tr>' +
+        '<td><strong>'+m.name+'</strong> '+badges.join('')+'<br><span class="model-provider">'+m.id+'</span></td>' +
+        '<td>'+provider+'</td>' +
+        '<td class="num">'+(m.inputPrice === 0 ? '<span style="color:var(--accent)">Free</span>' : '$'+m.inputPrice)+'</td>' +
+        '<td class="num">'+(m.outputPrice === 0 ? '<span style="color:var(--accent)">Free</span>' : '$'+m.outputPrice)+'</td>' +
+        '<td class="num">'+fmtCtx(m.contextWindow)+'</td>' +
+        '<td>'+(m.maxOutput ? fmtCtx(m.maxOutput)+' max out' : '-')+'</td>' +
+        '</tr>';
+    }).join('');
+  } catch(e) { console.error('Models load failed:', e); }
 }
 
 // ─── Quality tab ───
@@ -384,11 +565,13 @@ $('apply-btn').addEventListener('click', async () => {
       await fetch('/quality-level', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({category: cat, level: lv}) });
     }
     pendingPreset = null; pendingOverrides = {};
-    $('apply-status').textContent = 'Applied!';
+    $('apply-status').textContent = 'Applied! Config reloaded.';
+    $('apply-status').style.color = 'var(--accent)';
     await loadQuality();
-    setTimeout(() => { $('apply-status').textContent = ''; }, 3000);
+    setTimeout(() => { $('apply-status').textContent = ''; $('apply-status').style.color = 'var(--fg2)'; }, 3000);
   } catch(e) {
     $('apply-status').textContent = 'Error: ' + e.message;
+    $('apply-status').style.color = 'var(--red)';
     $('apply-btn').disabled = false;
   }
 });
@@ -396,7 +579,6 @@ $('apply-btn').addEventListener('click', async () => {
 $('global-slider').addEventListener('input', (e) => {
   pendingPreset = null; pendingOverrides = {};
   const lv = parseInt(e.target.value);
-  // Map global slider to preset
   const map = {1:'free',2:'smart_saver',3:null,4:'quality_first',5:'maximum'};
   if (map[lv]) { pendingPreset = map[lv]; }
   else { pendingPreset = '__global_' + lv; }
@@ -418,49 +600,63 @@ async function loadIntegrations() {
       const hasPii = p.pii === true || (p.pii && p.pii.enabled);
       const hasComp = p.compress === true || (p.compress && p.compress.enabled);
       const isDisabled = p.disabled === true;
+      const piiLabel = hasPii ? 'PII scrubbing enabled \u2014 sensitive data is redacted before sending to this provider' : 'PII scrubbing disabled \u2014 data sent as-is (safe for local/trusted providers)';
+      const compLabel = hasComp ? 'Compression enabled \u2014 CtxPack reduces token count before sending' : 'Compression disabled \u2014 full context sent to provider';
       return '<div class="provider-card"><div class="provider-header">' +
         '<span class="status-dot '+(isDisabled?'off':'ok')+'"></span>' +
-        '<strong>'+name+'</strong> <span style="color:var(--fg3);font-size:12px">'+((p.api)||'')+'</span>' +
+        '<span class="provider-name">'+name+'</span>' +
+        '<span class="provider-api">'+((p.api)||'openai')+'</span>' +
         '<span style="flex:1"></span>' +
-        '<button class="test-btn" onclick="testProv(\\''+name+'\\')">Test</button></div>' +
-        '<div style="font-size:12px;color:var(--fg2);margin-bottom:6px">'+((p.baseUrl)||'')+'</div>' +
-        '<div><span class="chip '+(hasPii?'on':'off')+'">PII '+(hasPii?'on':'off')+'</span>' +
-        '<span class="chip '+(hasComp?'on':'off')+'">Compress '+(hasComp?'on':'off')+'</span></div>' +
-        '<div id="test-result-'+name+'" style="font-size:12px;margin-top:6px"></div></div>';
+        '<button class="test-btn" onclick="testProv(\\''+name+'\\')">Test Connection</button></div>' +
+        '<div style="font-size:12px;color:var(--fg2);margin-bottom:10px">'+((p.baseUrl)||'')+'</div>' +
+        '<div title="'+piiLabel+'"><span class="chip '+(hasPii?'on':'off')+'">'+(hasPii?'\\u2713 PII Scrubbing':'\\u2212 PII Scrubbing')+'</span>' +
+        '<span title="'+compLabel+'" class="chip '+(hasComp?'on':'off')+'">'+(hasComp?'\\u2713 Compression':'\\u2212 Compression')+'</span></div>' +
+        '<div id="test-result-'+name+'" style="font-size:12px;margin-top:8px"></div></div>';
     }).join('') || '<div class="no-data">No providers configured</div>';
 
-    // ML classifier
-    const ml = cfg.mlClassifier;
-    if (ml) {
-      $('ml-status-detail').innerHTML = '<div style="font-size:13px"><strong>LLMRouter Service</strong>' +
-        '<div style="color:var(--fg2);margin-top:4px">URL: <code>'+ml.url+'</code></div>' +
-        '<div style="color:var(--fg2)">Timeout: '+ml.timeout_ms+'ms &middot; Fallback: '+ml.fallback_category+'</div></div>';
+    // ML classifier — use health endpoint data (not config)
+    const ml = health.mlClassifier;
+    if (ml && ml.available) {
+      $('ml-status-detail').innerHTML =
+        '<div class="info-grid">' +
+        '<span class="info-label">Status</span><span class="info-value" style="color:var(--accent)">\\u2713 Active</span>' +
+        '<span class="info-label">Model</span><span class="info-value"><code>'+ml.model+'</code></span>' +
+        '<span class="info-label">Method</span><span class="info-value">'+ml.method+'</span>' +
+        '<span class="info-label">Training Examples</span><span class="info-value">'+ml.training_examples+'</span>' +
+        '</div>' +
+        '<div style="font-size:11px;color:var(--fg3);margin-top:10px">The ML classifier uses sentence-transformer embeddings + KNN to classify queries into 8 categories in ~40ms.</div>';
     } else {
-      $('ml-status-detail').innerHTML = '<div class="no-data">Not configured (using rule-based routing)</div>';
+      $('ml-status-detail').innerHTML =
+        '<div class="info-grid">' +
+        '<span class="info-label">Status</span><span class="info-value" style="color:var(--yellow)">Loading...</span>' +
+        '</div>' +
+        '<div style="font-size:11px;color:var(--fg3);margin-top:10px">The ML classifier loads on first request. If unavailable, TierFlow falls back to a 14-dimension rule-based scorer (&lt;1ms).</div>';
     }
 
     // System
     const cache = cfg.cache || {};
+    const cacheEnabled = cache.enabled !== false; // default true
     $('system-info').innerHTML =
-      '<div style="font-size:13px">' +
-      '<div>Cache: <span class="chip '+(cache.enabled?'on':'off')+'">'+(cache.enabled?'enabled':'disabled')+'</span>' +
-      (cache.enabled ? ' TTL: '+(cache.ttl_seconds||300)+'s, max: '+(cache.max_entries||5000) : '') + '</div>' +
-      '<div style="margin-top:8px">Config: <code>'+(cfgData.configPath||'built-in defaults')+'</code> ' +
-      '<button class="test-btn" onclick="reloadCfg()">Reload</button></div>' +
-      '<div style="margin-top:8px">Version: '+health.version+' &middot; Uptime: '+formatUptime(health.uptime)+'</div></div>';
+      '<div class="info-grid">' +
+      '<span class="info-label">Version</span><span class="info-value">'+health.version+'</span>' +
+      '<span class="info-label">Uptime</span><span class="info-value">'+formatUptime(health.uptime)+'</span>' +
+      '<span class="info-label">Cache</span><span class="info-value">'+(cacheEnabled ? '<span style="color:var(--accent)">\\u2713 Enabled</span> (TTL: '+(cache.ttl_seconds||300)+'s)' : '<span style="color:var(--fg3)">Disabled</span>')+'</span>' +
+      '<span class="info-label">Config</span><span class="info-value"><code>'+(cfgData.configPath ? cfgData.configPath.split('/').pop() : 'defaults')+'</code></span>' +
+      '</div>' +
+      '<div style="margin-top:12px"><button class="test-btn" onclick="reloadCfg()">Reload Config</button></div>';
   } catch(e) { console.error('Integrations load failed:', e); }
 }
 
 window.testProv = async function(name) {
   const el = document.getElementById('test-result-' + name);
-  if (el) el.innerHTML = '<span style="color:var(--fg3)">Testing...</span>';
+  if (el) el.innerHTML = '<span style="color:var(--fg3)">Testing connection...</span>';
   try {
     const r = await fetch('/test-provider', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({provider:name}) });
     const data = await r.json();
     if (el) el.innerHTML = data.ok
-      ? '<span style="color:var(--accent)">Connected ('+data.latency_ms+'ms'+(data.models?', '+data.models+' models':'')+') </span>'
-      : '<span style="color:var(--red)">Failed: '+data.error+'</span>';
-  } catch(e) { if(el) el.innerHTML = '<span style="color:var(--red)">Error: '+e.message+'</span>'; }
+      ? '<span style="color:var(--accent)">\\u2713 Connected ('+data.latency_ms+'ms'+(data.models?', '+data.models+' models':'')+') </span>'
+      : '<span style="color:var(--red)">\\u2717 Failed: '+data.error+'</span>';
+  } catch(e) { if(el) el.innerHTML = '<span style="color:var(--red)">\\u2717 Error: '+e.message+'</span>'; }
 };
 
 window.reloadCfg = async function() {
