@@ -9,8 +9,8 @@ curl http://localhost:18800/health
 # 2. Validate config + API keys
 npx tierflow --check
 
-# 3. Check ML classifier (optional)
-curl http://localhost:18801/health
+# 3. Check ML classifier status (built into TierFlow)
+curl http://localhost:18800/health | jq '.mlClassifier'
 
 # 4. View current config (secrets redacted)
 curl http://localhost:18800/config
@@ -35,16 +35,12 @@ Model ID: `openrouter/google/gemini-2.5-flash-lite` → looks up `openrouter` pr
 
 ### ML classifier unavailable
 
-If LLMRouter service isn't running on `:18801`, TierFlow falls back to the 14-dimension keyword scorer. This is intentional — routing still works, just less accurately.
-
-To start the ML classifier:
+TierFlow uses a local ONNX classifier (KNN + MiniLM-L6-v2) built into the process. If this fails to load, it falls back to the 14-dimension keyword scorer. Check the health endpoint to verify:
 
 ```bash
-cd llmrouter-service
-python server.py
+curl http://localhost:18800/health | jq '.mlClassifier'
+# Should show: { "available": true, "method": "local-onnx-knn" }
 ```
-
-Or with Docker: `docker compose up -d`
 
 ### API key not found
 

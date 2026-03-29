@@ -2,7 +2,7 @@
 
 ## ML-Powered Routing (v2)
 
-8-category classification via external ML service (LLMRouter):
+8-category classification via local ONNX classifier (KNN + MiniLM-L6-v2, built-in):
 
 | Category      | Typical Use                  | Default Model              |
 | ------------- | ---------------------------- | -------------------------- |

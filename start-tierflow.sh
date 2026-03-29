@@ -11,13 +11,12 @@ export NVM_DIR="$HOME/.nvm"
 #   export ANTHROPIC_API_KEY="sk-ant-..."
 #   export OLLAMA_API_KEY="ollama"
 
-# Load .env file if present
+# Load secrets from ~/.env.keys (central secrets file)
+[ -f "$HOME/.env.keys" ] && set -a && source "$HOME/.env.keys" && set +a
+
+# Load project .env overrides if present
 cd "$(dirname "$0")"
-if [ -f .env ]; then
-  set -a
-  source .env
-  set +a
-fi
+[ -f .env ] && set -a && source .env && set +a
 
 # Run TierFlow
 exec node dist/server.js

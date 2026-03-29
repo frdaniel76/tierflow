@@ -19,7 +19,7 @@ Generate a template: `npx tierflow --init`
 | `TIERFLOW_CONFIG`    | —         | Path to config file                     |
 | `TIERFLOW_PORT`      | 18800     | Override port                           |
 | `TIERFLOW_HOST`      | 127.0.0.1 | Override bind host                      |
-| `LLMROUTER_URL`      | —         | Override ML classifier URL (for Docker) |
+| `LLMROUTER_URL`      | —         | Override ML classifier URL (legacy, not needed — local ONNX is default) |
 | `ANTHROPIC_API_KEY`  | —         | API key (when using `auth.type: "env"`) |
 | `OPENROUTER_API_KEY` | —         | API key (when using `auth.type: "env"`) |
 
@@ -65,8 +65,8 @@ Generate a template: `npx tierflow --init`
     timeout?: number;                        // ms
   }>;
 
-  mlClassifier?: {                           // ML classifier service config
-    url: string;                             // "http://127.0.0.1:18801/classify"
+  mlClassifier?: {                           // External ML classifier (optional, local ONNX used by default)
+    url: string;                             // external classifier URL (not needed if local ONNX works)
     timeout_ms: number;                      // max wait (default: 500)
     fallback_category: string;               // when ML is down (default: "general")
   };

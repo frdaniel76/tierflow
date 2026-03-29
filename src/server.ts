@@ -166,20 +166,11 @@ function extractPromptForClassification(messages: ChatRequest["messages"]): {
   // Take the last N messages for classification context
   const recentMsgs = conversationMsgs.slice(-contextWindow);
 
-  // Build classification prompt: weight the last user message most,
-  // but include recent context so quoted/replied content gets scored too
+  // Classify based on the last user message only.
+  // Including assistant context (tool outputs, memory, structured data)
+  // confuses the classifier and causes misrouting.
   const lastUserMsg = recentMsgs.filter((m) => m.role === "user").pop()?.text ?? "";
-  const contextParts: string[] = [];
-  for (const msg of recentMsgs) {
-    if (msg.text !== lastUserMsg) {
-      // Truncate context messages to avoid over-counting long assistant replies
-      contextParts.push(msg.text.slice(0, 500));
-    }
-  }
-
-  // Combine: context (truncated) + full last user message
-  const prompt =
-    contextParts.length > 0 ? contextParts.join("\n") + "\n" + lastUserMsg : lastUserMsg;
+  const prompt = lastUserMsg;
 
   return { prompt, systemPrompt };
 }
@@ -238,13 +229,17 @@ async function handleChatCompletions(req: IncomingMessage, res: ServerResponse) 
   // Extract prompt for classification
   const { prompt, systemPrompt } = extractPromptForClassification(chatReq.messages);
 
+  // System-only requests (e.g. agent bootstrap/init) have no user message to classify.
+  // Skip classification and route to the fallback category instead of rejecting.
+  let systemOnlyPassthrough = false;
   if (!prompt) {
-    return sendError(res, 400, "No user message found");
+    systemOnlyPassthrough = true;
+    logger.info(`[router] No user message — will use fallback category`);
   }
 
   // ─── Security Scan ───
   const securityCfg = getConfig().security;
-  if (securityCfg?.enabled !== false) {
+  if (securityCfg?.enabled !== false && !systemOnlyPassthrough) {
     // Only scan user message — system prompt is trusted (your own config)
     const scanText = prompt;
     const scanResult: ScanResult = scan(scanText, securityCfg);
@@ -309,19 +304,33 @@ async function handleChatCompletions(req: IncomingMessage, res: ServerResponse) 
   let costEstimate: number | undefined;
   let baselineCost: number | undefined;
 
-  if (requestedModel === "auto" || requestedModel === "tierflow/auto") {
+  if (systemOnlyPassthrough && (requestedModel === "auto" || requestedModel === "tierflow/auto")) {
+    // System-only request — skip classification, use fallback category
+    const routingCfg = getRoutingConfig();
+    const fallbackCat = getConfig().mlClassifier?.fallback_category ?? "general";
+    const catEntry = routingCfg.categories?.[fallbackCat];
+    routedModel = catEntry?.primary ?? "ollama/qwen3:8b";
+    tier = fallbackCat;
+    category = fallbackCat;
+    reasoning = "system-only-passthrough";
+    logger.info(`[${stats.requests + 1}] System-only: model=${routedModel} category=${fallbackCat}`);
+  } else if (requestedModel === "auto" || requestedModel === "tierflow/auto") {
     // Run the ML classifier (handles mode overrides, tools, audio internally)
     const routingCfg = getRoutingConfig();
     const hasTools = chatReq.tools && chatReq.tools.length > 0;
+    // Only check the last user message for audio — system/context messages
+    // contain tool docs that mention "audio" and cause false positives
+    const lastUserContent = chatReq.messages
+      ?.filter((m) => m.role === "user")
+      .pop();
+    const lastUserText = lastUserContent
+      ? typeof lastUserContent.content === "string"
+        ? lastUserContent.content
+        : JSON.stringify(lastUserContent.content ?? "")
+      : "";
     const hasAudio =
-      chatReq.messages?.some((m) => {
-        const content = typeof m.content === "string" ? m.content : JSON.stringify(m.content ?? "");
-        return (
-          content.includes("audio/ogg") ||
-          content.includes("audio/") ||
-          content.includes("[media attached:")
-        );
-      }) ?? false;
+      lastUserText.includes("audio/ogg") ||
+      lastUserText.includes("[media attached:");
 
     const decision = await route(
       prompt,

@@ -11,15 +11,11 @@ Client ──HTTP POST──────>│                                    
 /v1/chat/completions     │  Parse ─> Cache Check ─> Route ─> PII Scrub│
                          │    ─> Compress ─> Forward ─> Rehydrate     │
                          │                                             │
-                         │  ┌─────────┐  ┌──────────┐  ┌───────────┐ │
-                         │  │ Router  │  │ PII Vault│  │ LRU Cache │ │
-                         │  └────┬────┘  └──────────┘  └───────────┘ │
-                         └───────┼────────────────────────────────────┘
-                                 │ HTTP (~40ms)
-                         ┌───────▼────────────────────┐
-                         │  LLMRouter Service (:18801) │
-                         │  Python + KNN + MiniLM-L6   │
-                         └─────────────────────────────┘
+                         │  ┌───────────┐  ┌──────────┐  ┌───────────┐ │
+                         │  │  Router   │  │ PII Vault│  │ LRU Cache │ │
+                         │  │(ONNX KNN) │  │          │  │           │ │
+                         │  └───────────┘  └──────────┘  └───────────┘ │
+                         └────────────────────────────────────────────┘
 ```
 
 ## Request Pipeline
@@ -40,10 +36,9 @@ Client ──HTTP POST──────>│                                    
 When `mlClassifier` and `categories` are configured:
 
 1. Check shortcuts (audio → transcription, tools → agentic, mode overrides → forced category)
-2. Call LLMRouter at `mlClassifier.url` with `{ message, has_tools, has_audio }`
-3. Receive `{ category, confidence, latency_ms }`
-4. Map category → model from `categories` config
-5. On timeout (default 500ms) → fall back to `fallback_category` (default: "general")
+2. Run local ONNX classifier (KNN + MiniLM-L6-v2, ~40ms) to get `{ category, confidence, latency_ms }`
+3. Map category → model from `categories` config
+4. On failure → fall back to rule-based keyword scorer
 
 ### v1: Keyword Scorer (Fallback)
 
